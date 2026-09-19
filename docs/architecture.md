@@ -41,6 +41,7 @@ Core palette:
 | Deep | `#051919` | Tonal background depth |
 | Gunmetal | `#24312E` | Elevated surfaces |
 | Muted | `#53544D` | Low-emphasis type and dividers |
+| Bronze shadow | `#8A8171` | Action, priority, and quiet brand emphasis |
 | Champagne | `#B4AC9B` | Accent and secondary type |
 | Soft | `#E6E4DF` | Supporting foreground |
 | Paper | `#F6F5F3` | Primary foreground and CTAs |
