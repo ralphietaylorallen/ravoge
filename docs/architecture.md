@@ -59,7 +59,7 @@ Supabase and Netlify projects already exist. Before any future database mutation
 
 ## Image provenance
 
-The coach/tablet and client/mobile images were generated specifically for Ravoge with the built-in image-generation tool. They contain no intentional third-party brands or readable device UI. Source prompts are recorded in the implementation task history; the final PNG assets live in `public/images/`.
+The hero coach, coach/tablet, and client/mobile images were generated specifically for Ravoge with the built-in image-generation tool. They contain no intentional third-party brands or readable device UI. Interface details remain accessible HTML overlays rather than text baked into photography. Source prompts are recorded in the implementation task history; the final PNG assets live in `public/images/`.
 
 ## Next milestones
 
