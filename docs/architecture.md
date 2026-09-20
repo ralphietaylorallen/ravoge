@@ -62,6 +62,18 @@ Coaches reach clients through active `coach_client_assignments`. The workout-cre
 
 Exercise and workout completion timestamps are server-managed. Narrow completion RPCs derive the client from `auth.uid()`, verify the workout belongs to that active client and coach relationship, and refuse cancelled or cross-organization records. Clients never receive direct update grants on workout or exercise tables. Completing the first exercise moves a workout to `in_progress`; finishing the workout requires every exercise to be complete. Coaches read the resulting status through the same RLS-protected assignment.
 
+### Intake, state, and initial prescription V0
+
+Client intake records are immutable, versioned snapshots in `client_intakes`; private health and coaching context never enters membership rows. Saving an intake through the constrained database function immediately creates a corresponding `client_states` record. State values are normalized from zero to one, retain the source intake and rules-engine version, and carry explicit confidence plus an uncertainty note. The V0 rules are deterministic and interpretable: experience, recent consistency, recovery inputs, desired frequency, baselines, and movement constraints contribute fixed weights. Missing baselines reduce confidence instead of inventing precision.
+
+`organization_equipment` is the owner-managed inventory used as a hard prescription filter. The small global `exercise_library` seed describes movement patterns, training qualities, difficulty, equipment requirements, contraindications, substitutions, and default set/rep ranges. `generate_initial_prescription_v0` derives the caller, organization, latest intake, and latest calculated state from active database relationships; it does not trust browser-supplied organization or coach identifiers. It rejects constrained movements, unavailable equipment, and exercises above the client's experience level. The coach must review the result before `approve_generated_prescription_v0` creates a normal workout assignment.
+
+`generated_prescriptions` preserves the original engine output separately from the coach-reviewed final prescription, including engine version, source intake/state, timestamps, and whether the coach changed it. `workout_sets` establishes separate prescribed values, actual values, outcome status, difficulty, and failure reason for the next adaptive gate; incomplete sets are not collapsed into a generic result.
+
+All new public tables have RLS and explicit authenticated grants. Clients can read only their own intake/state and assigned recommendations, coaches only currently assigned clients, and owners only their active organization. Mutation is routed through narrow security-definer functions or owner-only equipment policies that recheck active profile, organization, membership, and assignment state.
+
+The owner training-library route and `training_library_items` table are a deliberately limited import foundation. A future importer will stage CSV, Excel, PDF, or Word source files outside the public schema, parse them into normalized program/workout/block/exercise candidates, require explicit owner review, then publish approved records. Gate 4 performs no document upload or parsing.
+
 Supabase and Netlify projects already exist. Before any future database mutation or deployment:
 
 1. Read the configured project/site ID from the local, non-committed environment or connected CLI.
@@ -75,7 +87,7 @@ The hero coach, coach/tablet, and client/mobile images were generated specifical
 
 ## Scope boundary
 
-No intake or health records, booking, payments, messaging, nutrition, or AI data belongs in membership records. Those domains require separate tables and policy review.
+No intake or health records, booking, payments, messaging, nutrition, or AI data belongs in membership records. Intake and health context introduced in Gate 4 stays in dedicated client-domain tables; every additional domain still requires separate tables and policy review.
 
 ## Next milestones
 
