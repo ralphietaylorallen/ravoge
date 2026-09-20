@@ -1,32 +1,87 @@
-# dependencies
-/node_modules
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# testing
-/playwright-report/
-/test-results/
-
-# local environment files
-.env*
-!.env.example
-
-# debug
+# Logs and diagnostics
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
 .pnpm-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# system and editor
-.DS_Store
-Thumbs.db
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependencies and package managers
+node_modules/
+jspm_packages/
+web_modules/
+bower_components/
+.pnpm-store
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.yarn-integrity
+
+# Build output and framework caches
+.next/
+out/
+build/
+dist/
+.output/
+.nuxt/
+.svelte-kit/
+.docusaurus/
+.vuepress/dist
+.temp/
+**/.vitepress/dist
+**/.vitepress/cache
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+.vite/
+.cache/
+.parcel-cache/
+.serverless/
+.fusebox/
+.dynamodb/
+.firebase/
+
+# Tests and coverage
+coverage/
+*.lcov
+.nyc_output/
+lib-cov/
+playwright-report/
+test-results/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Tooling caches and generated files
 *.tsbuildinfo
 next-env.d.ts
+.npm/
+.eslintcache
+.stylelintcache
+.node_repl_history
+.grunt/
+.lock-wscript
+build/Release
+*.tgz
+.tern-port
+.vscode-test/
 
 # Netlify local state
 .netlify/
+
+# System and editor files
+.DS_Store
+Thumbs.db

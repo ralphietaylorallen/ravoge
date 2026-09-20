@@ -1,5 +1,7 @@
 # Ravoge
 
+Adaptive private training intelligence for gyms.
+
 Ravoge is a private-training platform for independent gyms. This repository currently contains the public marketing site and route foundations for the owner, coach, and client experiences.
 
 ## Local development
