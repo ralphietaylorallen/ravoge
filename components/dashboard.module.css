@@ -23,21 +23,65 @@
 .panel h2 { margin: 0; font-family: "Space Grotesk Variable", sans-serif; font-size: 1rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 .list { display: grid; margin: 1.4rem 0 0; padding: 0; gap: 0.75rem; list-style: none; }
 .list li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-bottom: 0.7rem; border-bottom: 1px solid rgb(180 172 155 / 0.12); color: #e6e4df; }
+.list a { color: inherit; text-underline-offset: 0.28rem; text-decoration-color: rgb(195 160 106 / 0.42); }
+.list a:hover, .list a:focus-visible { color: #f0d4a2; outline: none; text-decoration-color: #d2ad70; }
 .list small { color: #8a8171; letter-spacing: 0.12em; text-transform: uppercase; }
 .empty { margin: 1.2rem 0 0; color: #8f8b82; line-height: 1.7; }
 .form { display: grid; margin-top: 1.4rem; gap: 1rem; }
 .field { display: grid; gap: 0.45rem; }
 .field label { color: #b4ac9b; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
-.field input, .field select { min-height: 2.9rem; border: 0; border-bottom: 1px solid rgb(180 172 155 / 0.42); border-radius: 0; outline: none; background: #0b0d0c; color: #f6f5f3; font: inherit; }
-.field input:focus-visible, .field select:focus-visible { border-color: #d2ad70; }
+.field input, .field select, .field textarea { min-height: 2.9rem; width: 100%; border: 0; border-bottom: 1px solid rgb(180 172 155 / 0.42); border-radius: 0; outline: none; background: #0b0d0c; color: #f6f5f3; font: inherit; }
+.field textarea { padding: 0.8rem; resize: vertical; }
+.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible { border-color: #d2ad70; }
 .action { min-height: 3rem; border: 1px solid #c3a06a; background: linear-gradient(100deg, #c5a46e, #dfc28f 58%, #b68d51); color: #080807; cursor: pointer; font: inherit; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
 .action:disabled { cursor: wait; opacity: 0.7; }
 .notice { overflow-wrap: anywhere; margin: 0; padding: 0.8rem; border-left: 1px solid #b99761; background: rgb(185 151 97 / 0.07); color: #c9c3b8; font-size: 0.78rem; line-height: 1.55; }
 .error { border-color: #b66d5d; color: #e4c0b8; }
+.backLink { display: inline-block; margin-bottom: 1.5rem; color: #b4ac9b; font-size: 0.72rem; letter-spacing: 0.12em; text-decoration: none; text-transform: uppercase; }
+.backLink:hover, .backLink:focus-visible { color: #f0d4a2; outline: none; }
+.detailHeader { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid rgb(180 172 155 / 0.2); }
+.detailTitle { margin: 0.55rem 0 0; font-family: "Space Grotesk Variable", sans-serif; font-size: clamp(2rem, 5vw, 4rem); font-weight: 500; letter-spacing: -0.04em; }
+.statusPill { padding: 0.45rem 0.65rem; border: 1px solid rgb(195 160 106 / 0.42); color: #d9bd8c; font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; }
+.detailGrid { display: grid; grid-template-columns: minmax(18rem, 0.8fr) minmax(0, 1.2fr); gap: 1rem; }
+.createPanel { min-width: 0; }
+.workoutList { display: grid; margin: 1.4rem 0 0; padding: 0; gap: 1rem; list-style: none; }
+.workoutList > li { padding: 1rem; border: 1px solid rgb(180 172 155 / 0.14); background: rgb(5 6 6 / 0.4); }
+.workoutList p { margin: 0.85rem 0; color: #9d988d; font-size: 0.8rem; line-height: 1.6; }
+.workoutSummary { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.workoutSummary div { display: grid; gap: 0.3rem; }
+.workoutSummary strong { color: #e6e4df; font-family: "Space Grotesk Variable", sans-serif; font-weight: 550; }
+.workoutSummary time, .workoutSummary > span { color: #a98755; font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.compactExercises { display: grid; margin: 0.8rem 0 0; padding: 0; gap: 0.5rem; list-style: none; }
+.compactExercises li { display: flex; justify-content: space-between; gap: 1rem; color: #c9c3b8; font-size: 0.78rem; }
+.compactExercises small { color: #827c70; }
+.workoutForm { display: grid; margin-top: 1.4rem; gap: 1.2rem; }
+.formColumns { display: grid; grid-template-columns: 1fr 0.65fr; gap: 1rem; }
+.exerciseHeader { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.4rem; }
+.exerciseHeader h3 { margin: 0; color: #b4ac9b; font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; }
+.textAction, .removeAction { border: 0; background: transparent; color: #d2ad70; cursor: pointer; font: inherit; font-size: 0.67rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.textAction:hover, .textAction:focus-visible, .removeAction:hover, .removeAction:focus-visible { color: #f0d4a2; outline: 1px solid rgb(210 173 112 / 0.6); outline-offset: 0.25rem; }
+.exerciseList { display: grid; gap: 0.75rem; }
+.exerciseRow { display: grid; grid-template-columns: minmax(9rem, 1.5fr) repeat(3, minmax(4.5rem, 0.55fr)); gap: 0.8rem; margin: 0; padding: 1rem; border: 1px solid rgb(180 172 155 / 0.16); }
+.exerciseRow legend { padding: 0 0.45rem; color: #8f8b82; font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; }
+.exerciseNotes { grid-column: 1 / -2; }
+.removeAction { align-self: end; min-height: 2.9rem; }
+.removeAction:disabled { cursor: default; opacity: 0.3; }
 
 @media (max-width: 800px) {
   .grid { grid-template-columns: 1fr; }
   .panelWide { grid-column: auto; }
   .header { align-items: flex-start; }
   .headerActions { align-items: flex-end; flex-direction: column; }
+  .detailGrid { grid-template-columns: 1fr; }
+  .exerciseRow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .exerciseName, .exerciseNotes { grid-column: 1 / -1; }
+  .removeAction { grid-column: 1 / -1; justify-self: start; min-height: 2rem; }
+}
+
+@media (max-width: 520px) {
+  .shell { padding-inline: 1rem; }
+  .detailHeader, .formColumns, .workoutSummary, .compactExercises li { align-items: flex-start; flex-direction: column; }
+  .formColumns { display: grid; grid-template-columns: 1fr; }
+  .exerciseRow { grid-template-columns: 1fr 1fr; }
+  .exerciseName, .exerciseNotes, .removeAction { grid-column: 1 / -1; }
 }
