@@ -221,6 +221,20 @@ a {
   background: #010101;
 }
 
+.coming-soon-frame::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: #000;
+  opacity: 0.62;
+  -webkit-mask-image: radial-gradient(ellipse 40% 7.5% at 50% 40%, #000 82%, transparent 100%);
+  mask-image: radial-gradient(ellipse 40% 7.5% at 50% 40%, #000 82%, transparent 100%);
+  animation: wordmark-power-cycle 4s ease-in-out infinite;
+  will-change: opacity;
+}
+
 .coming-soon-picture,
 .coming-soon-artwork {
   display: block;
@@ -310,7 +324,7 @@ a {
   background: radial-gradient(ellipse at center, rgb(255 214 141 / 0.17), rgb(197 132 52 / 0.045) 46%, transparent 72%);
   filter: blur(17px);
   opacity: 0.35;
-  animation: gold-breathe 3.6s ease-in-out infinite;
+  animation: gold-breathe 4s ease-in-out infinite;
   will-change: opacity;
 }
 
@@ -331,7 +345,7 @@ a {
     conic-gradient(from 225deg at 55% 54%, transparent, rgb(188 126 47 / 0.16), transparent 42%);
   animation:
     gold-smoke-left 24s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate,
-    gold-smoke-pulse 3.8s ease-in-out infinite;
+    gold-smoke-pulse 4s ease-in-out infinite;
 }
 
 .gold-smoke-two {
@@ -344,7 +358,7 @@ a {
     conic-gradient(from 42deg at 42% 46%, transparent, rgb(194 130 48 / 0.15), transparent 44%);
   animation:
     gold-smoke-right 28s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate,
-    gold-smoke-pulse 3.5s -1.2s ease-in-out infinite;
+    gold-smoke-pulse 4s ease-in-out infinite;
 }
 
 .gold-smoke-three {
@@ -356,7 +370,7 @@ a {
   filter: blur(28px);
   animation:
     gold-smoke-center 20s ease-in-out infinite alternate,
-    gold-smoke-pulse 4s -2.1s ease-in-out infinite;
+    gold-smoke-pulse 4s ease-in-out infinite;
 }
 
 .gold-dust {
@@ -371,25 +385,30 @@ a {
   background: rgb(255 210 126 / 0.75);
   box-shadow: 0 0 4px rgb(244 183 82 / 0.45);
   opacity: 0;
-  animation: gold-particle 3.8s ease-in-out infinite;
+  animation: gold-particle 4s ease-in-out infinite;
   will-change: opacity, transform;
 }
 
-.gold-dust i:nth-child(1) { left: 6%; top: 67%; animation-delay: -1.3s; animation-duration: 3.2s; }
-.gold-dust i:nth-child(2) { left: 14%; top: 40%; animation-delay: -2.7s; animation-duration: 4.1s; }
-.gold-dust i:nth-child(3) { left: 24%; top: 72%; animation-delay: -0.8s; animation-duration: 3.7s; }
-.gold-dust i:nth-child(4) { left: 32%; top: 27%; animation-delay: -3.1s; animation-duration: 4.6s; }
-.gold-dust i:nth-child(5) { left: 43%; top: 62%; animation-delay: -1.9s; animation-duration: 3.4s; }
-.gold-dust i:nth-child(6) { left: 51%; top: 20%; animation-delay: -3.8s; animation-duration: 4.9s; }
-.gold-dust i:nth-child(7) { left: 60%; top: 74%; animation-delay: -2.2s; animation-duration: 3.6s; }
-.gold-dust i:nth-child(8) { left: 69%; top: 35%; animation-delay: -0.5s; animation-duration: 4.3s; }
-.gold-dust i:nth-child(9) { left: 78%; top: 67%; animation-delay: -3.4s; animation-duration: 3.9s; }
-.gold-dust i:nth-child(10) { left: 85%; top: 26%; animation-delay: -1.6s; animation-duration: 4.7s; }
-.gold-dust i:nth-child(11) { left: 92%; top: 58%; animation-delay: -2.9s; animation-duration: 3.3s; }
-.gold-dust i:nth-child(12) { left: 55%; top: 51%; animation-delay: -0.2s; animation-duration: 4.4s; }
+.gold-dust i:nth-child(1) { left: 6%; top: 67%; animation-delay: 0s; animation-duration: 3.8s; }
+.gold-dust i:nth-child(2) { left: 14%; top: 40%; animation-delay: -0.15s; animation-duration: 4.1s; }
+.gold-dust i:nth-child(3) { left: 24%; top: 72%; animation-delay: -0.25s; animation-duration: 3.9s; }
+.gold-dust i:nth-child(4) { left: 32%; top: 27%; animation-delay: -0.1s; animation-duration: 4.2s; }
+.gold-dust i:nth-child(5) { left: 43%; top: 62%; animation-delay: -0.3s; animation-duration: 3.7s; }
+.gold-dust i:nth-child(6) { left: 51%; top: 20%; animation-delay: -0.2s; animation-duration: 4.3s; }
+.gold-dust i:nth-child(7) { left: 60%; top: 74%; animation-delay: -0.05s; animation-duration: 3.9s; }
+.gold-dust i:nth-child(8) { left: 69%; top: 35%; animation-delay: -0.25s; animation-duration: 4.1s; }
+.gold-dust i:nth-child(9) { left: 78%; top: 67%; animation-delay: -0.15s; animation-duration: 3.8s; }
+.gold-dust i:nth-child(10) { left: 85%; top: 26%; animation-delay: -0.3s; animation-duration: 4.2s; }
+.gold-dust i:nth-child(11) { left: 92%; top: 58%; animation-delay: -0.1s; animation-duration: 3.7s; }
+.gold-dust i:nth-child(12) { left: 55%; top: 51%; animation-delay: -0.2s; animation-duration: 4.3s; }
+
+@keyframes wordmark-power-cycle {
+  0%, 100% { opacity: 0.62; }
+  50% { opacity: 0; }
+}
 
 @keyframes gold-breathe {
-  0%, 100% { opacity: 0.28; }
+  0%, 100% { opacity: 0.12; }
   50% { opacity: 0.78; }
 }
 
@@ -412,13 +431,13 @@ a {
 }
 
 @keyframes gold-smoke-pulse {
-  0%, 100% { opacity: 0.1; }
+  0%, 100% { opacity: 0.055; }
   50% { opacity: 0.27; }
 }
 
 @keyframes gold-particle {
-  0%, 100% { opacity: 0.06; transform: translate3d(0, 2px, 0) scale(0.9); }
-  42% { opacity: 0.9; transform: translate3d(2px, -2px, 0) scale(1.15); }
+  0%, 100% { opacity: 0.03; transform: translate3d(0, 2px, 0) scale(0.9); }
+  50% { opacity: 0.78; transform: translate3d(2px, -2px, 0) scale(1.15); }
   72% { opacity: 0.22; transform: translate3d(3px, -5px, 0) scale(0.95); }
 }
 
@@ -434,6 +453,11 @@ a {
     width: 22%;
     height: 6.2%;
     min-width: 5.25rem;
+  }
+
+  .coming-soon-frame::after {
+    -webkit-mask-image: radial-gradient(ellipse 53% 5% at 50% 40%, #000 82%, transparent 100%);
+    mask-image: radial-gradient(ellipse 53% 5% at 50% 40%, #000 82%, transparent 100%);
   }
 
   .gold-atmosphere {
@@ -454,6 +478,11 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .coming-soon-frame::after {
+    animation: none !important;
+    opacity: 0;
+  }
+
   .gold-atmosphere *,
   .gold-atmosphere *::before,
   .gold-atmosphere *::after {
