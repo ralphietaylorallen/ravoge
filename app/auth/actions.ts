@@ -17,7 +17,10 @@ const SIGNUP_INVITE_COOKIE = "ravoge_signup_invite";
 const SIGNUP_ORGANIZATION_COOKIE = "ravoge_signup_organization";
 
 export type ActionState = {
+  invitationRole?: AccountRole;
+  invitationUrl?: string;
   message?: string;
+  recipientEmail?: string;
   status: "idle" | "error" | "success";
 };
 
@@ -327,8 +330,14 @@ async function createInvitation(
   if (error) return { message: error.message, status: "error" };
 
   const origin = await getRequestOrigin();
+  const path = role === "owner"
+    ? `/signup/owner?invite=${encodeURIComponent(token)}`
+    : `/${role}/install?invite=${encodeURIComponent(token)}`;
   return {
-    message: `${origin}/signup/${role}?invite=${token}`,
+    invitationRole: role,
+    invitationUrl: `${origin}${path}`,
+    message: "Secure invitation created.",
+    recipientEmail: email,
     status: "success",
   };
 }

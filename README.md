@@ -45,6 +45,8 @@ Hosted Supabase Auth uses `https://ravoge.com` as its Site URL. The redirect all
 - Signup, login, logout, email confirmation, and password recovery flows
 - Server-protected owner, coach, and client dashboards
 - Multi-owner organization memberships, expiring invitations, primary-owner protection, and coach/client assignments enforced with RLS
+- Owner-only coach/client oversight, primary-coach reassignment, and immutable assignment actor auditing
+- Installable Coach and Client web-app entry routes with an Owner Apps & Access distribution screen
 - Coach client profiles with secure, ordered workout assignment creation
 - Client dashboard and workout detail with secure exercise/workout completion
 - Local, bundled Inter and Space Grotesk variable font files
@@ -53,6 +55,8 @@ Hosted Supabase Auth uses `https://ravoge.com` as its Site URL. The redirect all
 Adaptive programming, booking, payments, and messaging remain outside the current milestone. See [docs/architecture.md](docs/architecture.md) for architecture and security boundaries.
 
 Each gym member uses a separate Supabase Auth identity. Owners invite additional owners or coaches from `/owner/team`; the invitation fixes the organization, email, and role in the database. Shared owner credentials are not supported.
+
+Owners can share `/coach/install` and `/client/install` as general access routes from `/owner/apps`. These links are conveniences only and never grant a role. New members must use the secure email-bound invitation created from `/owner/team`; Coach and Client invitations open the matching install page before continuing to signup or existing-account login. The beta email action opens the Owner's configured mail application with a pre-addressed Ravoge message—no general email provider or password-sharing workflow is introduced.
 
 ## Environment and deployment
 

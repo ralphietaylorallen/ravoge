@@ -1,0 +1,33 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Ravoge",
+    short_name: "Ravoge",
+    description: "Private training operations for owners, coaches, and clients.",
+    start_url: "/login",
+    scope: "/",
+    display: "standalone",
+    background_color: "#050606",
+    theme_color: "#050606",
+    orientation: "any",
+    icons: [
+      {
+        src: "/icon.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+        purpose: "any",
+      },
+      {
+        src: "/icon.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+        purpose: "maskable",
+      },
+    ],
+    shortcuts: [
+      { name: "Coach App", short_name: "Coach", url: "/coach/install" },
+      { name: "Client App", short_name: "Client", url: "/client/install" },
+    ],
+  };
+}

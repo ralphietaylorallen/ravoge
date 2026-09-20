@@ -16,6 +16,40 @@ export type EquipmentActionState = {
   status: "idle" | "error" | "success";
 };
 
+export type CoachAssignmentActionState = {
+  message?: string;
+  status: "idle" | "error" | "success";
+};
+
+export async function assignClientCoachAction(
+  clientId: string,
+  _state: CoachAssignmentActionState,
+  formData: FormData,
+): Promise<CoachAssignmentActionState> {
+  const { supabase } = await requireRole("owner");
+  const coachId = String(formData.get("coachId") ?? "");
+  if (!UUID_PATTERN.test(clientId) || !UUID_PATTERN.test(coachId)) {
+    return { message: "Choose an available coach.", status: "error" };
+  }
+
+  const { error } = await supabase.rpc("assign_client_to_coach", {
+    target_client_user_id: clientId,
+    target_coach_user_id: coachId,
+  });
+  if (error) {
+    return {
+      message: "That assignment could not be changed. Confirm both memberships are active in this gym.",
+      status: "error",
+    };
+  }
+
+  revalidatePath("/owner");
+  revalidatePath("/owner/team");
+  revalidatePath("/owner/clients");
+  revalidatePath(`/owner/clients/${clientId}`);
+  return { message: "Primary coach assignment updated.", status: "success" };
+}
+
 export async function addEquipmentAction(
   _state: EquipmentActionState,
   formData: FormData,

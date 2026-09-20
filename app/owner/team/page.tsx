@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { InviteForm } from "@/components/invite-form";
 import { requireRole } from "@/lib/auth";
@@ -82,7 +84,11 @@ export default async function OwnerTeamPage() {
                   .map((row) => (
                     <li key={row.user_id}>
                       <span>
-                        {names.get(row.user_id) ?? "Member"}
+                        {role === "coach" ? (
+                          <Link href={`/owner/coaches/${row.user_id}`}>{names.get(row.user_id) ?? "Coach"}</Link>
+                        ) : role === "client" ? (
+                          <Link href={`/owner/clients/${row.user_id}`}>{names.get(row.user_id) ?? "Client"}</Link>
+                        ) : names.get(row.user_id) ?? "Owner"}
                         {row.is_primary_owner && (
                           <small className={styles.primaryBadge}>Primary owner</small>
                         )}
@@ -106,6 +112,11 @@ export default async function OwnerTeamPage() {
           <h2>Invite coach</h2>
           <p className={styles.empty}>The recipient must use the exact invited email with their own Ravoge account.</p>
           <InviteForm role="coach" />
+        </section>
+        <section className={styles.panel}>
+          <h2>Invite client</h2>
+          <p className={styles.empty}>Creates a secure, email-bound invitation for an individual client account.</p>
+          <InviteForm role="client" />
         </section>
         <section className={styles.panel}>
           <h2>Pending invitations</h2>

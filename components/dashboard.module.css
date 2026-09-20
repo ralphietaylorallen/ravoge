@@ -28,7 +28,7 @@
 .inlineAction { display: inline-block; margin-top: 1.2rem; color: #725127; font-size: 0.7rem; font-weight: 750; letter-spacing: 0.11em; text-decoration: none; text-transform: uppercase; }
 .inlineAction:hover, .inlineAction:focus-visible { color: #21180e; outline: 1px solid #ad8b5a; outline-offset: 0.3rem; }
 .primaryBadge { display: inline-flex; margin-left: 0.5rem; padding: 0.2rem 0.35rem; border: 1px solid #c2a16f; color: #775628; font-size: 0.52rem; font-weight: 750; letter-spacing: 0.08em; text-transform: uppercase; }
-.list, .workoutList, .clientWorkoutList, .equipmentList { display: grid; margin: 1.25rem 0 0; padding: 0; gap: 0; list-style: none; }
+.list, .workoutList, .clientWorkoutList, .equipmentList, .directoryList, .activityList { display: grid; margin: 1.25rem 0 0; padding: 0; gap: 0; list-style: none; }
 .list li, .equipmentList li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.9rem 0; border-bottom: 1px solid #e7e3db; }
 .list a { color: #202321; font-weight: 600; text-underline-offset: 0.25rem; text-decoration-color: #b79a6e; }
 .list small, .equipmentList span { color: #858782; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -54,6 +54,13 @@
 .detailTitle { margin: 0.45rem 0 0; font-family: "Space Grotesk Variable", sans-serif; font-size: clamp(2rem, 4vw, 3.7rem); font-weight: 550; letter-spacing: -0.045em; }
 .profileMeta { margin: 0.5rem 0 0; color: #7b7e79; font-size: 0.78rem; text-transform: capitalize; }
 .statusPill { display: inline-flex; padding: 0.42rem 0.6rem; border: 1px solid #c2a16f; background: #f5efe5; color: #775628; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.mutedPill { display: inline-flex; padding: 0.42rem 0.6rem; border: 1px solid #d1cec7; background: #efeee9; color: #777a75; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.directoryList > li, .activityList > li { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; padding: 1rem 0; border-bottom: 1px solid #e3dfd7; }
+.directoryList div, .activityList div, .activityList > li > span { display: grid; gap: 0.28rem; }
+.directoryList a, .activityList a { color: #202321; font-family: "Space Grotesk Variable", sans-serif; font-weight: 620; text-underline-offset: 0.25rem; text-decoration-color: #b79a6e; }
+.directoryList small, .activityList small, .activityList > li > span { color: #858782; font-size: 0.64rem; line-height: 1.45; }
+.activityList > li > span { justify-items: end; letter-spacing: 0.08em; text-transform: uppercase; }
+.activityList time { color: #9a9c97; font-size: 0.58rem; }
 .tabs { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid #dcd8cf; overflow-x: auto; }
 .tabs a { flex: none; padding: 0.7rem 0; border-bottom: 2px solid transparent; color: #777a75; font-size: 0.72rem; font-weight: 600; text-decoration: none; }
 .tabs a:hover, .tabs a:focus-visible { border-color: #a98755; color: #1b1e1c; outline: none; }
@@ -140,6 +147,21 @@
 .exerciseComplete .exercisePrescription { opacity: 0.55; }
 .completionAction { min-width: 8.5rem; min-height: 2.65rem; border: 1px solid #bfa472; background: transparent; color: #715128; cursor: pointer; font: inherit; font-size: 0.61rem; letter-spacing: 0.1em; text-transform: uppercase; }
 .finishForm { display: flex; justify-content: flex-end; margin-top: 1.4rem; }
+.accessGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.accessCard { display: grid; min-width: 0; padding: clamp(1.35rem, 3vw, 2.4rem); border: 1px solid #d8d3c9; background: #fbfaf7; box-shadow: 0 16px 45px rgb(43 37 27 / 0.04); gap: 1.4rem; }
+.accessCard h2 { margin: 0.55rem 0 0; font-family: "Space Grotesk Variable", sans-serif; font-size: clamp(1.45rem, 2.4vw, 2.2rem); font-weight: 560; letter-spacing: -0.035em; }
+.accessCard > div > p:last-child { margin: 0.8rem 0 0; color: #6f726d; font-size: 0.82rem; line-height: 1.65; }
+.accessActions { display: flex; align-items: stretch; gap: 0.6rem; flex-wrap: wrap; }
+.accessActions a, .accessActions button { flex: 1 1 11rem; text-decoration: none; }
+.accessCard > .secondaryAction { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.disabledAction { cursor: not-allowed; opacity: 0.45; pointer-events: none; }
+.securityNote { display: grid; margin-top: 1rem; padding: 1.1rem 1.25rem; border-left: 2px solid #a98755; background: #eee9df; grid-template-columns: auto 1fr; gap: 1rem; }
+.securityNote strong { color: #6e4e23; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.securityNote p { margin: 0; color: #656860; font-size: 0.78rem; line-height: 1.55; }
+.inviteResult { display: grid; padding: 0.9rem; border: 1px solid #d7c29b; background: #f7f0e4; gap: 0.65rem; }
+.inviteResult > a:first-child { color: #63461f; font-size: 0.72rem; font-weight: 700; overflow-wrap: anywhere; text-underline-offset: 0.25rem; }
+.inviteResult .secondaryAction { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.inviteResult small { color: #78746d; font-size: 0.66rem; line-height: 1.55; }
 
 @media (max-width: 1000px) {
   .shell { grid-template-columns: 1fr; }
@@ -158,6 +180,7 @@
 @media (max-width: 700px) {
   .frame { padding-inline: 1rem; }
   .grid, .profileOverview, .stateGrid, .threeColumns { grid-template-columns: 1fr; }
+  .accessGrid { grid-template-columns: 1fr; }
   .panelWide, .stateConstraints { grid-column: auto; }
   .header { align-items: flex-start; padding: 1rem 0; }
   .headerActions { align-items: flex-end; flex-direction: column; }
@@ -168,8 +191,10 @@
   .draftList a { grid-template-columns: 1fr; }
   .exerciseRow, .reviewRow { grid-template-columns: 1fr 1fr; }
   .exerciseName, .exerciseNotes, .reviewExercise, .reviewNotes, .reviewReason, .removeAction { grid-column: 1 / -1; }
-  .clientMeta, .clientWorkoutList a, .workoutSummary, .compactExercises li { align-items: flex-start; flex-direction: column; }
+  .clientMeta, .clientWorkoutList a, .workoutSummary, .compactExercises li, .directoryList > li, .activityList > li { align-items: flex-start; flex-direction: column; }
+  .activityList > li > span { justify-items: start; }
   .clientExerciseList > li { grid-template-columns: 2rem minmax(0, 1fr); padding-block: 1rem; }
   .clientExerciseList form { grid-column: 2; width: 100%; }
   .completionAction, .finishForm .action { width: 100%; }
+  .securityNote { grid-template-columns: 1fr; }
 }

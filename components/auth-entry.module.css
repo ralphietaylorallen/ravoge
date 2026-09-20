@@ -160,6 +160,18 @@
   font-size: clamp(2.8rem, 5.4vw, 4.8rem);
 }
 
+.installHeading {
+  max-width: 52rem;
+  margin: 1rem 0 0;
+  font-family: "Space Grotesk Variable", sans-serif;
+  font-size: clamp(2.8rem, 6vw, 5.3rem);
+  font-weight: 500;
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
 .lede {
   max-width: 44rem;
   margin: 1.25rem 0 0;
@@ -391,6 +403,68 @@
   line-height: 1.6;
 }
 
+.installActions {
+  display: flex;
+  max-width: 42rem;
+  margin-top: 2rem;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.installActions .primaryAction {
+  width: auto;
+  min-width: 16rem;
+  gap: 2rem;
+  text-decoration: none;
+}
+
+.installSecondary {
+  color: #c6bdad;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-underline-offset: 0.35rem;
+  text-transform: uppercase;
+}
+
+.installGrid {
+  display: grid;
+  margin-top: 2.4rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid rgb(180 172 155 / 0.24);
+  border-left: 1px solid rgb(180 172 155 / 0.24);
+}
+
+.installGrid section {
+  min-height: 12rem;
+  padding: 1.25rem;
+  border-right: 1px solid rgb(180 172 155 / 0.24);
+  border-bottom: 1px solid rgb(180 172 155 / 0.24);
+  background: rgb(5 6 6 / 0.42);
+}
+
+.installGrid span {
+  color: #b99761;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+}
+
+.installGrid h2 {
+  margin: 1.4rem 0 0;
+  font-family: "Space Grotesk Variable", sans-serif;
+  font-size: 1rem;
+  font-weight: 560;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.installGrid p {
+  margin: 0.75rem 0 0;
+  color: #aaa397;
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
 .backAction {
   display: inline-flex;
   margin-bottom: clamp(2.5rem, 6vh, 4rem);
@@ -468,6 +542,10 @@
   .roleOption {
     min-height: 12rem;
   }
+
+  .installGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 767px) {
@@ -512,6 +590,10 @@
 
   .roleHeading {
     font-size: clamp(2.7rem, 13vw, 3.8rem);
+  }
+
+  .installHeading {
+    font-size: clamp(2.7rem, 13vw, 4rem);
   }
 
   .formLinks {
