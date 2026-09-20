@@ -1,42 +1,72 @@
 import { expect, test } from "@playwright/test";
 
-test("landing page renders, images load, and does not overflow", async ({ page }, testInfo) => {
+test("coming-soon artwork fills the viewport without overflow", async ({ page }, testInfo) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Every set makes the next one smarter/i })).toBeVisible();
-  const images = page.locator("img");
-  await expect(images).toHaveCount(3);
-  for (let index = 0; index < await images.count(); index += 1) {
-    await images.nth(index).scrollIntoViewIfNeeded();
-  }
-  await expect.poll(async () => page.locator("img").evaluateAll((images) => images.every((image) => {
-    const element = image as HTMLImageElement;
-    return element.complete && element.naturalWidth > 0;
-  })), { timeout: 15_000 }).toBe(true);
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-  expect(overflow).toBe(false);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.waitForTimeout(200);
-  await page.screenshot({ path: testInfo.outputPath("landing.png"), fullPage: true });
+
+  const artwork = page.getByRole("img", {
+    name: /Ravoge — coming soon\. Higher standards ahead\./i,
+  });
+  await expect(artwork).toBeVisible();
+  await expect
+    .poll(() => artwork.evaluate((image) => {
+      const element = image as HTMLImageElement;
+      return element.complete && element.naturalWidth > 0;
+    }))
+    .toBe(true);
+
+  const currentSource = await artwork.evaluate(
+    (image) => (image as HTMLImageElement).currentSrc,
+  );
   if (testInfo.project.name === "phone") {
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await page.waitForTimeout(200);
-    await page.screenshot({ path: testInfo.outputPath("page-bottom.png") });
+    expect(currentSource).toContain("ravoge-coming-soon-mobile.webp");
+  } else {
+    expect(currentSource).toContain("ravoge-coming-soon-desktop.webp");
   }
+
+  const overflow = await page.evaluate(() => ({
+    horizontal:
+      document.documentElement.scrollWidth >
+      document.documentElement.clientWidth,
+    vertical:
+      document.documentElement.scrollHeight >
+      document.documentElement.clientHeight,
+  }));
+  expect(overflow).toEqual({ horizontal: false, vertical: false });
+
+  await page.screenshot({ path: testInfo.outputPath("coming-soon.png") });
 });
 
-test("primary routes are keyboard reachable and explicitly pending", async ({ page }) => {
+test("login is keyboard accessible and routes to /login", async ({ page }) => {
   await page.goto("/");
+
+  const login = page.getByRole("link", { name: "Login" });
+  await expect(login).toBeVisible();
+  await expect(login).toHaveAttribute("href", "/login");
+
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Skip to content" })).toBeFocused();
-  await page.getByRole("link", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/owner\?intent=signup/);
-  await expect(page.getByRole("heading", { name: /Owner access is coming next/i })).toBeVisible();
-  await expect(page.getByText(/does not collect credentials/i)).toBeVisible();
+  await expect(login).toBeFocused();
+  await login.click();
+  await expect(page).toHaveURL(/\/login$/);
 });
 
-test("coach and client foundations are available", async ({ page }) => {
+test("gold atmosphere respects reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+
+  const animationNames = await page.locator(".gold-atmosphere *").evaluateAll(
+    (elements) =>
+      elements.map((element) => getComputedStyle(element).animationName),
+  );
+  expect(animationNames.every((name) => name === "none")).toBe(true);
+});
+
+test("coach and client foundations remain available", async ({ page }) => {
   await page.goto("/coach");
-  await expect(page.getByRole("heading", { name: /Coach access is coming next/i })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Coach access is coming next/i }),
+  ).toBeVisible();
   await page.goto("/client");
-  await expect(page.getByRole("heading", { name: /Client access is coming next/i })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Client access is coming next/i }),
+  ).toBeVisible();
 });
