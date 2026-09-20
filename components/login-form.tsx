@@ -1,20 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useActionState } from "react";
+
+import { loginAction } from "@/app/auth/actions";
 
 import styles from "./auth-entry.module.css";
 
 export function LoginForm() {
-  const [submitted, setSubmitted] = useState(false);
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitted(true);
-  }
+  const [state, action, pending] = useActionState(loginAction, {
+    status: "idle" as const,
+  });
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form action={action} className={styles.form}>
       <div className={styles.field}>
         <label htmlFor="email">Email</label>
         <input
@@ -37,19 +36,23 @@ export function LoginForm() {
         />
       </div>
 
-      <button className={styles.primaryAction} type="submit">
-        Login
+      <button className={styles.primaryAction} disabled={pending} type="submit">
+        {pending ? "Signing in…" : "Login"}
         <span aria-hidden="true">→</span>
       </button>
 
-      {submitted && (
-        <p aria-live="polite" className={styles.formNotice} role="status">
-          Login is not connected yet. No access has been granted.
+      {state.message && (
+        <p
+          aria-live="polite"
+          className={`${styles.formNotice} ${state.status === "error" ? styles.formError : ""}`}
+          role={state.status === "error" ? "alert" : "status"}
+        >
+          {state.message}
         </p>
       )}
 
       <div className={styles.formLinks}>
-        <Link href="/forgot-password">Forgot password?</Link>
+        <Link href="/reset-password">Forgot password?</Link>
         <Link href="/signup">
           Don’t have an account? <strong>Sign up</strong>
         </Link>

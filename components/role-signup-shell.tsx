@@ -1,17 +1,23 @@
 import Link from "next/link";
 
 import { AuthEntryShell } from "@/components/auth-entry-shell";
+import { SignupForm } from "@/components/signup-form";
+import type { AccountRole } from "@/lib/auth";
 
 import styles from "./auth-entry.module.css";
 
 type RoleSignupShellProps = {
   accountType: "Gym Owner" | "Coach" | "Client";
   description: string;
+  invitationToken?: string;
+  role: AccountRole;
 };
 
 export function RoleSignupShell({
   accountType,
   description,
+  invitationToken,
+  role,
 }: RoleSignupShellProps) {
   return (
     <AuthEntryShell>
@@ -24,21 +30,11 @@ export function RoleSignupShell({
       <h1 className={styles.roleHeading}>{accountType}</h1>
       <p className={styles.lede}>{description}</p>
 
-      <div
-        aria-label={`${accountType} signup form placeholder`}
-        className={styles.placeholder}
-        role="region"
-      >
-        <span>Account setup</span>
-        <h2>Signup form coming next</h2>
-        <p>
-          Secure account creation and invitation verification will be connected
-          in a future authentication task.
-        </p>
-      </div>
+      <SignupForm invitationToken={invitationToken} role={role} />
 
       <p className={styles.intentNote}>
-        This selection records no role and grants no Ravoge access.
+        Account type selection is signup intent only. Your active database
+        membership determines access.
       </p>
     </AuthEntryShell>
   );

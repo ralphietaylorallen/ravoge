@@ -2,7 +2,7 @@
 
 Adaptive private training intelligence for gyms.
 
-Ravoge is a private-training platform for independent gyms. This repository currently contains the public marketing site and route foundations for the owner, coach, and client experiences.
+Ravoge is a private-training platform for independent gyms. This repository contains the public Coming Soon experience and the secure account foundation for owner, coach, and client experiences.
 
 ## Local development
 
@@ -10,7 +10,8 @@ Requirements: Node.js 20.9 or later and npm 11 or later.
 
 ```bash
 npm install
-npm run dev
+npx netlify link --id c1bf03e6-2657-40fe-9584-f265ab9c2b94
+npx netlify dev:exec npm run dev
 ```
 
 Open `http://localhost:3000`.
@@ -21,20 +22,34 @@ Open `http://localhost:3000`.
 npm run lint
 npm run typecheck
 npm run build
+npm run test:db
 npx playwright install chromium
 npm run test:e2e
 ```
 
+## Environment
+
+Copy `.env.example` to a gitignored `.env.local`, or use the linked Ravoge Netlify environment through `netlify dev:exec`. Required public values:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
+Use only the publishable key. Never put a secret or `service_role` key in a `NEXT_PUBLIC_` variable or Git.
+
+Hosted Supabase Auth uses `https://ravoge.com` as its Site URL. The redirect allowlist contains Ravoge production, `www`, Netlify deploy previews, and local development. Email confirmation remains enabled. Always run `supabase config diff` before any future `supabase config push`; the repository config intentionally omits hosted SMS credentials and does not manage them.
+
 ## Current scope
 
 - Responsive public landing page
-- Owner, coach, and client route foundations
-- Explicit setup-pending states that do not collect credentials
+- Supabase SSR email/password authentication with cookie-backed sessions
+- Signup, login, logout, email confirmation, and password recovery flows
+- Server-protected owner, coach, and client dashboards
+- Organization memberships, expiring invitations, and coach/client assignments enforced with RLS
 - Local, bundled Inter and Space Grotesk variable font files
 - Original project-owned photography assets for coach/tablet and client/mobile sections
 
-Authentication, database tables, adaptive workout logic, booking operations, payments, and email are intentionally outside this foundation milestone. See [docs/architecture.md](docs/architecture.md) for the architecture record and boundaries.
+Workouts, adaptive programming, booking, payments, and messaging remain outside this foundation milestone. See [docs/architecture.md](docs/architecture.md) for architecture and security boundaries.
 
 ## Environment and deployment
 
-No environment variables are required for the current site. Never commit secrets. Supabase and Netlify projects already exist; confirm their project IDs against the intended Ravoge environment before any future database change or deployment.
+Never commit secrets. The existing Ravoge Supabase project is `kqdnljafaiohlijbgfld`; verify its dashboard name is **Ravoge** before database work. The existing Netlify site ID is `c1bf03e6-2657-40fe-9584-f265ab9c2b94`; verify its site name is **ravoge** before deployment.
