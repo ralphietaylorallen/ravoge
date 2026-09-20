@@ -255,6 +255,19 @@
   line-height: 1.6;
 }
 
+.formError {
+  border-left-color: #b66d5d;
+  background: rgb(182 109 93 / 0.08);
+  color: #e4c0b8;
+}
+
+.primaryAction:disabled {
+  cursor: wait;
+  filter: saturate(0.55);
+  opacity: 0.72;
+  transform: none;
+}
+
 .formLinks {
   display: flex;
   margin-top: 0.2rem;

@@ -11,6 +11,7 @@ export default function OwnerSignupPage() {
     <RoleSignupShell
       accountType="Gym Owner"
       description="For operators managing coaches, clients, and private training."
+      role="owner"
     />
   );
 }

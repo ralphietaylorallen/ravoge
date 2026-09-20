@@ -23,11 +23,11 @@ test("login Sign up routes to account type selection", async ({ page }) => {
 });
 
 for (const accountType of [
-  { name: "Gym Owner", path: "/signup/owner" },
-  { name: "Coach", path: "/signup/coach" },
-  { name: "Client", path: "/signup/client" },
+  { field: "Gym name", name: "Gym Owner", path: "/signup/owner" },
+  { field: "Invitation code", name: "Coach", path: "/signup/coach" },
+  { field: "Invitation code", name: "Client", path: "/signup/client" },
 ] as const) {
-  test(`${accountType.name} selection routes to its signup shell`, async ({
+  test(`${accountType.name} selection routes to its secure signup form`, async ({
     context,
     page,
   }) => {
@@ -46,11 +46,10 @@ for (const accountType of [
     await expect(
       page.getByRole("heading", { name: accountType.name, exact: true }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("region", {
-        name: `${accountType.name} signup form placeholder`,
-      }),
-    ).toBeVisible();
+    await expect(page.getByLabel("Full name")).toBeVisible();
+    await expect(page.getByLabel(accountType.field)).toBeVisible();
+    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
 
     const browserState = await page.evaluate(() => ({
       localStorage: localStorage.length,
@@ -73,18 +72,18 @@ test("role signup Back action returns to account type selection", async ({
   ).toBeVisible();
 });
 
-test("login submission remains on login and grants no access", async ({
+test("rejected login remains on login and grants no access", async ({
   context,
   page,
 }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("coach@example.com");
-  await page.getByLabel("Password").fill("not-a-real-password");
+  await page.getByLabel("Password").fill("NotARealPassword123!");
   await page.getByRole("button", { name: "Login" }).click();
 
   await expect(page).toHaveURL(/\/login$/);
   await expect(
-    page.getByText(/No access has been granted/i),
+    page.getByText(/Email or password was not accepted/i),
   ).toBeVisible();
   expect(await context.cookies()).toEqual([]);
   expect(
@@ -93,6 +92,29 @@ test("login submission remains on login and grants no access", async ({
       sessionStorage: sessionStorage.length,
     })),
   ).toEqual({ localStorage: 0, sessionStorage: 0 });
+});
+
+test("forgot password navigation opens the recovery request", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("link", { name: "Forgot password?" }).click();
+  await expect(page).toHaveURL(/\/reset-password$/);
+  await expect(page.getByRole("heading", { name: "Reset password" })).toBeVisible();
+});
+
+for (const route of ["/owner", "/coach", "/client"]) {
+  test(`${route} redirects unauthenticated visitors to login`, async ({ page }) => {
+    await page.goto(route);
+    await expect(page).toHaveURL(
+      new RegExp(`/login\\?next=\\/${route.slice(1)}$`),
+    );
+  });
+}
+
+test("an invitation link pre-fills only the untrusted invitation code", async ({ context, page }) => {
+  const invite = "abcdefghijklmnopqrstuvwxyzABCDEFGH1234567890";
+  await page.goto(`/signup/coach?invite=${invite}`);
+  await expect(page.getByLabel("Invitation code")).toHaveValue(invite);
+  expect(await context.cookies()).toEqual([]);
 });
 
 test("entry routes have no horizontal overflow", async ({ page }) => {

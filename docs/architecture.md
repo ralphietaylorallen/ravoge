@@ -27,7 +27,7 @@ Planned product areas include adaptive workouts, cross-coach session continuity,
 - `/coach` is reserved for the individual coach experience, including shared-device sign-in.
 - `/client` is reserved for the client’s private experience.
 
-The three application routes currently render clearly labeled setup-pending pages. They do not accept credentials, start sessions, or imply that authentication succeeded.
+The three application routes are protected Server Components. Unauthenticated users return to `/login`; authenticated users with the wrong role are redirected to the dashboard selected by their active database membership.
 
 ### Design system
 
@@ -46,9 +46,13 @@ Core palette:
 | Soft | `#E6E4DF` | Supporting foreground |
 | Paper | `#F6F5F3` | Primary foreground and CTAs |
 
-### Data and security boundary
+### Account and tenancy foundation
 
-This milestone has no database, authentication, AI, payments, or email integration. Future work must keep server-side credentials off the client, use row-level access controls appropriate to each audience, and ensure clients can never read another client’s data.
+Supabase Auth is the identity source; credentials are never duplicated in application tables. `profiles` contains display identity only. `organizations` represent gyms, and `organization_memberships` carries database-authoritative owner, coach, or client access. Browser role selection and `user_metadata` are never authorization sources.
+
+Owner self-registration creates a new organization through a constrained request row and database trigger; it cannot join an existing gym. Coaches and clients require a cryptographically random, expiring invitation whose hash is stored in the database. The invitation fixes the intended gym and role, and a coach-created client invitation creates the corresponding assignment after acceptance. An account has at most one active organization membership during this MVP, avoiding ambiguous dashboard routing while preserving inactive history. RLS rechecks active profile, organization, membership, and assignment state on every request, so deactivation takes effect without waiting for a JWT refresh.
+
+The Data API receives only explicit table and column grants. There are no table grants for `anon`, role columns are not updateable through the API, and all exposed application tables have RLS enabled. Private helper functions use fixed empty search paths and are not exposed as RPC endpoints. The sole public security-definer RPC accepts an organization invitation: it is executable only by authenticated users, requires an active profile and confirmed matching email, hashes and locks the supplied token, and derives organization and role exclusively from the invitation row.
 
 Supabase and Netlify projects already exist. Before any future database mutation or deployment:
 
@@ -61,12 +65,14 @@ Supabase and Netlify projects already exist. Before any future database mutation
 
 The hero coach, coach/tablet, and client/mobile images were generated specifically for Ravoge with the built-in image-generation tool. They contain no intentional third-party brands or readable device UI. Interface details remain accessible HTML overlays rather than text baked into photography. Source prompts are recorded in the implementation task history; the final PNG assets live in `public/images/`.
 
+## Scope boundary
+
+No workouts, intake or health records, booking, payments, messaging, nutrition, or AI data belongs in membership records. Those domains require separate tables and policy review.
+
 ## Next milestones
 
 Likely follow-on work, each requiring separate product and security review:
 
-1. Authentication and account provisioning by role.
-2. Gym, coach, client, and membership data model with explicit tenant isolation.
-3. Owner, coach, and client application shells.
-4. Workout programming and session recording.
-5. Progress, booking, payments, and messaging integrations.
+1. Coach/client workout assignment vertical slice.
+2. Client completion state and coach visibility.
+3. Progress, booking, payments, and messaging integrations.

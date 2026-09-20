@@ -60,13 +60,11 @@ test("gold atmosphere respects reduced motion", async ({ page }) => {
   expect(animationNames.every((name) => name === "none")).toBe(true);
 });
 
-test("coach and client foundations remain available", async ({ page }) => {
-  await page.goto("/coach");
-  await expect(
-    page.getByRole("heading", { name: /Coach access is coming next/i }),
-  ).toBeVisible();
-  await page.goto("/client");
-  await expect(
-    page.getByRole("heading", { name: /Client access is coming next/i }),
-  ).toBeVisible();
+test("coach and client foundations remain protected", async ({ page }) => {
+  for (const route of ["/coach", "/client"]) {
+    await page.goto(route);
+    await expect(page).toHaveURL(
+      new RegExp(`/login\\?next=\\/${route.slice(1)}$`),
+    );
+  }
 });
