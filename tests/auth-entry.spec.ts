@@ -101,11 +101,18 @@ test("forgot password navigation opens the recovery request", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Reset password" })).toBeVisible();
 });
 
-for (const route of ["/owner", "/coach", "/client"]) {
+for (const route of [
+  "/owner",
+  "/owner/equipment",
+  "/owner/training-library",
+  "/coach",
+  "/client",
+]) {
   test(`${route} redirects unauthenticated visitors to login`, async ({ page }) => {
     await page.goto(route);
+    const roleRoot = route.split("/")[1];
     await expect(page).toHaveURL(
-      new RegExp(`/login\\?next=\\/${route.slice(1)}$`),
+      new RegExp(`/login\\?next=\\/${roleRoot}$`),
     );
   });
 }

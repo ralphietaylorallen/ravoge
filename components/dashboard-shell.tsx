@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 import { logoutAction } from "@/app/auth/actions";
 import { Logo } from "@/components/logo";
@@ -17,11 +18,27 @@ export function DashboardShell({
   name: string;
   role: AccountRole;
 }) {
+  const navigation = role === "owner"
+    ? [{ href: "/owner", label: "Overview" }, { href: "/owner/equipment", label: "Equipment" }, { href: "/owner/training-library", label: "Training library" }]
+    : role === "coach"
+      ? [{ href: "/coach", label: "Overview & clients" }]
+      : [{ href: "/client", label: "Workouts" }];
   return (
     <main className={styles.shell}>
+      <aside className={styles.sidebar}>
+        <Logo />
+        <nav aria-label={`${role} navigation`}>
+          {navigation.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
+        </nav>
+        <div className={styles.identity}>
+          <span>{role}</span>
+          <strong>{name}</strong>
+          <small>{gymName}</small>
+        </div>
+      </aside>
       <div className={styles.frame}>
         <header className={styles.header}>
-          <Logo />
+          <div><span className={styles.mobileBrand}>Ravoge</span><small>{gymName}</small></div>
           <div className={styles.headerActions}>
             <span className={styles.role}>{role} access</span>
             <form action={logoutAction}>
@@ -32,7 +49,7 @@ export function DashboardShell({
         <section className={styles.hero}>
           <p className={styles.eyebrow}>{gymName}</p>
           <h1 className={styles.title}>Welcome, {name}.</h1>
-          <p className={styles.lede}>Your identity and gym access are verified server-side.</p>
+          <p className={styles.lede}>Secure training operations, built around coach judgment.</p>
         </section>
         {children}
       </div>
