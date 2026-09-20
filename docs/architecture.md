@@ -78,6 +78,14 @@ All new public tables have RLS and explicit authenticated grants. Clients can re
 
 The owner training-library route and `training_library_items` table are a deliberately limited import foundation. A future importer will stage CSV, Excel, PDF, or Word source files outside the public schema, parse them into normalized program/workout/block/exercise candidates, require explicit owner review, then publish approved records. Gate 4 performs no document upload or parsing.
 
+### Owner oversight and app distribution
+
+Owners can inspect same-organization coach rosters and client training records without impersonating another account. The Owner Coach and Client routes remain protected Server Components and every query is filtered by both the active Owner membership and table RLS. Cross-organization or wrong-role URL identifiers return no record. Owner management is intentionally narrow: the `assign_client_to_coach` function derives the organization from `auth.uid()`, validates an active same-organization coach and client, maintains one active primary coach, and never accepts an organization identifier.
+
+Every Data API assignment insert or status change writes an immutable `coach_client_assignment_audit` event through a trigger. The actor is `auth.uid()`, so an Owner reassignment remains attributed to the actual Owner rather than the selected coach. Only active same-organization Owners can read these audit events; Coach and Client permissions are unchanged.
+
+`/coach/install` and `/client/install` are public, role-specific PWA entry routes. They carry no trusted role or organization state. General links route existing members through normal login. Secure invitations may carry only the opaque invitation token, while the database invitation row remains authoritative for email, organization, and role. The manifest launches at `/login`, uses standalone display mode and Ravoge branding, and exposes Coach and Client shortcuts. The Owner Apps & Access screen can copy these production links or open a pre-addressed operational message in the Owner's mail application; no marketing email system or privileged email credential is added.
+
 Supabase and Netlify projects already exist. Before any future database mutation or deployment:
 
 1. Read the configured project/site ID from the local, non-committed environment or connected CLI.

@@ -106,6 +106,8 @@ for (const route of [
   "/owner/team",
   "/owner/equipment",
   "/owner/training-library",
+  "/owner/clients",
+  "/owner/apps",
   "/coach",
   "/client",
 ]) {

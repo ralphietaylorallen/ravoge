@@ -55,3 +55,27 @@ test("owner login persists, rejects wrong-role URLs, and logs out", async ({ pag
   await page.goto("/owner");
   await expect(page).toHaveURL(/\/login\?next=\/owner$/);
 });
+
+test("owner can open oversight and distribute role-specific app links", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Run the hosted owner flow once.");
+  test.skip(!ownerEmail || !ownerPassword, "Runtime-only owner credentials are required.");
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(ownerEmail!);
+  await page.getByLabel("Password").fill(ownerPassword!);
+  await page.getByRole("button", { name: "Login" }).click();
+  await page.getByRole("link", { name: "Clients", exact: true }).click();
+  await expect(page).toHaveURL(/\/owner\/clients$/);
+  await expect(page.getByRole("heading", { name: "Clients" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Apps & access" }).click();
+  await expect(page).toHaveURL(/\/owner\/apps$/);
+  await expect(page.getByRole("heading", { name: "Apps & access" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Coach App" })).toHaveAttribute("href", "/coach/install");
+  await expect(page.getByRole("link", { name: "Open Client App" })).toHaveAttribute("href", "/client/install");
+
+  const coachEmail = page.getByLabel("Recipient email").first();
+  await coachEmail.fill("coach@example.test");
+  const emailAction = page.getByRole("link", { name: "Email Coach App link" });
+  await expect(emailAction).toHaveAttribute("href", /mailto:coach%40example\.test.*ravoge\.com%2Fcoach%2Finstall/);
+});

@@ -7,6 +7,7 @@ import {
   createCoachInvitationAction,
   createOwnerInvitationAction,
 } from "@/app/auth/actions";
+import { CopyLinkButton } from "@/components/copy-link-button";
 
 import styles from "./dashboard.module.css";
 
@@ -21,6 +22,9 @@ export function InviteForm({ role }: { role: keyof typeof invitationActions }) {
   const [state, action, pending] = useActionState(invitationActions[role], {
     status: "idle" as const,
   });
+  const emailHref = state.invitationUrl && state.recipientEmail
+    ? `mailto:${encodeURIComponent(state.recipientEmail)}?subject=${encodeURIComponent(`Your Ravoge ${role} invitation`)}&body=${encodeURIComponent(`You have been invited to Ravoge. Open this secure, email-bound invitation:\n\n${state.invitationUrl}\n\nUse your own Ravoge account. No password is shared.`)}`
+    : undefined;
   return (
     <form action={action} className={styles.form}>
       <div className={styles.field}>
@@ -32,8 +36,16 @@ export function InviteForm({ role }: { role: keyof typeof invitationActions }) {
       </button>
       {state.message && (
         <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">
-          {state.status === "success" ? `Invite link: ${state.message}` : state.message}
+          {state.message}
         </p>
+      )}
+      {state.status === "success" && state.invitationUrl && (
+        <div className={styles.inviteResult}>
+          <a href={state.invitationUrl}>Open secure invitation</a>
+          <CopyLinkButton label="Copy secure invitation" url={state.invitationUrl} />
+          {emailHref && <a className={styles.secondaryAction} href={emailHref}>Email invitation</a>}
+          <small>The opaque link is intended only for {state.recipientEmail}. Its organization and role are fixed in the database.</small>
+        </div>
       )}
     </form>
   );
