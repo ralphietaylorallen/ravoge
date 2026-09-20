@@ -46,11 +46,11 @@ Hosted Supabase Auth uses `https://ravoge.com` as its Site URL. The redirect all
 - Server-protected owner, coach, and client dashboards
 - Organization memberships, expiring invitations, and coach/client assignments enforced with RLS
 - Coach client profiles with secure, ordered workout assignment creation
-- Client read access to only their own prescribed workouts (client completion UI follows in the next milestone)
+- Client dashboard and workout detail with secure exercise/workout completion
 - Local, bundled Inter and Space Grotesk variable font files
 - Original project-owned photography assets for coach/tablet and client/mobile sections
 
-Adaptive programming, workout completion, booking, payments, and messaging remain outside the current milestone. See [docs/architecture.md](docs/architecture.md) for architecture and security boundaries.
+Adaptive programming, booking, payments, and messaging remain outside the current milestone. See [docs/architecture.md](docs/architecture.md) for architecture and security boundaries.
 
 ## Environment and deployment
 
