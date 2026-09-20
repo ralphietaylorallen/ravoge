@@ -1,30 +1,34 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 
-import { createInvitationAction } from "@/app/auth/actions";
+import {
+  createClientInvitationAction,
+  createCoachInvitationAction,
+  createOwnerInvitationAction,
+} from "@/app/auth/actions";
 
 import styles from "./dashboard.module.css";
 
-export function InviteForm({ canInviteCoach }: { canInviteCoach: boolean }) {
-  const [state, action, pending] = useActionState(createInvitationAction, {
+const invitationActions = {
+  client: createClientInvitationAction,
+  coach: createCoachInvitationAction,
+  owner: createOwnerInvitationAction,
+};
+
+export function InviteForm({ role }: { role: keyof typeof invitationActions }) {
+  const emailId = useId();
+  const [state, action, pending] = useActionState(invitationActions[role], {
     status: "idle" as const,
   });
   return (
     <form action={action} className={styles.form}>
       <div className={styles.field}>
-        <label htmlFor="invite-email">Email</label>
-        <input id="invite-email" name="email" required type="email" />
-      </div>
-      <div className={styles.field}>
-        <label htmlFor="invite-role">Account type</label>
-        <select defaultValue="client" id="invite-role" name="role">
-          {canInviteCoach && <option value="coach">Coach</option>}
-          <option value="client">Client</option>
-        </select>
+        <label htmlFor={emailId}>Email</label>
+        <input autoComplete="email" id={emailId} name="email" required type="email" />
       </div>
       <button className={styles.action} disabled={pending} type="submit">
-        {pending ? "Creating…" : "Create secure invite"}
+        {pending ? "Creating…" : `Invite ${role}`}
       </button>
       {state.message && (
         <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">

@@ -24,6 +24,10 @@
 .panel { min-width: 0; padding: clamp(1.2rem, 2.5vw, 2rem); border: 1px solid #ddd9d0; background: #fbfaf7; box-shadow: 0 10px 35px rgb(37 34 28 / 0.035); }
 .panelWide { grid-column: span 2; }
 .panel h2 { margin: 0; font-family: "Space Grotesk Variable", sans-serif; font-size: 0.83rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.metric { margin: 1.4rem 0 0; font-family: "Space Grotesk Variable", sans-serif; font-size: clamp(2.6rem, 5vw, 4.5rem); font-weight: 550; line-height: 1; }
+.inlineAction { display: inline-block; margin-top: 1.2rem; color: #725127; font-size: 0.7rem; font-weight: 750; letter-spacing: 0.11em; text-decoration: none; text-transform: uppercase; }
+.inlineAction:hover, .inlineAction:focus-visible { color: #21180e; outline: 1px solid #ad8b5a; outline-offset: 0.3rem; }
+.primaryBadge { display: inline-flex; margin-left: 0.5rem; padding: 0.2rem 0.35rem; border: 1px solid #c2a16f; color: #775628; font-size: 0.52rem; font-weight: 750; letter-spacing: 0.08em; text-transform: uppercase; }
 .list, .workoutList, .clientWorkoutList, .equipmentList { display: grid; margin: 1.25rem 0 0; padding: 0; gap: 0; list-style: none; }
 .list li, .equipmentList li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.9rem 0; border-bottom: 1px solid #e7e3db; }
 .list a { color: #202321; font-weight: 600; text-underline-offset: 0.25rem; text-decoration-color: #b79a6e; }

@@ -32,6 +32,15 @@ export function RoleSignupShell({
 
       <SignupForm invitationToken={invitationToken} role={role} />
 
+      {invitationToken && (
+        <p className={styles.intentNote}>
+          Already have a Ravoge account?{" "}
+          <Link href={`/login?invite=${encodeURIComponent(invitationToken)}`}>
+            Sign in to accept this invitation.
+          </Link>
+        </p>
+      )}
+
       <p className={styles.intentNote}>
         Account type selection is signup intent only. Your active database
         membership determines access.
