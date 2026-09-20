@@ -52,7 +52,13 @@ Supabase Auth is the identity source; credentials are never duplicated in applic
 
 Owner self-registration creates a new organization through a constrained request row and database trigger; it cannot join an existing gym. Coaches and clients require a cryptographically random, expiring invitation whose hash is stored in the database. The invitation fixes the intended gym and role, and a coach-created client invitation creates the corresponding assignment after acceptance. An account has at most one active organization membership during this MVP, avoiding ambiguous dashboard routing while preserving inactive history. RLS rechecks active profile, organization, membership, and assignment state on every request, so deactivation takes effect without waiting for a JWT refresh.
 
-The Data API receives only explicit table and column grants. There are no table grants for `anon`, role columns are not updateable through the API, and all exposed application tables have RLS enabled. Private helper functions use fixed empty search paths and are not exposed as RPC endpoints. The sole public security-definer RPC accepts an organization invitation: it is executable only by authenticated users, requires an active profile and confirmed matching email, hashes and locks the supplied token, and derives organization and role exclusively from the invitation row.
+The Data API receives only explicit table and column grants. There are no table grants for `anon`, role columns are not updateable through the API, and all exposed application tables have RLS enabled. Private helper functions use fixed empty search paths and are not exposed as RPC endpoints. The public invitation RPC is executable only by authenticated users, requires an active profile and confirmed matching email, hashes and locks the supplied token, and derives organization and role exclusively from the invitation row.
+
+### Coach workout slice
+
+`workout_assignments` owns the gym, prescribing coach, client, date, instructions, and lifecycle status. `workout_exercises` stores the ordered prescribed structure. Both tables are separate from memberships so training content cannot leak into general directory records.
+
+Coaches reach clients through active `coach_client_assignments`. The workout-creation RPC derives the coach and organization from the authenticated database membership, verifies the active relationship, validates every exercise, and inserts the workout atomically. It never accepts an organization or coach ID. RLS independently restricts coaches to currently assigned clients, clients to their own workouts, and owners to read access within their gym. Identity columns are immutable and clients do not receive write access to prescribed structure.
 
 Supabase and Netlify projects already exist. Before any future database mutation or deployment:
 
@@ -67,12 +73,11 @@ The hero coach, coach/tablet, and client/mobile images were generated specifical
 
 ## Scope boundary
 
-No workouts, intake or health records, booking, payments, messaging, nutrition, or AI data belongs in membership records. Those domains require separate tables and policy review.
+No intake or health records, booking, payments, messaging, nutrition, or AI data belongs in membership records. Those domains require separate tables and policy review.
 
 ## Next milestones
 
 Likely follow-on work, each requiring separate product and security review:
 
-1. Coach/client workout assignment vertical slice.
-2. Client completion state and coach visibility.
-3. Progress, booking, payments, and messaging integrations.
+1. Client completion state and coach visibility.
+2. Progress, booking, payments, and messaging integrations.

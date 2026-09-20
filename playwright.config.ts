@@ -1,21 +1,26 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
+  workers: process.env.CI ? 4 : 6,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: externalBaseUrl ?? "http://localhost:3000",
     browserName: "chromium",
     channel: "chrome",
     trace: "on-first-retry",
   },
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
-    timeout: 120_000,
-  },
+  webServer: externalBaseUrl
+    ? undefined
+    : {
+        command: "npm run dev",
+        url: "http://localhost:3000",
+        reuseExistingServer: true,
+        timeout: 120_000,
+      },
   projects: [
     { name: "phone", use: { ...devices["iPhone 13"], browserName: "chromium", channel: "chrome" } },
     { name: "tablet", use: { viewport: { width: 768, height: 1024 } } },

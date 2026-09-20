@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { InviteForm } from "@/components/invite-form";
 import { requireRole } from "@/lib/auth";
@@ -20,7 +22,7 @@ export default async function CoachPage() {
         <section className={`${styles.panel} ${styles.panelWide}`}>
           <h2>Assigned clients</h2>
           {(clients ?? []).length ? (
-            <ul className={styles.list}>{(clients ?? []).map((client: { id: string; full_name: string }) => <li key={client.id}><span>{client.full_name}</span><small>Active</small></li>)}</ul>
+            <ul className={styles.list}>{(clients ?? []).map((client: { id: string; full_name: string }) => <li key={client.id}><Link href={`/coach/clients/${client.id}`}>{client.full_name}</Link><small>Open profile →</small></li>)}</ul>
           ) : <p className={styles.empty}>No clients are assigned yet.</p>}
         </section>
         <section className={styles.panel}>
