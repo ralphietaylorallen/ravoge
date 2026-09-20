@@ -1,0 +1,519 @@
+.shell {
+  position: relative;
+  min-height: 100svh;
+  overflow-x: clip;
+  background: #020303;
+  color: #f6f5f3;
+  isolation: isolate;
+}
+
+.shell::before,
+.shell::after {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  content: "";
+  pointer-events: none;
+}
+
+.shell::before {
+  background-image: url("/images/ravoge-coming-soon-desktop.webp");
+  background-position: center;
+  background-size: cover;
+  filter: blur(2px) saturate(0.72);
+  opacity: 0.16;
+  transform: scale(1.025);
+}
+
+.shell::after {
+  z-index: -1;
+  background:
+    radial-gradient(circle at 68% 47%, rgb(158 107 40 / 0.11), transparent 31%),
+    linear-gradient(90deg, rgb(2 3 3 / 0.9) 0%, rgb(2 3 3 / 0.76) 46%, rgb(2 3 3 / 0.9) 100%),
+    linear-gradient(180deg, rgb(2 3 3 / 0.66), rgb(2 3 3 / 0.93));
+}
+
+.atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.atmosphere :global(.gold-atmosphere) {
+  top: 12%;
+  left: 31%;
+  width: 64%;
+  height: 70%;
+  opacity: 0.62;
+}
+
+.frame {
+  display: flex;
+  width: min(100%, 90rem);
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: clamp(1.4rem, 3.4vw, 3.5rem) clamp(1.25rem, 4.8vw, 5rem);
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  position: relative;
+  z-index: 3;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.header > span {
+  color: #8a8171;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.stage {
+  display: grid;
+  width: 100%;
+  max-width: 64rem;
+  margin: auto;
+  padding: clamp(4rem, 9vh, 7rem) 0;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: clamp(2.5rem, 7vw, 7rem);
+  align-items: center;
+}
+
+.stageWide {
+  max-width: 76rem;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: clamp(2rem, 5vw, 5rem);
+}
+
+.mantra {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.7rem;
+  color: #8f8b82;
+  font-family: "Space Grotesk Variable", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.mantra i {
+  display: block;
+  width: 2.75rem;
+  height: 1px;
+  margin-top: 0.65rem;
+  background: linear-gradient(90deg, #c7a062, transparent);
+}
+
+.panel {
+  width: 100%;
+  max-width: 34rem;
+  padding-left: clamp(1.5rem, 4vw, 4rem);
+  border-left: 1px solid rgb(195 153 87 / 0.42);
+}
+
+.stageWide .panel {
+  max-width: none;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  color: #b99761;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.eyebrow::before {
+  width: 2.1rem;
+  height: 1px;
+  content: "";
+  background: currentColor;
+}
+
+.heading,
+.roleHeading {
+  margin: 1rem 0 0;
+  font-family: "Space Grotesk Variable", sans-serif;
+  font-size: clamp(3rem, 6.2vw, 5.6rem);
+  font-weight: 500;
+  line-height: 0.92;
+  letter-spacing: -0.055em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.roleHeading {
+  font-size: clamp(2.8rem, 5.4vw, 4.8rem);
+}
+
+.lede {
+  max-width: 44rem;
+  margin: 1.25rem 0 0;
+  color: #b4ac9b;
+  font-size: clamp(0.95rem, 1.5vw, 1.08rem);
+  line-height: 1.7;
+}
+
+.form {
+  display: grid;
+  margin-top: clamp(2.25rem, 5vh, 3.5rem);
+  gap: 1.7rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.field label {
+  color: #b4ac9b;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.field input {
+  width: 100%;
+  height: 3.15rem;
+  border: 0;
+  border-bottom: 1px solid rgb(180 172 155 / 0.45);
+  border-radius: 0;
+  outline: none;
+  background: rgb(5 6 6 / 0.24);
+  color: #f6f5f3;
+  font: inherit;
+  transition: border-color 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
+}
+
+.field input:hover {
+  border-color: rgb(211 177 119 / 0.72);
+}
+
+.field input:focus-visible {
+  border-color: #d2ad70;
+  background: rgb(180 140 77 / 0.055);
+  box-shadow: 0 8px 26px -18px rgb(222 174 93 / 0.8);
+}
+
+.primaryAction {
+  display: flex;
+  width: 100%;
+  min-height: 3.25rem;
+  margin-top: 0.5rem;
+  padding: 0 1.25rem;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #c3a06a;
+  border-radius: 1px;
+  background: linear-gradient(100deg, #c5a46e, #dfc28f 58%, #b68d51);
+  color: #080807;
+  cursor: pointer;
+  font-family: "Space Grotesk Variable", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  transition: filter 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+}
+
+.primaryAction:hover {
+  filter: brightness(1.07);
+  box-shadow: 0 9px 34px -18px rgb(221 174 95 / 0.78);
+  transform: translateY(-1px);
+}
+
+.primaryAction:focus-visible,
+.formLinks a:focus-visible,
+.roleOption:focus-visible,
+.backAction:focus-visible {
+  outline: 2px solid #e0bd83;
+  outline-offset: 4px;
+}
+
+.formNotice {
+  margin: -0.25rem 0 0;
+  padding: 0.8rem 1rem;
+  border-left: 1px solid #b99761;
+  background: rgb(185 151 97 / 0.06);
+  color: #c9c3b8;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.formLinks {
+  display: flex;
+  margin-top: 0.2rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.formLinks a,
+.backAction {
+  border-radius: 1px;
+  color: #aaa397;
+  font-size: 0.65rem;
+  font-weight: 550;
+  letter-spacing: 0.14em;
+  outline: none;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color 180ms ease;
+}
+
+.formLinks a:hover,
+.backAction:hover {
+  color: #f0d4a2;
+}
+
+.formLinks strong {
+  color: #d2ad70;
+  font-weight: 650;
+}
+
+.roleGrid {
+  display: grid;
+  margin-top: clamp(2.25rem, 5vh, 3.5rem);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.roleOption {
+  display: flex;
+  position: relative;
+  min-height: 17rem;
+  padding: 1.5rem;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid rgb(180 172 155 / 0.24);
+  border-radius: 2px;
+  outline: none;
+  background: linear-gradient(145deg, rgb(17 18 17 / 0.76), rgb(4 5 5 / 0.48));
+  color: #f6f5f3;
+  text-decoration: none;
+  backdrop-filter: blur(10px);
+  transition: border-color 240ms ease, background-color 240ms ease, box-shadow 240ms ease, transform 240ms ease;
+}
+
+.roleOption::after {
+  position: absolute;
+  right: -2.5rem;
+  bottom: -4rem;
+  width: 10rem;
+  height: 10rem;
+  content: "";
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(194 145 68 / 0.16), transparent 68%);
+  opacity: 0.45;
+  transition: opacity 240ms ease, transform 500ms ease;
+}
+
+.roleOption:hover {
+  border-color: rgb(211 173 111 / 0.64);
+  background: linear-gradient(145deg, rgb(24 23 20 / 0.8), rgb(6 7 6 / 0.6));
+  box-shadow: 0 24px 65px -42px rgb(212 157 75 / 0.78);
+  transform: translateY(-3px);
+}
+
+.roleOption:hover::after {
+  opacity: 0.9;
+  transform: scale(1.18);
+}
+
+.roleNumber {
+  color: #a47f49;
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+}
+
+.roleOption h2 {
+  margin: 2.2rem 0 0;
+  font-family: "Space Grotesk Variable", sans-serif;
+  font-size: clamp(1.35rem, 2vw, 1.7rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
+}
+
+.roleOption p {
+  margin: 0.9rem 0 0;
+  color: #aaa397;
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.roleContinue {
+  display: flex;
+  margin-top: auto;
+  padding-top: 2rem;
+  align-items: center;
+  justify-content: space-between;
+  color: #cba76e;
+  font-size: 0.61rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.intentNote {
+  margin: 1.25rem 0 0;
+  color: #77756e;
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.backAction {
+  display: inline-flex;
+  margin-bottom: clamp(2.5rem, 6vh, 4rem);
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.placeholder {
+  margin-top: clamp(2.25rem, 5vh, 3.5rem);
+  padding: clamp(1.35rem, 3vw, 2.2rem);
+  border: 1px solid rgb(180 172 155 / 0.22);
+  border-left-color: #bd9559;
+  background: linear-gradient(110deg, rgb(19 19 17 / 0.58), rgb(5 6 6 / 0.24));
+  backdrop-filter: blur(10px);
+}
+
+.placeholder > span {
+  color: #a98755;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.placeholder h2 {
+  margin: 0.8rem 0 0;
+  font-family: "Space Grotesk Variable", sans-serif;
+  font-size: clamp(1.3rem, 2.8vw, 1.85rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
+}
+
+.placeholder p {
+  max-width: 33rem;
+  margin: 0.85rem 0 0;
+  color: #aaa397;
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+@media (max-width: 900px) {
+  .stage,
+  .stageWide {
+    max-width: 46rem;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .mantra {
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.7rem 1.1rem;
+  }
+
+  .mantra i {
+    width: 3.5rem;
+    margin: 0;
+  }
+
+  .panel,
+  .stageWide .panel {
+    max-width: none;
+    padding-top: 2rem;
+    padding-left: 0;
+    border-top: 1px solid rgb(195 153 87 / 0.42);
+    border-left: 0;
+  }
+
+  .roleGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .roleOption {
+    min-height: 12rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .shell::before {
+    background-image: url("/images/ravoge-coming-soon-mobile.webp");
+    background-position: center;
+    opacity: 0.12;
+  }
+
+  .shell::after {
+    background:
+      radial-gradient(circle at 58% 36%, rgb(158 107 40 / 0.11), transparent 31%),
+      linear-gradient(180deg, rgb(2 3 3 / 0.82), rgb(2 3 3 / 0.94));
+  }
+
+  .atmosphere :global(.gold-atmosphere) {
+    top: 18%;
+    left: -5%;
+    width: 110%;
+    height: 53%;
+    opacity: 0.5;
+  }
+
+  .frame {
+    padding: 1.25rem;
+  }
+
+  .header > span {
+    max-width: 7rem;
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  .stage,
+  .stageWide {
+    padding: 3.5rem 0 2.5rem;
+  }
+
+  .heading {
+    font-size: clamp(2.8rem, 15vw, 4.1rem);
+  }
+
+  .roleHeading {
+    font-size: clamp(2.7rem, 13vw, 3.8rem);
+  }
+
+  .formLinks {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryAction,
+  .field input,
+  .roleOption,
+  .roleOption::after,
+  .formLinks a,
+  .backAction {
+    transition: none;
+  }
+}
