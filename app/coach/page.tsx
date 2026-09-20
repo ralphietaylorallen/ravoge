@@ -27,7 +27,7 @@ export default async function CoachPage() {
         </section>
         <section className={styles.panel}>
           <h2>Invite a client</h2>
-          <InviteForm canInviteCoach={false} />
+          <InviteForm role="client" />
         </section>
       </div>
     </DashboardShell>

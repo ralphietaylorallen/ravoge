@@ -103,6 +103,7 @@ test("forgot password navigation opens the recovery request", async ({ page }) =
 
 for (const route of [
   "/owner",
+  "/owner/team",
   "/owner/equipment",
   "/owner/training-library",
   "/coach",
@@ -121,6 +122,19 @@ test("an invitation link pre-fills only the untrusted invitation code", async ({
   const invite = "abcdefghijklmnopqrstuvwxyzABCDEFGH1234567890";
   await page.goto(`/signup/coach?invite=${invite}`);
   await expect(page.getByLabel("Invitation code")).toHaveValue(invite);
+  expect(await context.cookies()).toEqual([]);
+});
+
+test("an owner invitation supports new or existing independent accounts", async ({ context, page }) => {
+  const invite = "abcdefghijklmnopqrstuvwxyzABCDEFGH1234567890";
+  await page.goto(`/signup/owner?invite=${invite}`);
+
+  await expect(page.getByLabel("Invitation code")).toHaveValue(invite);
+  await expect(page.getByLabel("Gym name")).toHaveCount(0);
+  const signIn = page.getByRole("link", { name: /Sign in to accept this invitation/i });
+  await expect(signIn).toHaveAttribute("href", `/login?invite=${invite}`);
+  await signIn.click();
+  await expect(page).toHaveURL(new RegExp(`/login\\?invite=${invite}$`));
   expect(await context.cookies()).toEqual([]);
 });
 

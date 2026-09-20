@@ -84,8 +84,15 @@ export async function completeSignupProvisioning() {
 
   const intent = data.user.user_metadata?.signup_intent;
   const cookieStore = await cookies();
+  const invitationToken = cookieStore.get(SIGNUP_INVITE_COOKIE)?.value;
 
-  if (intent === "owner") {
+  if (invitationToken) {
+    const { error: invitationError } = await supabase.rpc(
+      "accept_organization_invitation",
+      { invitation_token: invitationToken },
+    );
+    if (invitationError) return null;
+  } else if (intent === "owner") {
     const organizationName = cookieStore.get(SIGNUP_ORGANIZATION_COOKIE)?.value;
     if (!organizationName) return null;
 
@@ -96,15 +103,6 @@ export async function completeSignupProvisioning() {
         requested_by: data.user.id,
       });
     if (requestError && requestError.code !== "23505") return null;
-  } else if (intent === "coach" || intent === "client") {
-    const invitationToken = cookieStore.get(SIGNUP_INVITE_COOKIE)?.value;
-    if (!invitationToken) return null;
-
-    const { error: invitationError } = await supabase.rpc(
-      "accept_organization_invitation",
-      { invitation_token: invitationToken },
-    );
-    if (invitationError) return null;
   } else {
     return null;
   }
@@ -121,6 +119,7 @@ export async function loginAction(
 ): Promise<ActionState> {
   const email = asString(formData.get("email")).toLowerCase();
   const password = asString(formData.get("password"));
+  const invitationToken = asString(formData.get("invitationToken"));
   if (!email || !password) {
     return { message: "Enter your email and password.", status: "error" };
   }
@@ -134,7 +133,22 @@ export async function loginAction(
     return { message: "Email or password was not accepted.", status: "error" };
   }
 
-  const membership = await getActiveMembership(data.user.id);
+  let membership = await getActiveMembership(data.user.id);
+  if (!membership && invitationToken) {
+    if (invitationToken.length < 32) {
+      await supabase.auth.signOut();
+      return { message: "That invitation is invalid or expired.", status: "error" };
+    }
+    const { error: invitationError } = await supabase.rpc(
+      "accept_organization_invitation",
+      { invitation_token: invitationToken },
+    );
+    if (invitationError) {
+      await supabase.auth.signOut();
+      return { message: "That invitation is invalid or expired.", status: "error" };
+    }
+    membership = await getActiveMembership(data.user.id);
+  }
   if (!membership) {
     await supabase.auth.signOut();
     return {
@@ -157,6 +171,7 @@ export async function signupAction(
   const confirmPassword = asString(formData.get("confirmPassword"));
   const organizationName = asString(formData.get("organizationName"));
   const invitationToken = asString(formData.get("invitationToken"));
+  const hasInvitation = invitationToken.length > 0;
 
   if (fullName.length < 2 || fullName.length > 120) {
     return { message: "Enter your full name.", status: "error" };
@@ -173,20 +188,21 @@ export async function signupAction(
   if (password !== confirmPassword) {
     return { message: "Passwords do not match.", status: "error" };
   }
-  if (role === "owner" && organizationName.length < 2) {
+  if (role === "owner" && !hasInvitation && organizationName.length < 2) {
     return { message: "Enter your gym name.", status: "error" };
   }
-  if (role !== "owner" && invitationToken.length < 32) {
+  if ((role !== "owner" || hasInvitation) && invitationToken.length < 32) {
     return {
       message: "A valid Ravoge invitation code is required.",
       status: "error",
     };
   }
 
-  if (role === "owner") {
-    await setSignupCookie(SIGNUP_ORGANIZATION_COOKIE, organizationName);
-  } else {
+  await clearSignupCookies();
+  if (hasInvitation) {
     await setSignupCookie(SIGNUP_INVITE_COOKIE, invitationToken);
+  } else {
+    await setSignupCookie(SIGNUP_ORGANIZATION_COOKIE, organizationName);
   }
 
   const supabase = await createClient();
@@ -274,12 +290,11 @@ export async function logoutAction() {
   redirect("/login");
 }
 
-export async function createInvitationAction(
-  _state: ActionState,
+async function createInvitation(
+  role: AccountRole,
   formData: FormData,
 ): Promise<ActionState> {
   const email = asString(formData.get("email")).toLowerCase();
-  const requestedRole = asString(formData.get("role"));
   if (!/^\S+@\S+\.\S+$/.test(email)) {
     return { message: "Enter a valid email address.", status: "error" };
   }
@@ -289,15 +304,13 @@ export async function createInvitationAction(
   const membership = await getActiveMembership(userId);
   if (!membership) return { message: "Active gym access is required.", status: "error" };
 
-  const role: "coach" | "client" | null =
-    requestedRole === "coach" || requestedRole === "client"
-      ? requestedRole
-      : null;
-  if (!role || (membership.role === "coach" && role !== "client")) {
+  const isOwnerInvitation = role === "owner" || role === "coach";
+  if (
+    membership.role === "client"
+    || (isOwnerInvitation && membership.role !== "owner")
+    || (role === "client" && !["owner", "coach"].includes(membership.role))
+  ) {
     return { message: "That invitation type is not permitted.", status: "error" };
-  }
-  if (membership.role === "client") {
-    return { message: "Clients cannot create invitations.", status: "error" };
   }
 
   const token = randomBytes(32).toString("base64url");
@@ -318,4 +331,25 @@ export async function createInvitationAction(
     message: `${origin}/signup/${role}?invite=${token}`,
     status: "success",
   };
+}
+
+export async function createOwnerInvitationAction(
+  _state: ActionState,
+  formData: FormData,
+) {
+  return createInvitation("owner", formData);
+}
+
+export async function createCoachInvitationAction(
+  _state: ActionState,
+  formData: FormData,
+) {
+  return createInvitation("coach", formData);
+}
+
+export async function createClientInvitationAction(
+  _state: ActionState,
+  formData: FormData,
+) {
+  return createInvitation("client", formData);
 }

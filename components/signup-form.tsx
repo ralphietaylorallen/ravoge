@@ -26,7 +26,7 @@ export function SignupForm({
         <input autoComplete="name" id="fullName" name="fullName" required />
       </div>
 
-      {role === "owner" ? (
+      {role === "owner" && !invitationToken ? (
         <div className={styles.field}>
           <label htmlFor="organizationName">Gym name</label>
           <input id="organizationName" name="organizationName" required />

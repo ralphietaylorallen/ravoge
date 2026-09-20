@@ -19,7 +19,7 @@ export function DashboardShell({
   role: AccountRole;
 }) {
   const navigation = role === "owner"
-    ? [{ href: "/owner", label: "Overview" }, { href: "/owner/equipment", label: "Equipment" }, { href: "/owner/training-library", label: "Training library" }]
+    ? [{ href: "/owner", label: "Overview" }, { href: "/owner/team", label: "Team" }, { href: "/owner/equipment", label: "Equipment" }, { href: "/owner/training-library", label: "Training library" }]
     : role === "coach"
       ? [{ href: "/coach", label: "Overview & clients" }]
       : [{ href: "/client", label: "Workouts" }];
