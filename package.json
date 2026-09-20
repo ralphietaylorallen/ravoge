@@ -9,9 +9,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "test:db": "npm run test:db:account && npm run test:db:coach",
+    "test:db": "npm run test:db:account && npm run test:db:coach && npm run test:db:client",
     "test:db:account": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/account_foundation_rls.sql --agent no",
-    "test:db:coach": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/coach_mvp_rls.sql --agent no"
+    "test:db:coach": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/coach_mvp_rls.sql --agent no",
+    "test:db:client": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/client_mvp_rls.sql --agent no"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

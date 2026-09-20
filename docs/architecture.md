@@ -60,6 +60,8 @@ The Data API receives only explicit table and column grants. There are no table 
 
 Coaches reach clients through active `coach_client_assignments`. The workout-creation RPC derives the coach and organization from the authenticated database membership, verifies the active relationship, validates every exercise, and inserts the workout atomically. It never accepts an organization or coach ID. RLS independently restricts coaches to currently assigned clients, clients to their own workouts, and owners to read access within their gym. Identity columns are immutable and clients do not receive write access to prescribed structure.
 
+Exercise and workout completion timestamps are server-managed. Narrow completion RPCs derive the client from `auth.uid()`, verify the workout belongs to that active client and coach relationship, and refuse cancelled or cross-organization records. Clients never receive direct update grants on workout or exercise tables. Completing the first exercise moves a workout to `in_progress`; finishing the workout requires every exercise to be complete. Coaches read the resulting status through the same RLS-protected assignment.
+
 Supabase and Netlify projects already exist. Before any future database mutation or deployment:
 
 1. Read the configured project/site ID from the local, non-committed environment or connected CLI.
@@ -79,5 +81,5 @@ No intake or health records, booking, payments, messaging, nutrition, or AI data
 
 Likely follow-on work, each requiring separate product and security review:
 
-1. Client completion state and coach visibility.
-2. Progress, booking, payments, and messaging integrations.
+1. Progress summaries and training history.
+2. Booking, payments, and messaging integrations.
