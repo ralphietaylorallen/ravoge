@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
+import { getProfileImageUrl } from "@/lib/profile-images";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -10,6 +12,7 @@ type Assignment = { client_user_id: string; status: "active" | "inactive" };
 type Workout = { client_user_id: string; scheduled_date: string; status: string; title: string };
 type Prescription = { client_user_id: string; generated_at: string; status: string; title: string };
 type Invitation = { created_at: string; email: string; expires_at: string };
+type Certification = { certification_name: string; credential_number: string | null; expiration_date: string | null; id: string; issuing_organization: string };
 
 export default async function OwnerCoachDetailPage({ params }: { params: Promise<{ coachId: string }> }) {
   const { coachId } = await params;
@@ -34,14 +37,16 @@ export default async function OwnerCoachDetailPage({ params }: { params: Promise
     { data: workoutRows },
     { data: prescriptionRows },
     { data: invitationRows },
+    { data: certificationRows },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
-    supabase.from("profiles").select("full_name").eq("id", coachId).maybeSingle(),
+    supabase.from("profiles").select("full_name,preferred_name,bio,specialties,years_coaching,avatar_path").eq("id", coachId).maybeSingle(),
     supabase.from("organizations").select("name").eq("id", organizationId).single(),
     supabase.from("coach_client_assignments").select("client_user_id,status").eq("organization_id", organizationId).eq("coach_user_id", coachId).order("updated_at", { ascending: false }),
     supabase.from("workout_assignments").select("client_user_id,title,status,scheduled_date").eq("organization_id", organizationId).eq("coach_user_id", coachId).order("scheduled_date", { ascending: false }).limit(12),
     supabase.from("generated_prescriptions").select("client_user_id,title,status,generated_at").eq("organization_id", organizationId).eq("coach_user_id", coachId).order("generated_at", { ascending: false }).limit(12),
     supabase.from("organization_invitations").select("email,created_at,expires_at").eq("organization_id", organizationId).eq("invited_by", coachId).eq("role", "client").is("accepted_at", null).is("revoked_at", null).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }),
+    supabase.from("coach_certifications").select("id,certification_name,issuing_organization,credential_number,expiration_date").eq("organization_id", organizationId).eq("coach_user_id", coachId).order("expiration_date"),
   ]);
 
   const assignments = (assignmentRows ?? []) as Assignment[];
@@ -58,18 +63,26 @@ export default async function OwnerCoachDetailPage({ params }: { params: Promise
   const workouts = (workoutRows ?? []) as Workout[];
   const prescriptions = (prescriptionRows ?? []) as Prescription[];
   const invitations = (invitationRows ?? []) as Invitation[];
+  const certifications = (certificationRows ?? []) as Certification[];
+  const coachImageUrl = await getProfileImageUrl(supabase, coach?.avatar_path);
+  const coachName = coach?.preferred_name || coach?.full_name || "Coach";
 
   return (
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
       <Link className={styles.backLink} href="/owner/team">← Back to team</Link>
       <div className={styles.detailHeader}>
-        <div><p className={styles.eyebrow}>Owner View · Coach</p><h2 className={styles.detailTitle}>{coach?.full_name ?? "Coach"}</h2><p className={styles.profileMeta}>Operational oversight · you remain signed in as Owner</p></div>
+        <div className={styles.profileHero}><ProfilePhoto name={coachName} url={coachImageUrl} /><div><p className={styles.eyebrow}>Owner View · Coach</p><h2 className={styles.detailTitle}>{coachName}</h2><p className={styles.profileMeta}>{coach?.specialties?.length ? coach.specialties.join(" · ") : "Operational oversight · you remain signed in as Owner"}</p></div></div>
         <span className={coachMembership.status === "active" ? styles.statusPill : styles.mutedPill}>{coachMembership.status}</span>
       </div>
       <section className={styles.profileOverview}>
         <article className={styles.metricCard}><span>Assigned clients</span><strong>{activeClients.length}</strong><small>Active primary assignments</small></article>
         <article className={styles.metricCard}><span>Recent workouts</span><strong>{workouts.length}</strong><small>Latest assignments shown below</small></article>
         <article className={styles.metricCard}><span>Pending client invites</span><strong>{invitations.length}</strong><small>Created by this coach</small></article>
+      </section>
+
+      <section className={styles.workspaceSection}>
+        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Professional profile</p><h3>About &amp; certifications</h3></div></div>
+        <div className={styles.detailGrid}><section className={styles.panel}><h2>Bio</h2><p className={styles.empty}>{coach?.bio || "No Coach bio has been added."}</p><p className={styles.profileMeta}>{coach?.years_coaching !== null && coach?.years_coaching !== undefined ? `${coach.years_coaching} years coaching` : "Years coaching not supplied"}</p></section><section className={styles.panel}><h2>Certifications</h2>{certifications.length ? <ul className={styles.credentialList}>{certifications.map((certification) => <li key={certification.id}><div><strong>{certification.certification_name}</strong><span>{certification.issuing_organization}</span><small>{[certification.credential_number && `Credential ${certification.credential_number}`, certification.expiration_date && `Expires ${certification.expiration_date}`].filter(Boolean).join(" · ")}</small></div></li>)}</ul> : <p className={styles.empty}>No certifications recorded.</p>}</section></div>
       </section>
 
       <section className={styles.workspaceSection}>

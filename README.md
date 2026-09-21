@@ -34,6 +34,14 @@ Copy `.env.example` to a gitignored `.env.local`, or use the linked Ravoge Netli
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
+The scheduling email integration is server-only and becomes active when these Netlify values are configured:
+
+- `RESEND_API_KEY` — Resend API key, marked secret and never exposed with a `NEXT_PUBLIC_` prefix.
+- `RAVOGE_EMAIL_FROM` — verified Ravoge sender identity.
+- `RAVOGE_APP_URL` — optional public application origin; production defaults to `https://ravoge.com`.
+
+If the Resend key or sender is absent, bookings still complete and the separate delivery record is marked `skipped`; no provider request is attempted.
+
 Use only the publishable key. Never put a secret or `service_role` key in a `NEXT_PUBLIC_` variable or Git.
 
 Hosted Supabase Auth uses `https://ravoge.com` as its Site URL. The redirect allowlist contains Ravoge production, `www`, Netlify deploy previews, and local development. Email confirmation remains enabled. Always run `supabase config diff` before any future `supabase config push`; the repository config intentionally omits hosted SMS credentials and does not manage them.
@@ -47,12 +55,14 @@ Hosted Supabase Auth uses `https://ravoge.com` as its Site URL. The redirect all
 - Multi-owner organization memberships, expiring invitations, primary-owner protection, and coach/client assignments enforced with RLS
 - Owner-only coach/client oversight, primary-coach reassignment, and immutable assignment actor auditing
 - Installable Coach and Client web-app entry routes with an Owner Apps & Access distribution screen
+- Private profile images, Coach/Client profile editing, and structured Coach certifications (pending migration release)
+- Timezone-aware gym hours, Coach availability, single-source bookings, calendar exports, and an optional Resend transactional-email adapter
 - Coach client profiles with secure, ordered workout assignment creation
 - Client dashboard and workout detail with secure exercise/workout completion
 - Local, bundled Inter and Space Grotesk variable font files
 - Original project-owned photography assets for coach/tablet and client/mobile sections
 
-Adaptive programming, booking, payments, and messaging remain outside the current milestone. See [docs/architecture.md](docs/architecture.md) for architecture and security boundaries.
+Payments, general messaging, and adaptive set intelligence remain outside the current milestone. See [docs/architecture.md](docs/architecture.md) for architecture and security boundaries.
 
 Each gym member uses a separate Supabase Auth identity. Owners invite additional owners or coaches from `/owner/team`; the invitation fixes the organization, email, and role in the database. Shared owner credentials are not supported.
 

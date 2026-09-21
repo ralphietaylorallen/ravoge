@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
+import { getProfileImageUrl } from "@/lib/profile-images";
 
 type ClientWorkout = {
   completed_at: string | null;
@@ -51,8 +53,10 @@ export default async function ClientPage() {
       .order("scheduled_date", { ascending: true }),
   ]);
   const { data: coach } = assignment
-    ? await supabase.from("profiles").select("full_name").eq("id", assignment.coach_user_id).maybeSingle()
+    ? await supabase.from("profiles").select("full_name,preferred_name,avatar_path").eq("id", assignment.coach_user_id).maybeSingle()
     : { data: null };
+  const coachName = coach?.preferred_name || coach?.full_name || "A coach has not been assigned yet.";
+  const coachPhotoUrl = await getProfileImageUrl(supabase, coach?.avatar_path);
   const today = new Date().toISOString().slice(0, 10);
   const workouts = (workoutRows ?? []) as ClientWorkout[];
   const current = workouts.filter((workout) => workout.status === "in_progress" || (workout.status === "assigned" && workout.scheduled_date <= today));
@@ -62,8 +66,9 @@ export default async function ClientPage() {
   return (
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Client"} role="client">
       <div className={styles.clientMeta}>
+        <ProfilePhoto name={coachName} size="small" url={coachPhotoUrl} />
         <span>Your coach</span>
-        <strong>{coach?.full_name ?? "A coach has not been assigned yet."}</strong>
+        <strong>{coachName}</strong>
       </div>
       <div className={styles.grid}>
         <section className={`${styles.panel} ${styles.panelWide}`}>

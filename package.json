@@ -9,13 +9,15 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "test:db": "npm run test:db:account && npm run test:db:coach && npm run test:db:client && npm run test:db:gate4 && npm run test:db:multi-owner && npm run test:db:oversight",
+    "test:db": "npm run test:db:account && npm run test:db:coach && npm run test:db:client && npm run test:db:gate4 && npm run test:db:multi-owner && npm run test:db:oversight && npm run test:db:profiles && npm run test:db:scheduling",
     "test:db:account": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/account_foundation_rls.sql --agent no",
     "test:db:coach": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/coach_mvp_rls.sql --agent no",
     "test:db:client": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/client_mvp_rls.sql --agent no",
     "test:db:gate4": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/gate4_intake_prescription_rls.sql --agent no",
     "test:db:multi-owner": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/multi_owner_rls.sql --agent no",
-    "test:db:oversight": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/owner_oversight_rls.sql --agent no"
+    "test:db:oversight": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/owner_oversight_rls.sql --agent no",
+    "test:db:profiles": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/profile_completeness_rls.sql --agent no",
+    "test:db:scheduling": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/scheduling_booking_rls.sql --agent no"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

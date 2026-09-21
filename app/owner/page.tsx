@@ -23,6 +23,11 @@ export default async function OwnerPage() {
           </section>
         ))}
         <section className={`${styles.panel} ${styles.panelWide}`}>
+          <h2>Beta setup</h2>
+          <p className={styles.empty}>Confirm gym, team, equipment, scheduling, training-history, and App-access readiness.</p>
+          <Link className={styles.inlineAction} href="/owner/setup">Review setup →</Link>
+        </section>
+        <section className={`${styles.panel} ${styles.panelWide}`}>
           <h2>Team access</h2>
           <p className={styles.empty}>Review owners, coaches, clients, and pending invitations in one place.</p>
           <Link className={styles.inlineAction} href="/owner/team">Manage team →</Link>

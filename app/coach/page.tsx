@@ -2,7 +2,9 @@ import Link from "next/link";
 
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { InviteForm } from "@/components/invite-form";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
+import { getProfileImageUrl } from "@/lib/profile-images";
 
 export default async function CoachPage() {
   const { membership, supabase, userId } = await requireRole("coach");
@@ -13,8 +15,9 @@ export default async function CoachPage() {
   ]);
   const clientIds = (assignments ?? []).map((row: { client_user_id: string }) => row.client_user_id);
   const { data: clients } = clientIds.length
-    ? await supabase.from("profiles").select("id, full_name").in("id", clientIds)
+    ? await supabase.from("profiles").select("id,full_name,preferred_name,avatar_path").in("id", clientIds)
     : { data: [] };
+  const photos = new Map(await Promise.all((clients ?? []).map(async (client: { id: string; avatar_path: string | null }) => [client.id, await getProfileImageUrl(supabase, client.avatar_path)] as const)));
 
   return (
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Coach"} role="coach">
@@ -22,7 +25,7 @@ export default async function CoachPage() {
         <section className={`${styles.panel} ${styles.panelWide}`}>
           <h2>Assigned clients</h2>
           {(clients ?? []).length ? (
-            <ul className={styles.list}>{(clients ?? []).map((client: { id: string; full_name: string }) => <li key={client.id}><Link href={`/coach/clients/${client.id}`}>{client.full_name}</Link><small>Open profile →</small></li>)}</ul>
+            <ul className={styles.list}>{(clients ?? []).map((client: { id: string; full_name: string; preferred_name: string | null }) => { const name = client.preferred_name || client.full_name; return <li key={client.id}><ProfilePhoto name={name} size="small" url={photos.get(client.id)} /><Link href={`/coach/clients/${client.id}`}>{name}</Link><small>Open profile →</small></li>; })}</ul>
           ) : <p className={styles.empty}>No clients are assigned yet.</p>}
         </section>
         <section className={styles.panel}>

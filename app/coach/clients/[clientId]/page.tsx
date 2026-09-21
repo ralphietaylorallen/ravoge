@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 
 import { generatePrescriptionAction } from "@/app/coach/actions";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { IntakeForm } from "@/components/intake-form";
 import { WorkoutForm } from "@/components/workout-form";
 import { requireRole } from "@/lib/auth";
+import { getProfileImageUrl } from "@/lib/profile-images";
 
 type WorkoutExercise = { exercise_name: string; id: string; load: number | null; reps: number; sets: number; sort_order: number };
 type WorkoutAssignment = { id: string; scheduled_date: string; status: string; title: string; workout_exercises: WorkoutExercise[] };
@@ -34,7 +36,7 @@ export default async function CoachClientPage({ params, searchParams }: { params
 
   const [{ data: coachProfile }, { data: clientProfile }, { data: organization }, { data: workouts }, { data: intakeRows }, { data: stateRows }, { data: prescriptionRows }] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
-    supabase.from("profiles").select("full_name").eq("id", clientId).single(),
+    supabase.from("profiles").select("full_name,preferred_name,bio,avatar_path,account_status").eq("id", clientId).single(),
     supabase.from("organizations").select("name").eq("id", membership.organization_id).single(),
     supabase.from("workout_assignments").select("id,title,scheduled_date,status,workout_exercises(id,exercise_name,sets,reps,load,sort_order)").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("client_user_id", clientId).order("scheduled_date", { ascending: false }),
     supabase.from("client_intakes").select("*").eq("organization_id", membership.organization_id).eq("client_user_id", clientId).order("version", { ascending: false }).limit(1),
@@ -45,11 +47,13 @@ export default async function CoachClientPage({ params, searchParams }: { params
   const latestIntake = (intakeRows?.[0] ?? null) as IntakeRow | null;
   const latestState = (stateRows?.[0] ?? null) as ClientState | null;
   const prescriptions = (prescriptionRows ?? []) as DraftPrescription[];
+  const clientName = clientProfile.preferred_name || clientProfile.full_name;
+  const clientImageUrl = await getProfileImageUrl(supabase, clientProfile.avatar_path);
 
   return (
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={coachProfile?.full_name ?? "Coach"} role="coach">
       <Link className={styles.backLink} href="/coach">← Back to clients</Link>
-      <div className={styles.detailHeader}><div><p className={styles.eyebrow}>Active client</p><h2 className={styles.detailTitle}>{clientProfile.full_name}</h2><p className={styles.profileMeta}>{latestIntake ? String(latestIntake.primary_goal).replaceAll("_", " ") : "Intake pending"} · Assigned coach</p></div><span className={styles.statusPill}>Active</span></div>
+      <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhoto name={clientName} url={clientImageUrl} /><div><p className={styles.eyebrow}>Active client</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{latestIntake ? String(latestIntake.primary_goal).replaceAll("_", " ") : "Intake pending"} · Assigned coach</p><p className={styles.empty}>{clientProfile.bio || "No client About section yet."}</p></div></div><span className={styles.statusPill}>{clientProfile.account_status}</span></div>
       <nav aria-label="Client profile sections" className={styles.tabs}><a href="#overview">Overview</a><a href="#intake">Intake</a><a href="#state">Assessment state</a><a href="#workouts">Workouts</a><a href="#history">History</a></nav>
       {notice && noticeMessages[notice] && <p className={`${styles.notice} ${notice === "prescription-unavailable" ? styles.error : ""}`} role="status">{noticeMessages[notice]}</p>}
 

@@ -2,7 +2,9 @@ import Link from "next/link";
 
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { InviteForm } from "@/components/invite-form";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
+import { getProfileImageUrl } from "@/lib/profile-images";
 
 type MemberRow = {
   is_primary_owner: boolean;
@@ -49,14 +51,22 @@ export default async function OwnerTeamPage() {
   const { data: profiles } = memberRows.length
     ? await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, preferred_name, avatar_path")
         .in("id", memberRows.map((row) => row.user_id))
     : { data: [] };
   const names = new Map(
-    (profiles ?? []).map((row: { id: string; full_name: string }) => [
+    (profiles ?? []).map((row: { id: string; full_name: string; preferred_name: string | null }) => [
       row.id,
-      row.full_name,
+      row.preferred_name || row.full_name,
     ]),
+  );
+  const photos = new Map(
+    await Promise.all(
+      (profiles ?? []).map(async (row: { avatar_path: string | null; id: string }) => [
+        row.id,
+        await getProfileImageUrl(supabase, row.avatar_path),
+      ] as const),
+    ),
   );
 
   return (
@@ -81,21 +91,27 @@ export default async function OwnerTeamPage() {
               <ul className={styles.list}>
                 {memberRows
                   .filter((row) => row.role === role)
-                  .map((row) => (
+                  .map((row) => {
+                    const name = names.get(row.user_id) ?? (role === "owner" ? "Owner" : role === "coach" ? "Coach" : "Client");
+                    return (
                     <li key={row.user_id}>
-                      <span>
+                      <span className={styles.memberIdentity}>
+                        <ProfilePhoto name={name} size="small" url={photos.get(row.user_id)} />
+                        <span>
                         {role === "coach" ? (
-                          <Link href={`/owner/coaches/${row.user_id}`}>{names.get(row.user_id) ?? "Coach"}</Link>
+                          <Link href={`/owner/coaches/${row.user_id}`}>{name}</Link>
                         ) : role === "client" ? (
-                          <Link href={`/owner/clients/${row.user_id}`}>{names.get(row.user_id) ?? "Client"}</Link>
-                        ) : names.get(row.user_id) ?? "Owner"}
+                          <Link href={`/owner/clients/${row.user_id}`}>{name}</Link>
+                        ) : name}
                         {row.is_primary_owner && (
                           <small className={styles.primaryBadge}>Primary owner</small>
                         )}
+                        </span>
                       </span>
                       <small>{row.status}</small>
                     </li>
-                  ))}
+                    );
+                  })}
               </ul>
             ) : (
               <p className={styles.empty}>No {role} memberships yet.</p>
