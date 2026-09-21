@@ -73,9 +73,25 @@ test("owner can open oversight and distribute role-specific app links", async ({
   await expect(page.getByRole("heading", { name: "Apps & access" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open Coach App" })).toHaveAttribute("href", "/coach/install");
   await expect(page.getByRole("link", { name: "Open Client App" })).toHaveAttribute("href", "/client/install");
+  await expect(page.locator('[data-qr-value="https://ravoge.com/coach/install"]')).toBeVisible();
+  await expect(page.locator('[data-qr-value="https://ravoge.com/client/install"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download QR" })).toHaveCount(2);
 
   const coachEmail = page.getByLabel("Recipient email").first();
   await coachEmail.fill("coach@example.test");
   const emailAction = page.getByRole("link", { name: "Email Coach App link" });
   await expect(emailAction).toHaveAttribute("href", /mailto:coach%40example\.test.*ravoge\.com%2Fcoach%2Finstall/);
+
+  await page.getByRole("link", { name: "Training library" }).click();
+  await page.getByRole("link", { name: "Import workout history" }).click();
+  await expect(page).toHaveURL(/\/owner\/training-library\/import$/);
+  await page.getByLabel("Workout history file").setInputFiles({
+    buffer: Buffer.from("Exercise,Sets,Reps\nBack Squat,5,5\nBench Press,3,8\n"),
+    mimeType: "text/csv",
+    name: "pitt-history.csv",
+  });
+  await page.getByRole("button", { name: "Parse and preview" }).click();
+  await expect(page.getByRole("heading", { name: "pitt-history.csv" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Back Squat" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save import" })).toBeVisible();
 });

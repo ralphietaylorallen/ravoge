@@ -154,6 +154,11 @@
 .accessActions { display: flex; align-items: stretch; gap: 0.6rem; flex-wrap: wrap; }
 .accessActions a, .accessActions button { flex: 1 1 11rem; text-decoration: none; }
 .accessCard > .secondaryAction { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.qrBlock { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; padding: 1rem; border: 1px solid #ded8cc; background: #fff; gap: 1rem; }
+.qrCanvas { display: grid; width: 10.5rem; max-width: 100%; aspect-ratio: 1; place-items: center; overflow: hidden; }
+.qrCanvas canvas { display: block; width: 100% !important; height: auto !important; }
+.qrBlock strong { font-family: "Space Grotesk Variable", sans-serif; font-size: 1rem; }
+.qrBlock p { margin: 0.35rem 0 0.8rem; color: #737670; font-size: 0.72rem; line-height: 1.5; }
 .disabledAction { cursor: not-allowed; opacity: 0.45; pointer-events: none; }
 .securityNote { display: grid; margin-top: 1rem; padding: 1.1rem 1.25rem; border-left: 2px solid #a98755; background: #eee9df; grid-template-columns: auto 1fr; gap: 1rem; }
 .securityNote strong { color: #6e4e23; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -211,6 +216,16 @@
 .manageBooking > a { display: inline-flex; align-items: center; text-decoration: none; }
 .cancelForm { display: flex; align-items: start; gap: 0.55rem; }
 .cancelForm input { min-height: 2.5rem; padding: 0.55rem; border: 1px solid #d8d4ca; background: #fff; font: inherit; font-size: 0.75rem; }
+.importForm { display: grid; max-width: 42rem; gap: 1rem; }
+.importForm .action { justify-self: start; }
+.importPreview { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #ddd9d0; }
+.tableScroll { max-width: 100%; overflow-x: auto; border: 1px solid #ddd9d0; background: #fff; }
+.tableScroll:focus-visible { outline: 2px solid #a98755; outline-offset: 2px; }
+.previewTable { width: 100%; min-width: 38rem; border-collapse: collapse; font-size: 0.74rem; }
+.previewTable th, .previewTable td { max-width: 18rem; padding: 0.7rem 0.8rem; border-right: 1px solid #ebe7df; border-bottom: 1px solid #ebe7df; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.previewTable th { background: #efede7; color: #5f625d; font-size: 0.61rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.previewTable td { color: #343734; }
+.importSaveForm { display: flex; justify-content: flex-end; margin-top: 1rem; }
 
 @media (max-width: 1000px) {
   .shell { grid-template-columns: 1fr; }
@@ -246,6 +261,7 @@
   .clientExerciseList form { grid-column: 2; width: 100%; }
   .completionAction, .finishForm .action { width: 100%; }
   .securityNote { grid-template-columns: 1fr; }
+  .qrBlock { grid-template-columns: 1fr; }
   .profileHero { align-items: flex-start; }
   .profilePhoto { width: 5.5rem; }
   .hourRow { grid-template-columns: 1fr 1fr; }

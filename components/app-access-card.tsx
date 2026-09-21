@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 
 import { CopyLinkButton } from "@/components/copy-link-button";
+import { QrCode } from "@/components/qr-code";
 
 import styles from "./dashboard.module.css";
 
@@ -36,6 +37,7 @@ export function AppAccessCard({
         <Link className={styles.action} href={installPath}>Open {role} App</Link>
         <CopyLinkButton label={`Copy ${role} App link`} url={url} />
       </div>
+      <QrCode label={`Ravoge ${role} App QR`} url={url} />
       <div className={styles.field}>
         <label htmlFor={emailId}>Recipient email</label>
         <input autoComplete="email" id={emailId} onChange={(event) => setEmail(event.target.value)} placeholder={`${role.toLowerCase()}@example.com`} type="email" value={email} />
