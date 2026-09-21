@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const invitationToken = requestUrl.searchParams.get("invite") ?? undefined;
+  const ownerSignupToken = requestUrl.searchParams.get("owner") ?? undefined;
   const requestedNext = requestUrl.searchParams.get("next") ?? "/login";
   const next = requestedNext.startsWith("/") && !requestedNext.startsWith("//")
     ? requestedNext
@@ -23,7 +25,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (next === "/signup/complete") {
-    const role = await completeSignupProvisioning();
+    const role = await completeSignupProvisioning({
+      invitationToken,
+      ownerSignupToken,
+    });
     if (role) {
       return NextResponse.redirect(new URL(dashboardForRole(role), request.url));
     }
