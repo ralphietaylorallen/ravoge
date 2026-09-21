@@ -14,6 +14,9 @@ import {
 import { createClient } from "@/lib/supabase/server";
 
 const SIGNUP_INVITE_COOKIE = "ravoge_signup_invite";
+const SIGNUP_OWNER_TOKEN_COOKIE = "ravoge_signup_owner_token";
+// Removed from the active flow, but cleared for accounts started before the
+// durable Owner-intent migration.
 const SIGNUP_ORGANIZATION_COOKIE = "ravoge_signup_organization";
 
 export type ActionState = {
@@ -71,10 +74,14 @@ async function setSignupCookie(name: string, value: string) {
 async function clearSignupCookies() {
   const cookieStore = await cookies();
   cookieStore.delete(SIGNUP_INVITE_COOKIE);
+  cookieStore.delete(SIGNUP_OWNER_TOKEN_COOKIE);
   cookieStore.delete(SIGNUP_ORGANIZATION_COOKIE);
 }
 
-export async function completeSignupProvisioning() {
+export async function completeSignupProvisioning(tokens: {
+  invitationToken?: string;
+  ownerSignupToken?: string;
+} = {}) {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
@@ -85,9 +92,11 @@ export async function completeSignupProvisioning() {
     return existingMembership.role;
   }
 
-  const intent = data.user.user_metadata?.signup_intent;
   const cookieStore = await cookies();
-  const invitationToken = cookieStore.get(SIGNUP_INVITE_COOKIE)?.value;
+  const invitationToken = tokens.invitationToken
+    ?? cookieStore.get(SIGNUP_INVITE_COOKIE)?.value;
+  const ownerSignupToken = tokens.ownerSignupToken
+    ?? cookieStore.get(SIGNUP_OWNER_TOKEN_COOKIE)?.value;
 
   if (invitationToken) {
     const { error: invitationError } = await supabase.rpc(
@@ -95,19 +104,12 @@ export async function completeSignupProvisioning() {
       { invitation_token: invitationToken },
     );
     if (invitationError) return null;
-  } else if (intent === "owner") {
-    const organizationName = cookieStore.get(SIGNUP_ORGANIZATION_COOKIE)?.value;
-    if (!organizationName) return null;
-
-    const { error: requestError } = await supabase
-      .from("organization_creation_requests")
-      .insert({
-        organization_name: organizationName,
-        requested_by: data.user.id,
-      });
-    if (requestError && requestError.code !== "23505") return null;
   } else {
-    return null;
+    const { error: ownerProvisioningError } = await supabase.rpc(
+      "complete_owner_signup",
+      { confirmed_gym_name: null, signup_token: ownerSignupToken || null },
+    );
+    if (ownerProvisioningError) return null;
   }
 
   const membership = await getActiveMembership(data.user.id);
@@ -151,6 +153,27 @@ export async function loginAction(
       return { message: "That invitation is invalid or expired.", status: "error" };
     }
     membership = await getActiveMembership(data.user.id);
+  }
+  if (!membership && !invitationToken) {
+    const cookieStore = await cookies();
+    const ownerSignupToken = cookieStore.get(SIGNUP_OWNER_TOKEN_COOKIE)?.value;
+    if (ownerSignupToken) {
+      const { error: ownerProvisioningError } = await supabase.rpc(
+        "complete_owner_signup",
+        { confirmed_gym_name: null, signup_token: ownerSignupToken },
+      );
+      if (!ownerProvisioningError) {
+        membership = await getActiveMembership(data.user.id);
+        if (membership) await clearSignupCookies();
+      }
+    }
+
+    if (!membership) {
+      const { data: canRecover } = await supabase.rpc(
+        "has_pending_owner_signup",
+      );
+      if (canRecover) redirect("/signup/owner/recover");
+    }
   }
   if (!membership) {
     await supabase.auth.signOut();
@@ -201,20 +224,41 @@ export async function signupAction(
     };
   }
 
+  const supabase = await createClient();
+  let ownerSignupToken = "";
   await clearSignupCookies();
   if (hasInvitation) {
     await setSignupCookie(SIGNUP_INVITE_COOKIE, invitationToken);
-  } else {
-    await setSignupCookie(SIGNUP_ORGANIZATION_COOKIE, organizationName);
+  } else if (role === "owner") {
+    ownerSignupToken = randomBytes(32).toString("base64url");
+    const { error: ownerIntentError } = await supabase.rpc(
+      "begin_owner_signup",
+      {
+        gym_name: organizationName,
+        owner_email: email,
+        signup_token: ownerSignupToken,
+      },
+    );
+    if (ownerIntentError) {
+      return {
+        message: "Owner signup could not be prepared. Sign in if this email already has an account.",
+        status: "error",
+      };
+    }
+    await setSignupCookie(SIGNUP_OWNER_TOKEN_COOKIE, ownerSignupToken);
   }
 
-  const supabase = await createClient();
   const origin = await getRequestOrigin();
+  const callbackToken = invitationToken
+    ? `&invite=${encodeURIComponent(invitationToken)}`
+    : ownerSignupToken
+      ? `&owner=${encodeURIComponent(ownerSignupToken)}`
+      : "";
   const { data, error } = await supabase.auth.signUp({
     email,
     options: {
       data: { full_name: fullName, signup_intent: role },
-      emailRedirectTo: `${origin}/auth/confirm?next=/signup/complete`,
+      emailRedirectTo: `${origin}/auth/confirm?next=/signup/complete${callbackToken}`,
     },
     password,
   });
@@ -239,6 +283,43 @@ export async function signupAction(
     message: "Check your email to confirm your account, then return to Ravoge.",
     status: "success",
   };
+}
+
+export async function recoverOwnerSignupAction(
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const organizationName = asString(formData.get("organizationName"));
+  if (organizationName.length < 2 || organizationName.length > 120) {
+    return { message: "Enter the gym name used during signup.", status: "error" };
+  }
+
+  const { supabase, userId } = await getVerifiedUser();
+  if (!userId) {
+    return { message: "Sign in again to complete setup.", status: "error" };
+  }
+
+  const existingMembership = await getActiveMembership(userId);
+  if (existingMembership) redirect(dashboardForRole(existingMembership.role));
+
+  const { error } = await supabase.rpc("complete_owner_signup", {
+    confirmed_gym_name: organizationName,
+    signup_token: null,
+  });
+  if (error) {
+    return {
+      message: "That gym name did not match a pending Owner signup.",
+      status: "error",
+    };
+  }
+
+  const membership = await getActiveMembership(userId);
+  if (!membership || membership.role !== "owner") {
+    return { message: "Owner setup could not be completed.", status: "error" };
+  }
+
+  await clearSignupCookies();
+  redirect("/owner");
 }
 
 export async function requestPasswordResetAction(

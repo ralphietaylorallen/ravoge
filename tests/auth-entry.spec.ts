@@ -150,6 +150,11 @@ test("an invalid invitation hint does not crash a signup route", async ({ page }
   await expect(page.getByLabel("Gym name")).toHaveCount(0);
 });
 
+test("Owner setup recovery requires an authenticated account", async ({ page }) => {
+  await page.goto("/signup/owner/recover");
+  await expect(page).toHaveURL(/\/login$/);
+});
+
 test("entry routes have no horizontal overflow", async ({ page }) => {
   for (const path of [
     "/login",
