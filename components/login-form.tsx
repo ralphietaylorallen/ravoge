@@ -7,7 +7,13 @@ import { loginAction } from "@/app/auth/actions";
 
 import styles from "./auth-entry.module.css";
 
-export function LoginForm({ invitationToken = "" }: { invitationToken?: string }) {
+export function LoginForm({
+  invitationEmail,
+  invitationToken = "",
+}: {
+  invitationEmail?: string;
+  invitationToken?: string;
+}) {
   const [state, action, pending] = useActionState(loginAction, {
     status: "idle" as const,
   });
@@ -21,8 +27,10 @@ export function LoginForm({ invitationToken = "" }: { invitationToken?: string }
         <label htmlFor="email">Email</label>
         <input
           autoComplete="email"
+          defaultValue={invitationEmail ?? ""}
           id="email"
           name="email"
+          readOnly={Boolean(invitationEmail)}
           required
           type="email"
         />

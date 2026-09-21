@@ -88,7 +88,9 @@ do $$ begin
     raise exception 'Coach cannot read their own invitation';
   end if;
 end $$;
-update public.organization_invitations set revoked_at = now();
+select public.revoke_organization_invitation(id)
+from public.organization_invitations
+where email = 'pending-client@example.test';
 do $$ begin
   begin
     update public.organization_invitations set revoked_at = null;

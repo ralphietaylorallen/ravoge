@@ -24,8 +24,8 @@ test("login Sign up routes to account type selection", async ({ page }) => {
 
 for (const accountType of [
   { field: "Gym name", name: "Gym Owner", path: "/signup/owner" },
-  { field: "Invitation code", name: "Coach", path: "/signup/coach" },
-  { field: "Invitation code", name: "Client", path: "/signup/client" },
+  { field: null, name: "Coach", path: "/signup/coach" },
+  { field: null, name: "Client", path: "/signup/client" },
 ] as const) {
   test(`${accountType.name} selection routes to its secure signup form`, async ({
     context,
@@ -47,7 +47,8 @@ for (const accountType of [
       page.getByRole("heading", { name: accountType.name, exact: true }),
     ).toBeVisible();
     await expect(page.getByLabel("Full name")).toBeVisible();
-    await expect(page.getByLabel(accountType.field)).toBeVisible();
+    if (accountType.field) await expect(page.getByLabel(accountType.field)).toBeVisible();
+    await expect(page.getByLabel("Invitation code")).toHaveCount(0);
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
 
@@ -120,23 +121,21 @@ for (const route of [
   });
 }
 
-test("an invitation link pre-fills only the untrusted invitation code", async ({ context, page }) => {
+test("an invitation token is never rendered as a visible form field", async ({ context, page }) => {
   const invite = "abcdefghijklmnopqrstuvwxyzABCDEFGH1234567890";
   await page.goto(`/signup/coach?invite=${invite}`);
-  await expect(page.getByLabel("Invitation code")).toHaveValue(invite);
+  await expect(page.getByLabel("Invitation code")).toHaveCount(0);
+  await expect(page.getByText(/This invitation is invalid/i)).toBeVisible();
   expect(await context.cookies()).toEqual([]);
 });
 
-test("an owner invitation supports new or existing independent accounts", async ({ context, page }) => {
+test("an invalid owner invitation fails cleanly without exposing its token", async ({ context, page }) => {
   const invite = "abcdefghijklmnopqrstuvwxyzABCDEFGH1234567890";
   await page.goto(`/signup/owner?invite=${invite}`);
 
-  await expect(page.getByLabel("Invitation code")).toHaveValue(invite);
+  await expect(page.getByLabel("Invitation code")).toHaveCount(0);
   await expect(page.getByLabel("Gym name")).toHaveCount(0);
-  const signIn = page.getByRole("link", { name: /Sign in to accept this invitation/i });
-  await expect(signIn).toHaveAttribute("href", `/login?invite=${invite}`);
-  await signIn.click();
-  await expect(page).toHaveURL(new RegExp(`/login\\?invite=${invite}$`));
+  await expect(page.getByText(/This invitation is invalid/i)).toBeVisible();
   expect(await context.cookies()).toEqual([]);
 });
 
@@ -146,8 +145,9 @@ test("an invalid invitation hint does not crash a signup route", async ({ page }
   await expect(
     page.getByRole("heading", { name: "Gym Owner", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("Invitation code")).toHaveValue("invalid");
+  await expect(page.getByLabel("Invitation code")).toHaveCount(0);
   await expect(page.getByLabel("Gym name")).toHaveCount(0);
+  await expect(page.getByText(/This invitation is invalid/i)).toBeVisible();
 });
 
 test("Owner setup recovery requires an authenticated account", async ({ page }) => {

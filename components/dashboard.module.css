@@ -1,4 +1,8 @@
 .shell { min-height: 100svh; display: grid; grid-template-columns: 15rem minmax(0, 1fr); background: #f4f2ed; color: #161817; }
+.onboardingShell { min-height: 100svh; background: #f4f2ed; color: #161817; }
+.onboardingHeader { display: flex; min-height: 5rem; padding: 0 clamp(1.25rem, 4vw, 4rem); align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd9d0; background: #f9f8f5; }
+.onboardingHeader > a { color: #111312 !important; }
+.onboardingFrame { width: min(100% - 2.5rem, 72rem); margin: 0 auto; padding: clamp(3rem, 7vw, 6rem) 0 5rem; }
 .sidebar { position: sticky; top: 0; display: flex; height: 100svh; flex-direction: column; padding: 2rem 1.4rem; border-right: 1px solid #ddd9d0; background: #f9f8f5; }
 .sidebar > a { color: #111312 !important; }
 .sidebar nav { display: grid; gap: 0.3rem; margin-top: 3rem; }
