@@ -44,13 +44,13 @@ If the Resend key or sender is absent, bookings still complete and the separate 
 
 Use only the publishable key. Never put a secret or `service_role` key in a `NEXT_PUBLIC_` variable or Git.
 
-Hosted Supabase Auth uses `https://ravoge.com` as its Site URL. The redirect allowlist contains Ravoge production, `www`, Netlify deploy previews, and local development. Email confirmation remains enabled. Always run `supabase config diff` before any future `supabase config push`; the repository config intentionally omits hosted SMS credentials and does not manage them.
+Hosted Supabase Auth uses `https://ravoge.com` as its Site URL. The redirect allowlist contains Ravoge production, `www`, Netlify deploy previews, and local development. For the private beta, Confirm Email is disabled so password signup returns an authenticated session immediately and does not depend on Supabase's limited shared SMTP service. Password recovery still requires a working mail provider; re-enable confirmation only after production SMTP is configured and verified. Always run `supabase config diff` before any future `supabase config push`; the repository config intentionally omits hosted SMS credentials and does not manage them.
 
 ## Current scope
 
 - Responsive public landing page
 - Supabase SSR email/password authentication with cookie-backed sessions
-- Signup, login, logout, email confirmation, and password recovery flows
+- Signup, login, logout, immediate private-beta sessions, and password recovery flows
 - Server-protected owner, coach, and client dashboards
 - Multi-owner organization memberships, expiring invitations, primary-owner protection, and coach/client assignments enforced with RLS
 - Owner-only coach/client oversight, primary-coach reassignment, and immutable assignment actor auditing

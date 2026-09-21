@@ -222,6 +222,28 @@
   box-shadow: 0 8px 26px -18px rgb(222 174 93 / 0.8);
 }
 
+.field input[readonly] {
+  color: #d8c7a9;
+  cursor: not-allowed;
+}
+
+.invitationContext {
+  margin: 1.5rem 0 -1rem;
+  color: #c9c3b8;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.invitationContext strong {
+  color: #e0bd83;
+}
+
+.identityActions {
+  display: grid;
+  margin-top: 2rem;
+  gap: 1rem;
+}
+
 .primaryAction {
   display: flex;
   width: 100%;

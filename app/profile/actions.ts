@@ -1,31 +1,55 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
-import { requireRole, type AccountRole } from "@/lib/auth";
+import {
+  dashboardForRole,
+  getAccountType,
+  getActiveMembership,
+  getVerifiedUser,
+  requireRole,
+  type AccountRole,
+} from "@/lib/auth";
 import { PROFILE_IMAGE_BUCKET, PROFILE_IMAGE_MAX_BYTES, PROFILE_IMAGE_TYPES } from "@/lib/profile-images";
 
 export type ProfileActionState = { message?: string; status: "idle" | "error" | "success" };
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UNASSIGNED_PROFILE_SCOPE = "00000000-0000-0000-0000-000000000000";
 
 function text(formData: FormData, name: string, maximum: number) {
   return String(formData.get(name) ?? "").trim().slice(0, maximum);
 }
 
-async function saveProfile(role: AccountRole, formData: FormData): Promise<ProfileActionState> {
-  const { supabase } = await requireRole(role);
+async function getProfileActor(role: Extract<AccountRole, "coach" | "client">) {
+  const { supabase, userId } = await getVerifiedUser();
+  if (!userId) redirect(`/login?next=/${role}/onboarding`);
+  const membership = await getActiveMembership(userId, supabase);
+  if (membership && membership.role !== role) redirect(dashboardForRole(membership.role));
+  if (!membership) {
+    const accountType = await getAccountType(userId, supabase);
+    if (accountType !== role) redirect("/signup");
+  }
+  return { membership, supabase, userId };
+}
+
+async function saveProfile(role: Extract<AccountRole, "coach" | "client">, formData: FormData): Promise<ProfileActionState> {
+  const { supabase } = await getProfileActor(role);
   const preferredName = text(formData, "preferredName", 80);
   const bio = text(formData, "bio", 1200);
   const patch: Record<string, unknown> = { bio, preferredName };
+  const fullName = text(formData, "fullName", 120);
+  if (fullName.length < 2) {
+    return { message: "Enter a valid full name.", status: "error" };
+  }
+  patch.fullName = fullName;
   if (role === "coach") {
-    const fullName = text(formData, "fullName", 120);
     const yearsValue = String(formData.get("yearsCoaching") ?? "").trim();
     const yearsCoaching = yearsValue === "" ? "" : Number(yearsValue);
     const specialties = text(formData, "specialties", 1700).split(",").map((item) => item.trim()).filter(Boolean).slice(0, 20);
     if (fullName.length < 2 || (yearsCoaching !== "" && (!Number.isInteger(yearsCoaching) || Number(yearsCoaching) < 0 || Number(yearsCoaching) > 80))) {
       return { message: "Enter a valid name and coaching experience.", status: "error" };
     }
-    patch.fullName = fullName;
     patch.specialties = specialties;
     patch.yearsCoaching = yearsCoaching;
   }
@@ -33,6 +57,7 @@ async function saveProfile(role: AccountRole, formData: FormData): Promise<Profi
   if (error) return { message: "Your profile could not be updated.", status: "error" };
   revalidatePath(`/${role}`);
   revalidatePath(`/${role}/profile`);
+  revalidatePath(`/${role}/onboarding`);
   return { message: "Profile updated.", status: "success" };
 }
 
@@ -44,8 +69,8 @@ export async function saveClientProfileAction(_state: ProfileActionState, formDa
   return saveProfile("client", formData);
 }
 
-async function uploadProfilePhoto(role: AccountRole, formData: FormData): Promise<ProfileActionState> {
-  const { membership, supabase, userId } = await requireRole(role);
+async function uploadProfilePhoto(role: Extract<AccountRole, "coach" | "client">, formData: FormData): Promise<ProfileActionState> {
+  const { membership, supabase, userId } = await getProfileActor(role);
   const file = formData.get("photo");
   if (!(file instanceof File) || file.size === 0) return { message: "Choose an image to upload.", status: "error" };
   const extension = PROFILE_IMAGE_TYPES.get(file.type);
@@ -53,7 +78,7 @@ async function uploadProfilePhoto(role: AccountRole, formData: FormData): Promis
     return { message: "Use a JPG, PNG, or WebP image no larger than 5 MB.", status: "error" };
   }
   const { data: current } = await supabase.from("profiles").select("avatar_path").eq("id", userId).single();
-  const path = `${membership.organization_id}/${userId}/avatar.${extension}`;
+  const path = `${membership?.organization_id ?? UNASSIGNED_PROFILE_SCOPE}/${userId}/avatar.${extension}`;
   const { error: uploadError } = await supabase.storage.from(PROFILE_IMAGE_BUCKET).upload(path, file, {
     cacheControl: "3600",
     contentType: file.type,
@@ -67,6 +92,7 @@ async function uploadProfilePhoto(role: AccountRole, formData: FormData): Promis
   }
   revalidatePath(`/${role}`);
   revalidatePath(`/${role}/profile`);
+  revalidatePath(`/${role}/onboarding`);
   return { message: "Profile photo updated.", status: "success" };
 }
 

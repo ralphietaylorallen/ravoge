@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const role = await completeSignupProvisioning({
       invitationToken,
       ownerSignupToken,
-    });
+    }, supabase);
     if (role) {
       return NextResponse.redirect(new URL(dashboardForRole(role), request.url));
     }

@@ -37,10 +37,11 @@ end $$;
 
 reset role; set local role authenticated;
 select set_config('request.jwt.claim.sub','81000000-0000-0000-0000-000000000003',true);
-select public.update_own_profile('{"preferredName":"Client Preferred","bio":"Training consistently.","avatarPath":"8a000000-0000-0000-0000-000000000001/81000000-0000-0000-0000-000000000003/avatar.webp"}'::jsonb);
+select public.update_own_profile('{"fullName":"Client Updated","preferredName":"Client Preferred","bio":"Training consistently.","avatarPath":"8a000000-0000-0000-0000-000000000001/81000000-0000-0000-0000-000000000003/avatar.webp"}'::jsonb);
 do $$ begin
   if (select preferred_name from public.profiles where id='81000000-0000-0000-0000-000000000003') <> 'Client Preferred' then raise exception 'Client could not update allowed fields'; end if;
-  begin perform public.update_own_profile('{"fullName":"Role Tamper"}'::jsonb); raise exception 'Client changed a protected profile field'; exception when raise_exception then if sqlerrm='Client changed a protected profile field' then raise; end if; end;
+  if (select full_name from public.profiles where id='81000000-0000-0000-0000-000000000003') <> 'Client Updated' then raise exception 'Client could not update base full name'; end if;
+  begin perform public.update_own_profile('{"accountType":"owner"}'::jsonb); raise exception 'Client changed a protected profile field'; exception when raise_exception then if sqlerrm='Client changed a protected profile field' then raise; end if; end;
   if exists (select 1 from public.profiles where id='82000000-0000-0000-0000-000000000002') then raise exception 'Client can read another organization profile'; end if;
   if not private.can_read_profile_asset('8a000000-0000-0000-0000-000000000001/81000000-0000-0000-0000-000000000002/avatar.jpg') then raise exception 'Assigned Client cannot read Coach photo'; end if;
 end $$;

@@ -5,13 +5,15 @@ for (const app of [
   { label: "Client", path: "/client/install", signup: "/signup/client" },
 ] as const) {
   test(`${app.label} install route is role-specific, responsive, and non-authorizing`, async ({ context, page }) => {
-    const invite = "abcdefghijklmnopqrstuvwxyzABCDEFGH1234567890";
-    await page.goto(`${app.path}?invite=${invite}`);
+    await page.goto(app.path);
 
-    await expect(page.getByRole("heading", { name: "Train from any device." })).toBeVisible();
-    const accept = page.getByRole("link", { name: `Accept ${app.label} invitation` });
-    await expect(accept).toHaveAttribute("href", `${app.signup}?invite=${invite}`);
-    await expect(page.getByRole("link", { name: /Already have an account/i })).toHaveAttribute("href", `/login?invite=${invite}`);
+    await expect(page.getByRole("heading", { name: "Install Ravoge" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
+    await expect(page.getByRole("link", { name: `Create ${app.label} account` })).toHaveAttribute("href", app.signup);
+    await expect(page.getByRole("heading", { name: "Open in Safari" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tap Share" })).toBeVisible();
+    await expect(page.getByText("Add to Home Screen", { exact: false })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Open the Ravoge icon" })).toBeVisible();
 
     expect(await context.cookies()).toEqual([]);
     expect(await page.evaluate(() => ({
@@ -19,6 +21,13 @@ for (const app of [
       localStorage: localStorage.length,
       sessionStorage: sessionStorage.length,
     }))).toEqual({ horizontalOverflow: false, localStorage: 0, sessionStorage: 0 });
+  });
+
+  test(`${app.label} install route rejects an invalid invitation without changing generic access`, async ({ page }) => {
+    await page.goto(`${app.path}?invite=invalid-invitation-token-value-000000000`);
+    await expect(page.getByText(/This gym invitation is invalid/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
+    await expect(page.getByRole("link", { name: `Create ${app.label} account` })).toHaveAttribute("href", app.signup);
   });
 }
 

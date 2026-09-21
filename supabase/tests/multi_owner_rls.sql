@@ -40,11 +40,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '51000000-0000-0000-0000-000000000001', true);
 select set_config('request.jwt.claims', '{"sub":"51000000-0000-0000-0000-000000000001","email":"primary-a@example.test","role":"authenticated"}', true);
 
-insert into public.organization_invitations (
-  organization_id, invited_by, email, role, token_hash, expires_at
-) values (
-  '5a000000-0000-0000-0000-000000000001',
-  '51000000-0000-0000-0000-000000000001',
+select * from public.create_organization_invitation(
   'additional-a@example.test',
   'owner',
   encode(extensions.digest('ravoge-owner-invitation-token-00000001', 'sha256'), 'hex'),

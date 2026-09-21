@@ -5,7 +5,7 @@ const ownerPassword = process.env.RAVOGE_E2E_OWNER_PASSWORD;
 const signupEmail = process.env.RAVOGE_E2E_SIGNUP_EMAIL;
 const signupPassword = process.env.RAVOGE_E2E_SIGNUP_PASSWORD;
 
-test("owner signup creates a confirmation-pending account", async ({ page }, testInfo) => {
+test("owner signup creates an immediate authenticated Owner account", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "Run the hosted auth flow once.");
   test.skip(
     !signupEmail || !signupPassword,
@@ -20,10 +20,7 @@ test("owner signup creates a confirmation-pending account", async ({ page }, tes
   await page.getByLabel("Confirm password").fill(signupPassword!);
   await page.getByRole("button", { name: "Create account" }).click();
 
-  await expect(
-    page.getByText("Check your email to confirm your account"),
-  ).toBeVisible();
-  await expect(page).toHaveURL(/\/signup\/owner$/);
+  await expect(page).toHaveURL(/\/owner$/);
 });
 
 test("owner login persists, rejects wrong-role URLs, and logs out", async ({ page }, testInfo) => {

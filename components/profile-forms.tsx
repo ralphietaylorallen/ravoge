@@ -32,7 +32,7 @@ type ProfileDefaults = { bio?: string | null; full_name: string; preferred_name?
 export function ProfileDetailsForm({ defaults, role }: { defaults: ProfileDefaults; role: "coach" | "client" }) {
   const [state, action, pending] = useActionState(role === "coach" ? saveCoachProfileAction : saveClientProfileAction, initial);
   return <form action={action} className={styles.form}>
-    {role === "coach" && <div className={styles.field}><label htmlFor="full-name">Full name</label><input defaultValue={defaults.full_name} id="full-name" maxLength={120} name="fullName" required /></div>}
+    <div className={styles.field}><label htmlFor="full-name">Full name</label><input defaultValue={defaults.full_name} id="full-name" maxLength={120} name="fullName" required /></div>
     <div className={styles.field}><label htmlFor="preferred-name">Preferred name <span>Optional</span></label><input defaultValue={defaults.preferred_name ?? ""} id="preferred-name" maxLength={80} name="preferredName" /></div>
     <div className={styles.field}><label htmlFor="bio">{role === "coach" ? "Short bio" : "About me"} <span>Optional</span></label><textarea defaultValue={defaults.bio ?? ""} id="bio" maxLength={1200} name="bio" rows={5} /></div>
     {role === "coach" && <>
