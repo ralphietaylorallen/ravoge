@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
+import { getProfileImageUrl } from "@/lib/profile-images";
 
 type ClientMembership = {
   status: "active" | "inactive";
@@ -45,9 +47,10 @@ export default async function OwnerClientsPage() {
     ...activeAssignments.map((assignment) => assignment.coach_user_id),
   ])];
   const { data: profiles } = profileIds.length
-    ? await supabase.from("profiles").select("id,full_name").in("id", profileIds)
+    ? await supabase.from("profiles").select("id,full_name,preferred_name,avatar_path").in("id", profileIds)
     : { data: [] };
-  const names = new Map((profiles ?? []).map((profile: { id: string; full_name: string }) => [profile.id, profile.full_name]));
+  const names = new Map((profiles ?? []).map((profile: { id: string; full_name: string; preferred_name: string | null }) => [profile.id, profile.preferred_name || profile.full_name]));
+  const photos = new Map(await Promise.all((profiles ?? []).map(async (profile: { id: string; avatar_path: string | null }) => [profile.id, await getProfileImageUrl(supabase, profile.avatar_path)] as const)));
   const coachByClient = new Map(activeAssignments.map((assignment) => [assignment.client_user_id, assignment.coach_user_id]));
 
   return (
@@ -64,6 +67,7 @@ export default async function OwnerClientsPage() {
               const coachId = coachByClient.get(client.user_id);
               return (
                 <li key={client.user_id}>
+                  <ProfilePhoto name={names.get(client.user_id) ?? "Client"} size="small" url={photos.get(client.user_id)} />
                   <div>
                     <Link href={`/owner/clients/${client.user_id}`}>{names.get(client.user_id) ?? "Client"}</Link>
                     <small>{coachId ? `Coach: ${names.get(coachId) ?? "Assigned coach"}` : "Coach not assigned"}</small>

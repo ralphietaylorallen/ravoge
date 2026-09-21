@@ -86,6 +86,20 @@ Every Data API assignment insert or status change writes an immutable `coach_cli
 
 `/coach/install` and `/client/install` are public, role-specific PWA entry routes. They carry no trusted role or organization state. General links route existing members through normal login. Secure invitations may carry only the opaque invitation token, while the database invitation row remains authoritative for email, organization, and role. The manifest launches at `/login`, uses standalone display mode and Ravoge branding, and exposes Coach and Client shortcuts. The Owner Apps & Access screen can copy these production links or open a pre-addressed operational message in the Owner's mail application; no marketing email system or privileged email credential is added.
 
+### Profile completeness and private media
+
+`profiles` remains display identity rather than an authorization source. Coach- and Client-editable fields are changed only through `update_own_profile`, which derives the actor and database membership. Coaches may edit their name, preferred name, bio, specialties, experience, and photo; Clients may edit only preferred name, bio, and photo. Organization, role, membership status, Coach assignment, intake state, and account status are not accepted as profile inputs.
+
+`coach_certifications` stores multiple organization-scoped structured credentials. An active Coach controls their own records; same-organization Owners and authorized assigned Clients may read them. Ravoge does not claim external verification. Profile images live in the private `profile-images` bucket under `<organization>/<user>/avatar.<type>`, with a 5 MB limit and JPG/PNG/WebP allowlist. Storage policies use active database relationships for reads and exact self-scoped paths for writes; the UI resolves short-lived signed URLs.
+
+### Scheduling and booking foundation
+
+Organizations define an IANA timezone, non-overnight weekly hours, date-specific closures/special hours, and constrained session defaults. Coaches define recurring weekly windows plus time-bounded unavailable, block, vacation, or one-off override records. Timestamps are stored as `timestamptz`; slot generation converts local wall time through the organization timezone, rejects nonexistent DST wall times, and performs all final checks again inside the database.
+
+`bookings` is the only appointment record used by Owner, Coach, and Client schedule views. A Client booking RPC derives the organization, Client, and active assigned Coach from `auth.uid()` and accepts only a start time, permitted duration, and optional non-sensitive note. Gym hours, closures, Coach availability, blocks, notice/advance rules, buffers, and existing bookings are rechecked atomically. GiST exclusion constraints prevent concurrent Coach and Client overlaps; the Coach constraint includes snapshotted buffers. Reschedule and cancellation functions keep the same booking identity, while `booking_events` retains lifecycle history.
+
+Transactional delivery is separate in `booking_email_deliveries`, so a provider failure never rolls back a valid booking. The server-only Resend adapter produces branded booked/rescheduled/cancelled messages, a normal Google Calendar event link, and an attached `.ics` event with stable `<booking-id>@ravoge.com` identity. No intake, health, or workout detail is rendered into email/calendar content. When `RESEND_API_KEY` or a verified `RAVOGE_EMAIL_FROM` is absent, no provider request is made and the delivery record is finalized as `skipped`; booking and schedule state remain authoritative and complete.
+
 Supabase and Netlify projects already exist. Before any future database mutation or deployment:
 
 1. Read the configured project/site ID from the local, non-committed environment or connected CLI.

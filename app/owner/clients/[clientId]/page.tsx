@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 
 import { ClientCoachAssignmentForm } from "@/components/client-coach-assignment-form";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
+import { getProfileImageUrl } from "@/lib/profile-images";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -75,7 +77,7 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
   ] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("organizations").select("name").eq("id", organizationId).single(),
-    supabase.from("profiles").select("full_name").eq("id", clientId).maybeSingle(),
+    supabase.from("profiles").select("full_name,preferred_name,bio,avatar_path,account_status").eq("id", clientId).maybeSingle(),
     supabase.from("coach_client_assignments").select("coach_user_id,status").eq("organization_id", organizationId).eq("client_user_id", clientId).order("updated_at", { ascending: false }),
     supabase.from("organization_memberships").select("user_id").eq("organization_id", organizationId).eq("role", "coach").eq("status", "active").order("created_at"),
     supabase.from("client_intakes").select("version,completed_at,training_frequency_goal,primary_goal,experience_level,recent_consistency,current_injuries,movement_limitations").eq("organization_id", organizationId).eq("client_user_id", clientId).order("version", { ascending: false }).limit(1),
@@ -99,12 +101,14 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
   const state = (stateRows?.[0] ?? null) as ClientState | null;
   const prescriptions = (prescriptionRows ?? []) as Prescription[];
   const workouts = (workoutRows ?? []) as Workout[];
+  const clientName = client?.preferred_name || client?.full_name || "Client";
+  const clientImageUrl = await getProfileImageUrl(supabase, client?.avatar_path);
 
   return (
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
       <Link className={styles.backLink} href="/owner/clients">← Back to clients</Link>
       <div className={styles.detailHeader}>
-        <div><p className={styles.eyebrow}>Owner View · Client</p><h2 className={styles.detailTitle}>{client?.full_name ?? "Client"}</h2><p className={styles.profileMeta}>{activeAssignment ? `Primary coach: ${names.get(activeAssignment.coach_user_id) ?? "Assigned coach"}` : "Primary coach not assigned"}</p></div>
+        <div className={styles.profileHero}><ProfilePhoto name={clientName} url={clientImageUrl} /><div><p className={styles.eyebrow}>Owner View · Client</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{activeAssignment ? `Primary coach: ${names.get(activeAssignment.coach_user_id) ?? "Assigned coach"}` : "Primary coach not assigned"}</p><p className={styles.empty}>{client?.bio || "No client About section yet."}</p></div></div>
         <span className={clientMembership.status === "active" ? styles.statusPill : styles.mutedPill}>{clientMembership.status}</span>
       </div>
       <nav aria-label="Client oversight sections" className={styles.tabs}><a href="#overview">Overview</a><a href="#intake">Intake</a><a href="#state">State</a><a href="#prescriptions">Prescriptions</a><a href="#history">Workout history</a></nav>
