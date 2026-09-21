@@ -6,17 +6,11 @@ export const metadata: Metadata = {
   title: "Client Signup | Ravoge",
 };
 
-export default async function ClientSignupPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ invite?: string }>;
-}) {
-  const { invite } = await searchParams;
+export default function ClientSignupPage() {
   return (
     <RoleSignupShell
       accountType="Client"
       description="For members training with a Ravoge coach."
-      invitationToken={invite}
       role="client"
     />
   );
