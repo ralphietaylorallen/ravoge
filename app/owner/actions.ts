@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth";
+import {
+  parseSavedTrainingImport,
+  parseTrainingHistoryFile,
+  type ParsedTrainingImport,
+} from "@/lib/training-import";
 
 const EQUIPMENT_TYPES = new Set([
   "barbell", "plates", "squat_rack", "bench", "dumbbells", "kettlebells",
@@ -20,6 +25,69 @@ export type CoachAssignmentActionState = {
   message?: string;
   status: "idle" | "error" | "success";
 };
+
+export type TrainingImportActionState = {
+  data?: ParsedTrainingImport;
+  importedCount?: number;
+  message?: string;
+  status: "idle" | "error" | "success";
+};
+
+export async function parseTrainingHistoryAction(
+  _state: TrainingImportActionState,
+  formData: FormData,
+): Promise<TrainingImportActionState> {
+  await requireRole("owner");
+  const file = formData.get("trainingHistory");
+  if (!(file instanceof File)) {
+    return { message: "Choose a CSV or XLSX file.", status: "error" };
+  }
+
+  try {
+    const data = await parseTrainingHistoryFile(file);
+    return {
+      data,
+      message: `${data.rows.length} row${data.rows.length === 1 ? "" : "s"} ready to import.`,
+      status: "success",
+    };
+  } catch (error) {
+    return {
+      message: error instanceof Error ? error.message : "That file could not be parsed.",
+      status: "error",
+    };
+  }
+}
+
+export async function saveTrainingHistoryAction(
+  _state: TrainingImportActionState,
+  formData: FormData,
+): Promise<TrainingImportActionState> {
+  const { supabase } = await requireRole("owner");
+
+  try {
+    const data = parseSavedTrainingImport(String(formData.get("parsedImport") ?? ""));
+    const { data: importedCount, error } = await supabase.rpc("import_training_library_rows", {
+      source_filename: data.fileName,
+      source_format: data.format,
+      source_rows: data.rows,
+    });
+    if (error) throw error;
+
+    revalidatePath("/owner/training-library");
+    return {
+      importedCount: Number(importedCount ?? data.rows.length),
+      message: `${Number(importedCount ?? data.rows.length)} row${Number(importedCount ?? data.rows.length) === 1 ? "" : "s"} saved as draft training-library records.`,
+      status: "success",
+    };
+  } catch (error) {
+    return {
+      message: error instanceof Error && error.message.includes("preview")
+        ? error.message
+        : "The import could not be saved. Nothing was partially imported.",
+      status: "error",
+    };
+  }
+}
 
 export async function assignClientCoachAction(
   clientId: string,
