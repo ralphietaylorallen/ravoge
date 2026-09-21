@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useActionState } from "react";
 
 import { signupAction } from "@/app/auth/actions";
@@ -72,5 +74,23 @@ export function SignupForm({
         </p>
       )}
     </form>
+  );
+}
+
+export function SignupFormFromSearchParams({ role }: { role: AccountRole }) {
+  const invitationToken = useSearchParams().get("invite")?.trim() ?? "";
+
+  return (
+    <>
+      <SignupForm invitationToken={invitationToken} role={role} />
+      {invitationToken && (
+        <p className={styles.intentNote}>
+          Already have a Ravoge account?{" "}
+          <Link href={`/login?invite=${encodeURIComponent(invitationToken)}`}>
+            Sign in to accept this invitation.
+          </Link>
+        </p>
+      )}
+    </>
   );
 }

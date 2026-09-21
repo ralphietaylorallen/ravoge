@@ -140,6 +140,16 @@ test("an owner invitation supports new or existing independent accounts", async 
   expect(await context.cookies()).toEqual([]);
 });
 
+test("an invalid invitation hint does not crash a signup route", async ({ page }) => {
+  await page.goto("/signup/owner?invite=invalid");
+
+  await expect(
+    page.getByRole("heading", { name: "Gym Owner", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Invitation code")).toHaveValue("invalid");
+  await expect(page.getByLabel("Gym name")).toHaveCount(0);
+});
+
 test("entry routes have no horizontal overflow", async ({ page }) => {
   for (const path of [
     "/login",

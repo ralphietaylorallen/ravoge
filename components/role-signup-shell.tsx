@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { AuthEntryShell } from "@/components/auth-entry-shell";
-import { SignupForm } from "@/components/signup-form";
+import {
+  SignupForm,
+  SignupFormFromSearchParams,
+} from "@/components/signup-form";
 import type { AccountRole } from "@/lib/auth";
 
 import styles from "./auth-entry.module.css";
@@ -9,14 +13,12 @@ import styles from "./auth-entry.module.css";
 type RoleSignupShellProps = {
   accountType: "Gym Owner" | "Coach" | "Client";
   description: string;
-  invitationToken?: string;
   role: AccountRole;
 };
 
 export function RoleSignupShell({
   accountType,
   description,
-  invitationToken,
   role,
 }: RoleSignupShellProps) {
   return (
@@ -30,16 +32,9 @@ export function RoleSignupShell({
       <h1 className={styles.roleHeading}>{accountType}</h1>
       <p className={styles.lede}>{description}</p>
 
-      <SignupForm invitationToken={invitationToken} role={role} />
-
-      {invitationToken && (
-        <p className={styles.intentNote}>
-          Already have a Ravoge account?{" "}
-          <Link href={`/login?invite=${encodeURIComponent(invitationToken)}`}>
-            Sign in to accept this invitation.
-          </Link>
-        </p>
-      )}
+      <Suspense fallback={<SignupForm role={role} />}>
+        <SignupFormFromSearchParams role={role} />
+      </Suspense>
 
       <p className={styles.intentNote}>
         Account type selection is signup intent only. Your active database
