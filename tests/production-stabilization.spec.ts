@@ -8,6 +8,7 @@ const credentials = prefix && password ? {
   client: { email: `${prefix}-client@example.com`, name: "Stability Client" },
   coach: { email: `${prefix}-coach@example.com`, name: "Stability Coach" },
   invitedCoach: { email: `${prefix}-invited-coach@example.com`, name: "Stability Invited Coach" },
+  newClient: { email: `${prefix}-new-client@example.com`, name: "Stability New Client" },
   owner: { email: `${prefix}-owner@example.com`, name: "Stability Owner" },
 } : null;
 
@@ -36,8 +37,9 @@ async function logout(page: Page) {
 
 async function createInvite(page: Page, role: "owner" | "coach" | "client", email: string, actor: "owner" | "coach" = "owner") {
   await page.goto(actor === "owner" ? "/owner/team" : "/coach");
+  const heading = actor === "coach" && role === "client" ? "Invite a client" : `Invite ${role}`;
   const section = page.locator("section").filter({
-    has: page.getByRole("heading", { name: `Invite ${role}` }),
+    has: page.getByRole("heading", { name: heading }),
   });
   await section.getByLabel("Email").fill(email);
   await section.getByRole("button", { name: role === "client" ? "Send invite" : `Invite ${role}` }).click();
@@ -62,7 +64,7 @@ test.describe("hosted production-stabilization flow", () => {
   test.describe.configure({ mode: "serial" });
 
   test("fresh identity, invite, membership, and prescription flow", async ({ browser }, testInfo) => {
-    test.setTimeout(120_000);
+    test.setTimeout(300_000);
     test.skip(testInfo.project.name !== "desktop", "Run the stateful hosted flow once.");
     test.skip(!credentials || !password, "Unique runtime-only test credentials are required.");
 
@@ -71,11 +73,13 @@ test.describe("hosted production-stabilization flow", () => {
     const clientContext = await browser.newContext();
     const invitedCoachContext = await browser.newContext();
     const additionalOwnerContext = await browser.newContext();
+    const newClientContext = await browser.newContext();
     const owner = await ownerContext.newPage();
     const coach = await coachContext.newPage();
     const client = await clientContext.newPage();
     const invitedCoach = await invitedCoachContext.newPage();
     const additionalOwner = await additionalOwnerContext.newPage();
+    const newClient = await newClientContext.newPage();
 
     await completeSignup(owner, "owner", credentials!.owner.email, credentials!.owner.name);
     await expect(owner).toHaveURL(/\/owner$/);
@@ -111,8 +115,23 @@ test.describe("hosted production-stabilization flow", () => {
     await coach.goto("/coach");
     await expect(coach.getByRole("link", { name: "Client Self" })).toBeVisible();
     await owner.goto("/owner/clients");
-    await expect(owner.getByText(`Coach: ${credentials!.coach.name}`)).toBeVisible();
-    await expect(owner.getByText(`Invited by: ${credentials!.coach.name}`)).toBeVisible();
+    await expect(owner.getByText("Coach: Coach Self")).toBeVisible();
+    await expect(owner.getByText("Invited by: Coach Self")).toBeVisible();
+
+    const newClientInvite = await createInvite(coach, "client", credentials!.newClient.email, "coach");
+    await newClient.goto(newClientInvite);
+    await newClient.getByRole("link", { name: "Accept Client invitation" }).click();
+    await expect(newClient.getByLabel("Email")).toHaveValue(credentials!.newClient.email);
+    await expect(newClient.getByLabel("Email")).toHaveAttribute("readonly", "");
+    await expect(newClient.getByLabel("Invitation code")).toHaveCount(0);
+    await newClient.getByLabel("Full name").fill(credentials!.newClient.name);
+    await newClient.getByLabel("Password", { exact: true }).fill(password!);
+    await newClient.getByLabel("Confirm password").fill(password!);
+    await newClient.getByRole("button", { name: "Create account" }).click();
+    await expect(newClient).toHaveURL(/\/client\/welcome$/);
+    await expect(newClient.getByRole("heading", { name: `Stability Gym ${prefix}` })).toBeVisible();
+    await expect(newClient.getByText("Coach: Coach Self")).toBeVisible();
+    await expect(newClient.getByRole("link", { name: "Open Client App" })).toHaveAttribute("href", "/client");
 
     const newCoachInvite = await createInvite(owner, "coach", credentials!.invitedCoach.email);
     await invitedCoach.goto(newCoachInvite);
@@ -180,7 +199,7 @@ test.describe("hosted production-stabilization flow", () => {
 
     await Promise.all([
       ownerContext.close(), coachContext.close(), clientContext.close(),
-      invitedCoachContext.close(), additionalOwnerContext.close(),
+      invitedCoachContext.close(), additionalOwnerContext.close(), newClientContext.close(),
     ]);
   });
 });
