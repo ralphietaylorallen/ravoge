@@ -1,6 +1,7 @@
 import { setEquipmentAvailabilityAction } from "@/app/owner/actions";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { EquipmentForm } from "@/components/equipment-form";
+import { EquipmentPhotoScan } from "@/components/equipment-photo-scan";
 import { requireRole } from "@/lib/auth";
 import { MutationActionForm } from "@/components/mutation-action-form";
 
@@ -27,6 +28,7 @@ export default async function OwnerEquipmentPage() {
         <div><p className={styles.eyebrow}>Gym foundation</p><h2>Equipment</h2></div>
         <p>Prescription recommendations use only equipment marked available here.</p>
       </div>
+      <EquipmentPhotoScan />
       <div className={styles.detailGrid}>
         <section className={`${styles.panel} ${styles.createPanel}`}>
           <h2>Add equipment</h2>
