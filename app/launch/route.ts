@@ -19,16 +19,40 @@ export async function GET(request: NextRequest) {
   if (queryToken) {
     const { getOrganizationEnrollmentContext } = await import("@/lib/invitations");
     const enrollment = await getOrganizationEnrollmentContext(queryToken);
-    const response = redirectResponse(request, enrollment ? "/launch" : "/login?status=invalid-invitation");
-    if (enrollment) {
-      response.cookies.set(ENROLLMENT_HANDOFF_COOKIE, queryToken, {
-        httpOnly: true,
-        maxAge: 2 * 60 * 60,
-        path: "/",
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      });
+    if (!enrollment) {
+      return redirectResponse(request, "/login?status=invalid-invitation", true);
     }
+
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      const { error } = await supabase.rpc("accept_organization_enrollment", {
+        enrollment_token: queryToken,
+      });
+      if (error) {
+        return redirectResponse(
+          request,
+          `/${enrollment.role}/install?status=${enrollment.enrollmentKind === "organization_qr" ? "membership-conflict" : "invalid-invitation"}`,
+          true,
+        );
+      }
+      const acceptedMembership = await getActiveMembership(data.user.id, supabase);
+      return acceptedMembership
+        ? redirectResponse(request, dashboardForRole(acceptedMembership.role), true)
+        : redirectResponse(request, "/login?status=membership-unavailable", true);
+    }
+
+    const response = redirectResponse(
+      request,
+      enrollment.accountExists ? "/login" : `/signup/${enrollment.role}`,
+    );
+    response.cookies.set(ENROLLMENT_HANDOFF_COOKIE, queryToken, {
+      httpOnly: true,
+      maxAge: 2 * 60 * 60,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
     return response;
   }
   const supabase = await createClient();
