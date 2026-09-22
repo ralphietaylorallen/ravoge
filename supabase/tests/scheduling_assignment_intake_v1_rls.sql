@@ -76,6 +76,13 @@ end $$;
 
 reset role; set local role authenticated;
 select set_config('request.jwt.claim.sub','c1000000-0000-4000-8000-000000000003',true);
+do $$ begin
+  if not private.can_write_profile_asset('ca000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000003/avatar/c3000000-0000-4000-8000-000000000001.webp') then raise exception 'Coach cannot write own versioned photo'; end if;
+  if private.can_write_profile_asset('ca000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000005/avatar/c3000000-0000-4000-8000-000000000002.webp') then raise exception 'Coach can write Client photo'; end if;
+  perform public.update_own_profile('{"avatarPath":"ca000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000003/avatar/c3000000-0000-4000-8000-000000000001.webp"}'::jsonb);
+  begin perform public.update_own_profile('{"avatarPath":"cb000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000003/avatar/c3000000-0000-4000-8000-000000000003.webp"}'::jsonb); raise exception 'Coach attached cross-organization photo'; exception when others then if sqlerrm='Coach attached cross-organization photo' then raise; end if; end;
+end $$;
+insert into storage.objects (bucket_id,name,metadata) values ('profile-images','ca000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000003/avatar/c3000000-0000-4000-8000-000000000001.webp','{"mimetype":"image/webp","size":1024}');
 select public.save_client_intake_v1(
   'c1000000-0000-4000-8000-000000000005',
   '{"trainingFrequencyGoal":3,"primaryGoal":"strength","secondaryGoal":"","trainingYears":2,"experienceLevel":"intermediate","recentConsistency":"building","preferredTrainingDays":[],"painAreas":[],"movementsToAvoid":[],"strengthBaseline":3,"conditioningBaseline":3,"mobilityBaseline":3,"assessmentScores":{},"sleepQuality":3,"stressLevel":3,"recoveryPerception":3,"sorenessFatigue":3,"preferredExercises":[],"avoidedExercises":[],"sessionDurationMinutes":60,"constraintTags":[],"customFields":{}}'::jsonb,
@@ -128,6 +135,16 @@ select set_config('request.jwt.claim.sub','c1000000-0000-4000-8000-000000000005'
 do $$ begin
   if exists (select 1 from public.client_intake_baselines) then raise exception 'Inactive Client retained baseline access'; end if;
   if exists (select 1 from public.preworkout_checkins) then raise exception 'Inactive Client retained check-in access'; end if;
+end $$;
+
+reset role;
+update public.organization_memberships set status='inactive' where user_id='c1000000-0000-4000-8000-000000000003';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c1000000-0000-4000-8000-000000000003',true);
+do $$ begin
+  if exists (select 1 from public.client_intake_baselines) then raise exception 'Inactive Coach retained Client baseline access'; end if;
+  if private.can_write_profile_asset('ca000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000003/avatar/c3000000-0000-4000-8000-000000000004.webp') then raise exception 'Inactive Coach retained photo upload access'; end if;
+  begin perform public.list_unassigned_clients_for_coach(); raise exception 'Inactive Coach retained claim pool'; exception when others then if sqlerrm='Inactive Coach retained claim pool' then raise; end if; end;
 end $$;
 
 rollback;

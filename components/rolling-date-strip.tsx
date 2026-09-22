@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import styles from "./dashboard.module.css";
 
@@ -8,6 +9,7 @@ type RollingDateStripProps = {
   basePath: string;
   selectedDate: string;
   today: string;
+  timezone: string;
   duration: number;
   durations: number[];
   extraParams?: Record<string, string | undefined>;
@@ -27,9 +29,10 @@ function label(date: string) {
   };
 }
 
-export function RollingDateStrip({ basePath, selectedDate, today, duration, durations, extraParams = {} }: RollingDateStripProps) {
+export function RollingDateStrip({ basePath, selectedDate, today, timezone, duration, durations, extraParams = {} }: RollingDateStripProps) {
   const router = useRouter();
-  const dates = Array.from({ length: 31 }, (_, index) => addDays(today, index));
+  const [currentToday, setCurrentToday] = useState(today);
+  const dates = Array.from({ length: 31 }, (_, index) => addDays(currentToday, index));
 
   function navigate(date: string, selectedDuration: number) {
     const params = new URLSearchParams();
@@ -38,6 +41,20 @@ export function RollingDateStrip({ basePath, selectedDate, today, duration, dura
     Object.entries(extraParams).forEach(([key, value]) => { if (value) params.set(key, value); });
     router.push(`${basePath}?${params.toString()}`);
   }
+
+  useEffect(() => {
+    function refreshDate() {
+      const parts = new Intl.DateTimeFormat("en-US", { day: "2-digit", month: "2-digit", timeZone: timezone, year: "numeric" }).formatToParts(new Date());
+      const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+      const nextToday = `${values.year}-${values.month}-${values.day}`;
+      setCurrentToday(nextToday);
+      if (selectedDate < nextToday) navigate(nextToday, duration);
+    }
+    const timer = window.setInterval(refreshDate, 60_000);
+    return () => window.clearInterval(timer);
+    // The visible window is recalculated after hydration and then every minute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timezone, selectedDate, duration]);
 
   return <div className={styles.rollingSchedule}>
     <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Rolling booking window</p><h3>Next 30 days</h3></div>
