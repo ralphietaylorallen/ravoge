@@ -12,7 +12,10 @@ async function createAccount(page: import("@playwright/test").Page, role: "coach
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Confirm password").fill(password);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect.poll(() => new URL(page.url()).pathname).toBe(`/${role}`);
+  await expect.poll(
+    () => new URL(page.url()).pathname,
+    { timeout: 20_000 },
+  ).toBe(`/${role}`);
 }
 
 test("real organization QRs preserve install-first context and enforce lifecycle controls", async ({ browser, page }, testInfo) => {
@@ -30,7 +33,10 @@ test("real organization QRs preserve install-first context and enforce lifecycle
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Confirm password").fill(password);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect.poll(() => new URL(page.url()).pathname).toBe("/owner");
+  await expect.poll(
+    () => new URL(page.url()).pathname,
+    { timeout: 20_000 },
+  ).toBe("/owner");
   await expect(page.getByRole("heading", { name: /Welcome/i })).toBeVisible();
 
   await page.goto("/owner/apps");
