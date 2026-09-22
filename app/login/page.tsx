@@ -17,14 +17,16 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string; status?: string }>;
+  searchParams: Promise<{ enrollment?: string; invite?: string; status?: string }>;
 }) {
-  const { invite, status } = await searchParams;
+  const { enrollment: enrollmentToken, invite, status } = await searchParams;
   if (invite) {
     const legacyEnrollment = await getOrganizationEnrollmentContext(invite);
     redirect(legacyEnrollment ? `/enroll/${legacyEnrollment.role}?token=${encodeURIComponent(invite)}` : "/login?status=invalid-invitation");
   }
-  const enrollment = (await getEnrollmentHandoff())?.enrollment ?? null;
+  const enrollment = enrollmentToken
+    ? await getOrganizationEnrollmentContext(enrollmentToken)
+    : (await getEnrollmentHandoff())?.enrollment ?? null;
   return (
     <AuthEntryShell>
       <p className={styles.eyebrow}>Ravoge access</p>
@@ -36,6 +38,7 @@ export default async function LoginPage({
       ) : null}
       <LoginForm
         invitationEmail={enrollment?.email ?? undefined}
+        invitationToken={enrollment ? enrollmentToken : undefined}
       />
     </AuthEntryShell>
   );

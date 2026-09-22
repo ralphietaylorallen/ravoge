@@ -9,8 +9,10 @@ import styles from "./auth-entry.module.css";
 
 export function LoginForm({
   invitationEmail,
+  invitationToken,
 }: {
   invitationEmail?: string;
+  invitationToken?: string;
 }) {
   const [state, action, pending] = useActionState(loginAction, {
     status: "idle" as const,
@@ -18,6 +20,7 @@ export function LoginForm({
 
   return (
     <form action={action} className={styles.form}>
+      {invitationToken ? <input name="invitationToken" type="hidden" value={invitationToken} /> : null}
       <div className={styles.field}>
         <label htmlFor="email">Email</label>
         <input

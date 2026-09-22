@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 export default async function CoachSignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string; status?: string }>;
+  searchParams: Promise<{ enrollment?: string; invite?: string; status?: string }>;
 }) {
-  const { invite, status } = await searchParams;
+  const { enrollment, invite, status } = await searchParams;
   if (invite) {
     const enrollment = await getOrganizationEnrollmentContext(invite);
     redirect(enrollment?.role === "coach" ? `/enroll/coach?token=${encodeURIComponent(invite)}` : "/signup/coach?status=invalid-invitation");
@@ -22,6 +22,7 @@ export default async function CoachSignupPage({
     <RoleSignupShell
       accountType="Coach"
       description="For trainers programming and managing their clients."
+      enrollmentToken={enrollment}
       invalidInvitation={status === "invalid-invitation"}
       role="coach"
     />

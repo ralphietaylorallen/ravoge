@@ -42,9 +42,10 @@ export async function GET(request: NextRequest) {
         : redirectResponse(request, "/login?status=membership-unavailable", true);
     }
 
+    const destination = enrollment.accountExists ? "/login" : `/signup/${enrollment.role}`;
     const response = redirectResponse(
       request,
-      enrollment.accountExists ? "/login" : `/signup/${enrollment.role}`,
+      `${destination}?enrollment=${encodeURIComponent(queryToken)}`,
     );
     response.cookies.set(ENROLLMENT_HANDOFF_COOKIE, queryToken, {
       httpOnly: true,

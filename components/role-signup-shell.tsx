@@ -4,12 +4,14 @@ import { AuthEntryShell } from "@/components/auth-entry-shell";
 import { SignupForm } from "@/components/signup-form";
 import type { AccountRole } from "@/lib/auth";
 import { getEnrollmentHandoff } from "@/lib/enrollment";
+import { getOrganizationEnrollmentContext } from "@/lib/invitations";
 
 import styles from "./auth-entry.module.css";
 
 type RoleSignupShellProps = {
   accountType: "Gym Owner" | "Coach" | "Client";
   description: string;
+  enrollmentToken?: string;
   invalidInvitation?: boolean;
   role: AccountRole;
 };
@@ -17,12 +19,18 @@ type RoleSignupShellProps = {
 export async function RoleSignupShell({
   accountType,
   description,
+  enrollmentToken,
   invalidInvitation = false,
   role,
 }: RoleSignupShellProps) {
   const handoff = await getEnrollmentHandoff();
-  const enrollment = handoff?.enrollment.role === role ? handoff.enrollment : null;
-  const enrollmentIsValid = !invalidInvitation && (!handoff || Boolean(enrollment));
+  const directEnrollment = enrollmentToken
+    ? await getOrganizationEnrollmentContext(enrollmentToken)
+    : null;
+  const enrollment = enrollmentToken
+    ? directEnrollment?.role === role ? directEnrollment : null
+    : handoff?.enrollment.role === role ? handoff.enrollment : null;
+  const enrollmentIsValid = !invalidInvitation && (!(handoff || enrollmentToken) || Boolean(enrollment));
 
   return (
     <AuthEntryShell>
@@ -38,6 +46,7 @@ export async function RoleSignupShell({
       {enrollmentIsValid ? (
         <SignupForm
           enrollment={enrollment ?? undefined}
+          enrollmentToken={enrollment ? enrollmentToken : undefined}
           role={role}
         />
       ) : (

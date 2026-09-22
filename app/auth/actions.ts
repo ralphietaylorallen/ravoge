@@ -223,6 +223,7 @@ export async function signupAction(
   const enrollment = await getEnrollmentHandoff();
   const invitationToken = asString(formData.get("invitationToken")) || enrollment?.token || "";
   const hasInvitation = invitationToken.length > 0;
+  let enrollmentKind: "email_invitation" | "organization_qr" | null = null;
 
   if (fullName.length < 2 || fullName.length > 120) {
     return { message: "Enter your full name.", status: "error" };
@@ -264,6 +265,7 @@ export async function signupAction(
     ) {
       return { message: "This enrollment does not match this account type and email.", status: "error" };
     }
+    enrollmentKind = enrollmentContext.enrollment_kind;
     await setSignupCookie(SIGNUP_INVITE_COOKIE, invitationToken);
   } else if (role === "owner") {
     ownerSignupToken = randomBytes(32).toString("base64url");
@@ -324,7 +326,7 @@ export async function signupAction(
     if (
       role === "client"
       && provisionedRole === "client"
-      && enrollment?.enrollment.enrollmentKind !== "organization_qr"
+      && enrollmentKind !== "organization_qr"
     ) {
       redirect("/client/welcome");
     }

@@ -6,7 +6,8 @@ const password = `RavogeE2E!${runId}9`;
 const gymName = `Ravoge Enrollment E2E ${runId}`;
 
 async function createAccount(page: import("@playwright/test").Page, role: "coach" | "client", email: string) {
-  await expect(page).toHaveURL(new RegExp(`/signup/${role}$`));
+  await expect(page).toHaveURL(new RegExp(`/signup/${role}\\?enrollment=[A-Za-z0-9_-]{43}$`));
+  await expect(page.getByRole("heading", { name: `Join ${gymName}` })).toBeVisible();
   await page.getByLabel("Full name").fill(`Enrollment ${role} ${runId}`);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
