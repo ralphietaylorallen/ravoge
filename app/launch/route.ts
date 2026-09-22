@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       }
       const acceptedMembership = await getActiveMembership(data.user.id, supabase);
       return acceptedMembership
-        ? redirectResponse(request, dashboardForRole(acceptedMembership.role), true)
+        ? redirectResponse(request, `${dashboardForRole(acceptedMembership.role)}?from=enrollment`, true)
         : redirectResponse(request, "/login?status=membership-unavailable", true);
     }
 
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     });
     return error
       ? redirectResponse(request, `/${handoff.enrollment.role}/install?status=membership-conflict`, true)
-      : redirectResponse(request, dashboardForRole(membership.role), true);
+      : redirectResponse(request, `${dashboardForRole(membership.role)}?from=enrollment`, true);
   }
   if (membership) return redirectResponse(request, dashboardForRole(membership.role), true);
   if (!handoff) return redirectResponse(request, "/login", true);
@@ -89,6 +89,6 @@ export async function GET(request: NextRequest) {
   }
   const acceptedMembership = await getActiveMembership(data.user.id, supabase);
   return acceptedMembership
-    ? redirectResponse(request, dashboardForRole(acceptedMembership.role), true)
+    ? redirectResponse(request, `${dashboardForRole(acceptedMembership.role)}?from=enrollment`, true)
     : redirectResponse(request, "/login?status=membership-unavailable", true);
 }

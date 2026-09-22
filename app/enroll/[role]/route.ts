@@ -30,7 +30,7 @@ export async function GET(
         enrollment_token: token,
       });
       const response = NextResponse.redirect(new URL(
-        error ? `${destination}?status=membership-conflict` : dashboardForRole(membership.role),
+        error ? `${destination}?status=membership-conflict` : `${dashboardForRole(membership.role)}?from=enrollment`,
         request.url,
       ));
       Object.entries(HANDOFF_HEADERS).forEach(([name, value]) => response.headers.set(name, value));

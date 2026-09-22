@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const runLiveJourney = process.env.RAVOGE_E2E_ENROLLMENT_RUN === "true";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const runId = Date.now().toString(36);
 const password = `RavogeE2E!${runId}9`;
 const gymName = `Ravoge Enrollment E2E ${runId}`;
@@ -17,6 +18,7 @@ async function createAccount(page: import("@playwright/test").Page, role: "coach
     () => new URL(page.url()).pathname,
     { timeout: 20_000 },
   ).toBe(`/${role}`);
+  await expect(page.getByRole("heading", { name: new RegExp(`Welcome, Enrollment ${role} ${runId}`, "i") })).toBeVisible();
 }
 
 test("real organization QRs preserve install-first context and enforce lifecycle controls", async ({ browser, page }, testInfo) => {
@@ -54,7 +56,7 @@ test("real organization QRs preserve install-first context and enforce lifecycle
   const initialClientPath = `${new URL(initialClientUrl!).pathname}${new URL(initialClientUrl!).search}`;
   const coachPath = `${new URL(coachUrl!).pathname}${new URL(coachUrl!).search}`;
 
-  const mobileContext = await browser.newContext({ viewport: { height: 844, width: 390 } });
+  const mobileContext = await browser.newContext({ baseURL, viewport: { height: 844, width: 390 } });
   const installPage = await mobileContext.newPage();
   await installPage.goto(initialClientPath);
   await expect(installPage).toHaveURL(/\/client\/install\?enrollment=/);
@@ -69,32 +71,32 @@ test("real organization QRs preserve install-first context and enforce lifecycle
   expect(enrollmentManifest.start_url).toMatch(/^\/launch\?enrollment=[A-Za-z0-9_-]{43}$/);
 
   // A fresh, cookieless context emulates opening the newly installed PWA.
-  const installedClientContext = await browser.newContext({ viewport: { height: 844, width: 390 } });
+  const installedClientContext = await browser.newContext({ baseURL, viewport: { height: 844, width: 390 } });
   const installedClient = await installedClientContext.newPage();
   await installedClient.goto(enrollmentManifest.start_url);
   await createAccount(installedClient, "client", clientEmail);
 
-  const tamperedContext = await browser.newContext();
+  const tamperedContext = await browser.newContext({ baseURL });
   const tampered = await tamperedContext.newPage();
   await tampered.goto(initialClientPath.replace("/enroll/client", "/enroll/coach"));
   await expect(tampered).toHaveURL(/\/coach\/install\?status=invalid-invitation$/);
   await expect(tampered.getByText(/invalid, expired, revoked, or already used/i)).toBeVisible();
   await tamperedContext.close();
 
-  const coachContext = await browser.newContext({ viewport: { height: 1024, width: 768 } });
+  const coachContext = await browser.newContext({ baseURL, viewport: { height: 1024, width: 768 } });
   const coachInstall = await coachContext.newPage();
   await coachInstall.goto(coachPath);
   const coachManifestHref = await coachInstall.locator('link[rel="manifest"]').getAttribute("href");
   const coachManifest = await (await coachInstall.request.get(coachManifestHref!)).json();
-  const installedCoachContext = await browser.newContext({ viewport: { height: 1024, width: 768 } });
+  const installedCoachContext = await browser.newContext({ baseURL, viewport: { height: 1024, width: 768 } });
   const installedCoach = await installedCoachContext.newPage();
   await installedCoach.goto(coachManifest.start_url);
   await createAccount(installedCoach, "coach", coachEmail);
 
   // Existing members are idempotent, while a different active role gets a precise conflict.
-  await installedClient.goto(initialClientPath);
-  await expect(installedClient).toHaveURL(/\/client$/);
-  await installedCoach.goto(initialClientPath);
+  await installedClient.goto(new URL(initialClientPath, installedClient.url()).href);
+  await expect(installedClient).toHaveURL(/\/client\?from=enrollment$/);
+  await installedCoach.goto(new URL(initialClientPath, installedCoach.url()).href);
   await expect(installedCoach).toHaveURL(/\/client\/install\?status=membership-conflict$/);
   await expect(installedCoach.getByText(/already belongs to a Ravoge gym with a different role/i)).toBeVisible();
 
@@ -111,7 +113,7 @@ test("real organization QRs preserve install-first context and enforce lifecycle
   const rotatedClientUrl = await refreshedClientCard.locator("[data-qr-value]").getAttribute("data-qr-value");
   const rotatedClientPath = `${new URL(rotatedClientUrl!).pathname}${new URL(rotatedClientUrl!).search}`;
 
-  const oldQrContext = await browser.newContext();
+  const oldQrContext = await browser.newContext({ baseURL });
   const oldQr = await oldQrContext.newPage();
   await oldQr.goto(initialClientPath);
   await expect(oldQr).toHaveURL(/\/client\/install\?status=invalid-invitation$/);
@@ -119,7 +121,7 @@ test("real organization QRs preserve install-first context and enforce lifecycle
 
   await refreshedClientCard.getByRole("button", { name: "Disable" }).click();
   await expect(refreshedClientCard.getByText("disabled", { exact: true })).toBeVisible();
-  const disabledContext = await browser.newContext();
+  const disabledContext = await browser.newContext({ baseURL });
   const disabledQr = await disabledContext.newPage();
   await disabledQr.goto(rotatedClientPath);
   await expect(disabledQr).toHaveURL(/\/client\/install\?status=invalid-invitation$/);
