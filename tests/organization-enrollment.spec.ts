@@ -19,6 +19,7 @@ async function createAccount(page: import("@playwright/test").Page, role: "coach
 }
 
 test("real organization QRs preserve install-first context and enforce lifecycle controls", async ({ browser, page }, testInfo) => {
+  test.setTimeout(120_000);
   test.skip(testInfo.project.name !== "desktop", "Run the stateful hosted enrollment journey once.");
   test.skip(!runLiveJourney, "Explicit stateful enrollment test opt-in is required.");
 

@@ -4,17 +4,24 @@ import { AuthEntryShell } from "@/components/auth-entry-shell";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { dashboardForRole, getActiveMembership, getVerifiedUser, type AccountRole } from "@/lib/auth";
 import { getEnrollmentHandoff } from "@/lib/enrollment";
+import { getOrganizationEnrollmentContext } from "@/lib/invitations";
 
 import styles from "./auth-entry.module.css";
 
-export async function InstallAccessPage({ role, status }: {
+export async function InstallAccessPage({ enrollmentToken, role, status }: {
+  enrollmentToken?: string;
   role: Extract<AccountRole, "coach" | "client">;
   status?: string;
 }) {
   const { supabase, userId } = await getVerifiedUser();
   const membership = userId ? await getActiveMembership(userId, supabase) : null;
   const handoff = await getEnrollmentHandoff();
-  const enrollment = handoff?.enrollment.role === role ? handoff.enrollment : null;
+  const directEnrollment = enrollmentToken
+    ? await getOrganizationEnrollmentContext(enrollmentToken)
+    : null;
+  const enrollment = enrollmentToken
+    ? directEnrollment?.role === role ? directEnrollment : null
+    : handoff?.enrollment.role === role ? handoff.enrollment : null;
   const label = role === "coach" ? "Coach" : "Client";
   const continueHref = membership ? dashboardForRole(membership.role) : enrollment ? "/launch" : "/login";
 
@@ -32,7 +39,7 @@ export async function InstallAccessPage({ role, status }: {
         <p className={`${styles.formNotice} ${styles.formError}`} role="alert">
           This Ravoge account already belongs to a different gym or role. A QR cannot change an existing membership. Sign out and use the intended account.
         </p>
-      ) : status === "invalid-invitation" || (handoff && !enrollment) ? (
+      ) : status === "invalid-invitation" || ((handoff || enrollmentToken) && !enrollment) ? (
         <p className={`${styles.formNotice} ${styles.formError}`} role="alert">
           This gym invitation is invalid, expired, revoked, or already used. Ask your gym for a new invitation.
         </p>

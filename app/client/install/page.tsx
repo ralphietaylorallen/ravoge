@@ -16,7 +16,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 }
 
 export default async function ClientInstallPage({ searchParams }: { searchParams: Promise<{ enrollment?: string; invite?: string; status?: string }> }) {
-  const { invite, status } = await searchParams;
+  const { enrollment, invite, status } = await searchParams;
   if (invite) redirect(`/enroll/client?token=${encodeURIComponent(invite)}`);
-  return <InstallAccessPage role="client" status={status} />;
+  return <InstallAccessPage enrollmentToken={enrollment} role="client" status={status} />;
 }

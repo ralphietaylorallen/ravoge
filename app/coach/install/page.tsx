@@ -16,7 +16,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 }
 
 export default async function CoachInstallPage({ searchParams }: { searchParams: Promise<{ enrollment?: string; invite?: string; status?: string }> }) {
-  const { invite, status } = await searchParams;
+  const { enrollment, invite, status } = await searchParams;
   if (invite) redirect(`/enroll/coach?token=${encodeURIComponent(invite)}`);
-  return <InstallAccessPage role="coach" status={status} />;
+  return <InstallAccessPage enrollmentToken={enrollment} role="coach" status={status} />;
 }
