@@ -98,7 +98,7 @@ test("real organization QRs preserve install-first context and enforce lifecycle
   await expect(installedClient).toHaveURL(/\/client\?from=enrollment$/);
   await installedCoach.goto(new URL(initialClientPath, installedCoach.url()).href);
   await expect(installedCoach).toHaveURL(/\/client\/install\?status=membership-conflict$/);
-  await expect(installedCoach.getByText(/already belongs to a Ravoge gym with a different role/i)).toBeVisible();
+  await expect(installedCoach.getByRole("alert").getByText(/already belongs to a different gym or role/i)).toBeVisible();
 
   await page.goto("/owner/team");
   await expect(page.getByText(`Enrollment client ${runId}`, { exact: false })).toBeVisible();
