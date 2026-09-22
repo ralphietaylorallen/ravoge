@@ -4,6 +4,7 @@ const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
 
 export default defineConfig({
   testDir: "./tests",
+  testIgnore: ["unit/**"],
   fullyParallel: true,
   workers: process.env.CI ? 4 : 6,
   reporter: "list",

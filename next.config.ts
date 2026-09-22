@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
       ] },
       { source: "/(.*)", headers: [
       { key: "Content-Security-Policy", value: csp },
-      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()" },
+      { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()" },
       { key: "Referrer-Policy", value: "no-referrer" },
       { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
       { key: "X-Content-Type-Options", value: "nosniff" },
