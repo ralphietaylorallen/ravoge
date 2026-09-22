@@ -39,6 +39,12 @@ export function PwaInstallButton({ className, continueHref, roleLabel }: {
     };
   }, []);
 
+  useEffect(() => {
+    if (standalone) {
+      window.location.replace(continueHref);
+    }
+  }, [continueHref, standalone]);
+
   if (standalone) {
     return <Link className={className} href={continueHref}>Continue to {roleLabel} access <span aria-hidden="true">→</span></Link>;
   }

@@ -21,8 +21,8 @@ export async function RoleSignupShell({
   role,
 }: RoleSignupShellProps) {
   const handoff = await getEnrollmentHandoff();
-  const invitation = handoff?.invitation.role === role ? handoff.invitation : null;
-  const invitationIsValid = !invalidInvitation && (!handoff || Boolean(invitation));
+  const enrollment = handoff?.enrollment.role === role ? handoff.enrollment : null;
+  const enrollmentIsValid = !invalidInvitation && (!handoff || Boolean(enrollment));
 
   return (
     <AuthEntryShell>
@@ -31,18 +31,18 @@ export async function RoleSignupShell({
         Back
       </Link>
 
-      <p className={styles.eyebrow}>{invitation ? "Secure gym invitation" : "Selected account type"}</p>
-      <h1 className={styles.roleHeading}>{invitation ? `Join ${invitation.organizationName}` : accountType}</h1>
-      <p className={styles.lede}>{invitation ? `${invitation.inviterName} invited you to join as ${invitation.role}.` : description}</p>
+      <p className={styles.eyebrow}>{enrollment ? "Secure gym enrollment" : "Selected account type"}</p>
+      <h1 className={styles.roleHeading}>{enrollment ? `Join ${enrollment.organizationName}` : accountType}</h1>
+      <p className={styles.lede}>{enrollment ? `Create or use your own Ravoge account to join as ${enrollment.role}.` : description}</p>
 
-      {invitationIsValid ? (
+      {enrollmentIsValid ? (
         <SignupForm
-          invitation={invitation ?? undefined}
+          enrollment={enrollment ?? undefined}
           role={role}
         />
       ) : (
         <div className={styles.formNotice} role="alert">
-          This invitation is invalid, expired, revoked, or intended for another account type.
+          This enrollment is invalid, expired, disabled, or intended for another account type.
         </div>
       )}
 
