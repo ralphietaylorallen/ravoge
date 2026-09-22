@@ -3,27 +3,26 @@ import Link from "next/link";
 import { AuthEntryShell } from "@/components/auth-entry-shell";
 import { SignupForm } from "@/components/signup-form";
 import type { AccountRole } from "@/lib/auth";
-import { getInvitationContext } from "@/lib/invitations";
+import { getEnrollmentHandoff } from "@/lib/enrollment";
 
 import styles from "./auth-entry.module.css";
 
 type RoleSignupShellProps = {
   accountType: "Gym Owner" | "Coach" | "Client";
   description: string;
-  invitationToken?: string;
+  invalidInvitation?: boolean;
   role: AccountRole;
 };
 
 export async function RoleSignupShell({
   accountType,
   description,
-  invitationToken,
+  invalidInvitation = false,
   role,
 }: RoleSignupShellProps) {
-  const invitation = invitationToken
-    ? await getInvitationContext(invitationToken)
-    : null;
-  const invitationIsValid = !invitationToken || invitation?.role === role;
+  const handoff = await getEnrollmentHandoff();
+  const invitation = handoff?.invitation.role === role ? handoff.invitation : null;
+  const invitationIsValid = !invalidInvitation && (!handoff || Boolean(invitation));
 
   return (
     <AuthEntryShell>
@@ -39,7 +38,6 @@ export async function RoleSignupShell({
       {invitationIsValid ? (
         <SignupForm
           invitation={invitation ?? undefined}
-          invitationToken={invitation ? invitationToken : undefined}
           role={role}
         />
       ) : (

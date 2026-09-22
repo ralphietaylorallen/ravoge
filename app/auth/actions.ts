@@ -15,6 +15,7 @@ import {
   type AccountRole,
 } from "@/lib/auth";
 import { sendInvitationEmail } from "@/lib/invitation-email";
+import { clearEnrollmentHandoff, getEnrollmentHandoff } from "@/lib/enrollment";
 import { createClient } from "@/lib/supabase/server";
 
 const SIGNUP_INVITE_COOKIE = "ravoge_signup_invite";
@@ -84,6 +85,7 @@ async function clearSignupCookies() {
   cookieStore.delete(SIGNUP_INVITE_COOKIE);
   cookieStore.delete(SIGNUP_OWNER_TOKEN_COOKIE);
   cookieStore.delete(SIGNUP_ORGANIZATION_COOKIE);
+  await clearEnrollmentHandoff();
 }
 
 async function destinationForAuthenticatedUser(userId: string, supabase: SupabaseClient) {
@@ -150,7 +152,8 @@ export async function loginAction(
 ): Promise<ActionState> {
   const email = asString(formData.get("email")).toLowerCase();
   const password = asString(formData.get("password"));
-  const invitationToken = asString(formData.get("invitationToken"));
+  const enrollment = await getEnrollmentHandoff();
+  const invitationToken = asString(formData.get("invitationToken")) || enrollment?.token || "";
   if (!email || !password) {
     return { message: "Enter your email and password.", status: "error" };
   }
@@ -174,7 +177,10 @@ export async function loginAction(
     }
     membership = await getActiveMembership(data.user.id, supabase);
   }
-  if (membership) redirect(dashboardForRole(membership.role));
+  if (membership) {
+    await clearEnrollmentHandoff();
+    redirect(dashboardForRole(membership.role));
+  }
 
   const identityDestination = await destinationForAuthenticatedUser(data.user.id, supabase);
   if (identityDestination) redirect(identityDestination);
@@ -214,7 +220,8 @@ export async function signupAction(
   const password = asString(formData.get("password"));
   const confirmPassword = asString(formData.get("confirmPassword"));
   const organizationName = asString(formData.get("organizationName"));
-  const invitationToken = asString(formData.get("invitationToken"));
+  const enrollment = await getEnrollmentHandoff();
+  const invitationToken = asString(formData.get("invitationToken")) || enrollment?.token || "";
   const hasInvitation = invitationToken.length > 0;
 
   if (fullName.length < 2 || fullName.length > 120) {
@@ -455,9 +462,7 @@ async function createInvitation(role: AccountRole, formData: FormData): Promise<
   }
 
   const origin = await getRequestOrigin();
-  const path = role === "owner"
-    ? `/signup/owner?invite=${encodeURIComponent(token)}`
-    : `/${role}/install?invite=${encodeURIComponent(token)}`;
+  const path = `/enroll/${role}?token=${encodeURIComponent(token)}`;
   const invitationUrl = `${origin}${path}`;
   const emailResult = await sendInvitationEmail({
     invitationUrl,
@@ -500,4 +505,21 @@ export async function createCoachInvitationAction(_state: ActionState, formData:
 }
 export async function createClientInvitationAction(_state: ActionState, formData: FormData) {
   return createInvitation("client", formData);
+}
+
+export async function revokeInvitationAction(invitationId: string, _state: ActionState): Promise<ActionState> {
+  void _state;
+  if (!/^[0-9a-f-]{36}$/i.test(invitationId)) {
+    return { message: "That invitation is not available.", status: "error" };
+  }
+  const { supabase, userId } = await getVerifiedUser();
+  if (!userId) return { message: "Sign in again.", status: "error" };
+  const { error } = await supabase.rpc("revoke_organization_invitation", { target_invitation_id: invitationId });
+  if (error) {
+    logAuthError("invitation revocation", error);
+    return { message: "This invitation could not be revoked.", status: "error" };
+  }
+  revalidatePath("/owner/team");
+  revalidatePath("/coach");
+  return { message: "Invitation revoked.", status: "success" };
 }

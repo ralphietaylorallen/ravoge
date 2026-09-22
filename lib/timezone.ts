@@ -72,3 +72,12 @@ export function organizationWeekWindow(timezone: string, now = new Date()) {
   const endIso = endDate ? localDateStartIso(endDate, timezone) : null;
   return startIso && endIso ? { endIso, startDate, startIso } : null;
 }
+
+export function localWeekStartDate(value: Date | string, timezone: string) {
+  const localDate = localDateInTimeZone(value, timezone);
+  const [year, month, day] = localDate.split("-").map(Number);
+  const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return shiftLocalDate(localDate, dayOfWeek === 0 ? -6 : 1 - dayOfWeek);
+}
+/** Ravoge's documented fallback until an organization selects its own IANA timezone. */
+export const DEFAULT_ORGANIZATION_TIMEZONE = "America/Denver";

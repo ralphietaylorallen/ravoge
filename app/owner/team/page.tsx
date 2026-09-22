@@ -1,10 +1,12 @@
 import Link from "next/link";
 
+import { revokeInvitationAction } from "@/app/auth/actions";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { InviteForm } from "@/components/invite-form";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
+import { MutationActionForm } from "@/components/mutation-action-form";
 
 type MemberRow = {
   is_primary_owner: boolean;
@@ -14,10 +16,12 @@ type MemberRow = {
 };
 
 type InvitationRow = {
+  accepted_at: string | null;
   created_at: string;
   email: string;
   expires_at: string;
   id: string;
+  revoked_at: string | null;
   role: "owner" | "coach" | "client";
 };
 
@@ -39,11 +43,8 @@ export default async function OwnerTeamPage() {
       .order("created_at"),
     supabase
       .from("organization_invitations")
-      .select("id, email, role, expires_at, created_at")
+      .select("id, email, role, expires_at, created_at, accepted_at, revoked_at")
       .eq("organization_id", organizationId)
-      .is("accepted_at", null)
-      .is("revoked_at", null)
-      .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false }),
   ]);
 
@@ -68,6 +69,7 @@ export default async function OwnerTeamPage() {
       ] as const),
     ),
   );
+  const nowIso = new Date().toISOString();
 
   return (
     <DashboardShell
@@ -135,18 +137,19 @@ export default async function OwnerTeamPage() {
           <InviteForm role="client" />
         </section>
         <section className={styles.panel}>
-          <h2>Pending invitations</h2>
+          <h2>Invitations</h2>
           {(invitations ?? []).length ? (
             <ul className={styles.list}>
-              {((invitations ?? []) as InvitationRow[]).map((invitation) => (
-                <li key={invitation.id}>
-                  <span>{invitation.email}</span>
-                  <small>{invitation.role} · expires {new Date(invitation.expires_at).toLocaleDateString("en-US")}</small>
-                </li>
-              ))}
+              {((invitations ?? []) as InvitationRow[]).map((invitation) => {
+                const status = invitation.accepted_at ? "accepted" : invitation.revoked_at ? "revoked" : invitation.expires_at <= nowIso ? "expired" : "pending";
+                return <li key={invitation.id}>
+                  <span>{invitation.email}<small>{invitation.role} · {status} · expires {new Date(invitation.expires_at).toLocaleDateString("en-US")}</small></span>
+                  {status === "pending" ? <MutationActionForm action={revokeInvitationAction.bind(null, invitation.id)} confirmMessage={`Revoke the ${invitation.role} invitation for ${invitation.email}?`} label="Revoke" /> : null}
+                </li>;
+              })}
             </ul>
           ) : (
-            <p className={styles.empty}>No pending invitations.</p>
+            <p className={styles.empty}>No invitation history.</p>
           )}
         </section>
       </div>

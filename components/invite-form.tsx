@@ -8,6 +8,7 @@ import {
   createOwnerInvitationAction,
 } from "@/app/auth/actions";
 import { CopyLinkButton } from "@/components/copy-link-button";
+import { QrCode } from "@/components/qr-code";
 
 import styles from "./dashboard.module.css";
 
@@ -50,6 +51,7 @@ export function InviteForm({ role }: { role: keyof typeof invitationActions }) {
           </strong>
           <a href={state.invitationUrl}>Open secure invitation</a>
           <CopyLinkButton label="Copy secure invitation" url={state.invitationUrl} />
+          {(role === "coach" || role === "client") && <QrCode label={`Ravoge ${role} invitation QR`} url={state.invitationUrl} />}
           {emailHref && <a className={styles.secondaryAction} href={emailHref}>Email invitation</a>}
           <small>The opaque link is intended only for {state.recipientEmail}. Its organization and role are fixed in the database.</small>
         </div>

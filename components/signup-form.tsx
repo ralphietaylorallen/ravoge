@@ -11,11 +11,9 @@ import styles from "./auth-entry.module.css";
 
 export function SignupForm({
   invitation,
-  invitationToken = "",
   role,
 }: {
   invitation?: InvitationContext;
-  invitationToken?: string;
   role: AccountRole;
 }) {
   const action = signupAction.bind(null, role);
@@ -32,9 +30,6 @@ export function SignupForm({
         </p>
       )}
       <form action={formAction} className={styles.form}>
-        {invitationToken && (
-          <input name="invitationToken" type="hidden" value={invitationToken} />
-        )}
         <div className={styles.field}>
           <label htmlFor="fullName">Full name</label>
           <input autoComplete="name" id="fullName" name="fullName" required />
@@ -87,7 +82,7 @@ export function SignupForm({
       {invitation && (
         <p className={styles.intentNote}>
           Already have a Ravoge account?{" "}
-          <Link href={`/login?invite=${encodeURIComponent(invitationToken)}`}>
+          <Link href="/login">
             Sign in to accept this invitation.
           </Link>
         </p>

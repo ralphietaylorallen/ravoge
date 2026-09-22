@@ -125,9 +125,12 @@ export async function addCertificationAction(_state: ProfileActionState, formDat
   return { message: "Certification added.", status: "success" };
 }
 
-export async function deleteCertificationAction(certificationId: string) {
+export async function deleteCertificationAction(certificationId: string, _state: ProfileActionState): Promise<ProfileActionState> {
+  void _state;
   const { supabase } = await requireRole("coach");
-  if (!UUID_PATTERN.test(certificationId)) return;
-  await supabase.from("coach_certifications").delete().eq("id", certificationId);
+  if (!UUID_PATTERN.test(certificationId)) return { message: "That certification is not available.", status: "error" };
+  const { data, error } = await supabase.from("coach_certifications").delete().eq("id", certificationId).select("id").maybeSingle();
+  if (error || !data) return { message: "That certification could not be removed.", status: "error" };
   revalidatePath("/coach/profile");
+  return { message: "Certification removed.", status: "success" };
 }

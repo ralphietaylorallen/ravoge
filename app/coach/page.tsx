@@ -1,12 +1,14 @@
 import Link from "next/link";
 
+import { revokeInvitationAction } from "@/app/auth/actions";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { InviteForm } from "@/components/invite-form";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
+import { MutationActionForm } from "@/components/mutation-action-form";
 
-type PendingInvitation = { delivery_status: string; email: string; expires_at: string; id: string };
+type PendingInvitation = { accepted_at: string | null; delivery_status: string; email: string; expires_at: string; id: string; revoked_at: string | null };
 
 export default async function CoachPage() {
   const { membership, supabase, userId } = await requireRole("coach");
@@ -22,15 +24,13 @@ export default async function CoachPage() {
   const photos = new Map(await Promise.all((clients ?? []).map(async (client: { id: string; avatar_path: string | null }) => [client.id, await getProfileImageUrl(supabase, client.avatar_path)] as const)));
   const { data: pendingRows } = await supabase
     .from("organization_invitations")
-    .select("id,email,expires_at,delivery_status")
+    .select("id,email,expires_at,delivery_status,accepted_at,revoked_at")
     .eq("organization_id", membership.organization_id)
     .eq("invited_by", userId)
     .eq("role", "client")
-    .is("accepted_at", null)
-    .is("revoked_at", null)
-    .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false });
   const pendingInvitations = (pendingRows ?? []) as PendingInvitation[];
+  const nowIso = new Date().toISOString();
 
   return (
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Coach"} role="coach">
@@ -46,14 +46,15 @@ export default async function CoachPage() {
           <InviteForm role="client" />
           {pendingInvitations.length ? (
             <>
-              <h3 className={styles.subheading}>Pending invitations</h3>
+              <h3 className={styles.subheading}>Invitation history</h3>
               <ul className={styles.activityList}>
-                {pendingInvitations.map((invitation) => (
-                  <li key={invitation.id}>
-                    <div><strong>{invitation.email}</strong><small>Email: {invitation.delivery_status.replaceAll("_", " ")}</small></div>
-                    <span>Expires<time dateTime={invitation.expires_at}>{new Date(invitation.expires_at).toLocaleDateString("en-US")}</time></span>
-                  </li>
-                ))}
+                {pendingInvitations.map((invitation) => {
+                  const status = invitation.accepted_at ? "accepted" : invitation.revoked_at ? "revoked" : invitation.expires_at <= nowIso ? "expired" : "pending";
+                  return <li key={invitation.id}>
+                    <div><strong>{invitation.email}</strong><small>{status} · Email: {invitation.delivery_status.replaceAll("_", " ")}</small></div>
+                    {status === "pending" ? <MutationActionForm action={revokeInvitationAction.bind(null, invitation.id)} confirmMessage={`Revoke the invitation for ${invitation.email}?`} label="Revoke" /> : <span>Expires<time dateTime={invitation.expires_at}>{new Date(invitation.expires_at).toLocaleDateString("en-US")}</time></span>}
+                  </li>;
+                })}
               </ul>
             </>
           ) : null}

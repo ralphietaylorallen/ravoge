@@ -234,13 +234,18 @@ export async function addEquipmentAction(
   return { message: "Equipment added.", status: "success" };
 }
 
-export async function setEquipmentAvailabilityAction(equipmentId: string, isAvailable: boolean) {
+export async function setEquipmentAvailabilityAction(equipmentId: string, isAvailable: boolean, _state: EquipmentActionState): Promise<EquipmentActionState> {
+  void _state;
   const { membership, supabase } = await requireRole("owner");
-  if (!UUID_PATTERN.test(equipmentId)) return;
-  await supabase
+  if (!UUID_PATTERN.test(equipmentId)) return { message: "That equipment is not available.", status: "error" };
+  const { data, error } = await supabase
     .from("organization_equipment")
     .update({ is_available: isAvailable })
     .eq("id", equipmentId)
-    .eq("organization_id", membership.organization_id);
+    .eq("organization_id", membership.organization_id)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return { message: "Equipment availability could not be changed.", status: "error" };
   revalidatePath("/owner/equipment");
+  return { message: `Equipment marked ${isAvailable ? "available" : "unavailable"}.`, status: "success" };
 }

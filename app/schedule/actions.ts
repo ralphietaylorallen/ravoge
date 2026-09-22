@@ -19,7 +19,7 @@ function integer(formData: FormData, name: string, minimum: number, maximum: num
 }
 
 export async function saveOrganizationScheduleAction(_state: ScheduleActionState, formData: FormData): Promise<ScheduleActionState> {
-  const { membership, supabase, userId } = await requireRole("owner");
+  const { supabase } = await requireRole("owner");
   const timezone = String(formData.get("timezone") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim().slice(0, 500);
   const defaultDuration = integer(formData, "defaultDuration", 15, 120);
@@ -41,23 +41,22 @@ export async function saveOrganizationScheduleAction(_state: ScheduleActionState
     if (!isClosed && (!TIME_PATTERN.test(opensAt) || !TIME_PATTERN.test(closesAt) || opensAt >= closesAt)) {
       return { message: "Every open day needs a valid opening and closing time.", status: "error" };
     }
-    hours.push({ closes_at: isClosed ? null : closesAt, day_of_week: day, is_closed: isClosed, opens_at: isClosed ? null : opensAt, organization_id: membership.organization_id, updated_by: userId });
+    hours.push({ closes_at: isClosed ? null : closesAt, day_of_week: day, is_closed: isClosed, opens_at: isClosed ? null : opensAt });
   }
-  const { error: organizationError } = await supabase.from("organizations").update({ address: address || null, timezone }).eq("id", membership.organization_id);
-  const { error: hoursError } = await supabase.from("organization_hours").upsert(hours, { onConflict: "organization_id,day_of_week" });
-  const { error: settingsError } = await supabase.from("organization_session_settings").upsert({
-    buffer_after_minutes: bufferAfter,
-    buffer_before_minutes: bufferBefore,
-    cancellation_cutoff_minutes: cancellationCutoff,
-    default_duration_minutes: defaultDuration,
-    maximum_advance_days: maximumAdvance,
-    minimum_notice_minutes: minimumNotice,
-    organization_id: membership.organization_id,
-    permitted_durations: permittedDurations,
-    slot_increment_minutes: slotIncrement,
-    updated_by: userId,
+  const { error } = await supabase.rpc("save_organization_schedule_settings", {
+    requested_address: address || null,
+    requested_buffer_after: bufferAfter,
+    requested_buffer_before: bufferBefore,
+    requested_cancellation_cutoff: cancellationCutoff,
+    requested_default_duration: defaultDuration,
+    requested_hours: hours,
+    requested_maximum_advance: maximumAdvance,
+    requested_minimum_notice: minimumNotice,
+    requested_permitted_durations: permittedDurations,
+    requested_slot_increment: slotIncrement,
+    requested_timezone: timezone,
   });
-  if (organizationError || hoursError || settingsError) return { message: "Scheduling settings could not be saved. Check the timezone and hour ranges.", status: "error" };
+  if (error) return { message: "Scheduling settings were not changed. Review the timezone, hours, and session rules.", status: "error" };
   revalidatePath("/owner/schedule");
   return { message: "Gym hours and session rules updated.", status: "success" };
 }
@@ -73,11 +72,14 @@ export async function addClosureAction(_state: ScheduleActionState, formData: Fo
   return { message: "Closure saved.", status: "success" };
 }
 
-export async function deleteClosureAction(id: string) {
+export async function deleteClosureAction(id: string, _state: ScheduleActionState): Promise<ScheduleActionState> {
+  void _state;
   const { supabase } = await requireRole("owner");
-  if (!UUID_PATTERN.test(id)) return;
-  await supabase.from("organization_special_hours").delete().eq("id", id);
+  if (!UUID_PATTERN.test(id)) return { message: "That closure is not available.", status: "error" };
+  const { data, error } = await supabase.from("organization_special_hours").delete().eq("id", id).select("id").maybeSingle();
+  if (error || !data) return { message: "The closure could not be removed.", status: "error" };
   revalidatePath("/owner/schedule");
+  return { message: "Closure removed.", status: "success" };
 }
 
 export async function addAvailabilityAction(_state: ScheduleActionState, formData: FormData): Promise<ScheduleActionState> {
@@ -92,11 +94,14 @@ export async function addAvailabilityAction(_state: ScheduleActionState, formDat
   return { message: "Availability window added.", status: "success" };
 }
 
-export async function deleteAvailabilityAction(id: string) {
+export async function deleteAvailabilityAction(id: string, _state: ScheduleActionState): Promise<ScheduleActionState> {
+  void _state;
   const { supabase } = await requireRole("coach");
-  if (!UUID_PATTERN.test(id)) return;
-  await supabase.from("coach_availability").delete().eq("id", id);
+  if (!UUID_PATTERN.test(id)) return { message: "That availability window is not available.", status: "error" };
+  const { data, error } = await supabase.from("coach_availability").delete().eq("id", id).select("id").maybeSingle();
+  if (error || !data) return { message: "The availability window could not be removed.", status: "error" };
   revalidatePath("/coach/availability");
+  return { message: "Availability window removed.", status: "success" };
 }
 
 export async function addAvailabilityExceptionAction(_state: ScheduleActionState, formData: FormData): Promise<ScheduleActionState> {
@@ -117,11 +122,14 @@ export async function addAvailabilityExceptionAction(_state: ScheduleActionState
   return { message: "Availability exception added.", status: "success" };
 }
 
-export async function deleteAvailabilityExceptionAction(id: string) {
+export async function deleteAvailabilityExceptionAction(id: string, _state: ScheduleActionState): Promise<ScheduleActionState> {
+  void _state;
   const { supabase } = await requireRole("coach");
-  if (!UUID_PATTERN.test(id)) return;
-  await supabase.from("coach_availability_exceptions").delete().eq("id", id);
+  if (!UUID_PATTERN.test(id)) return { message: "That exception is not available.", status: "error" };
+  const { data, error } = await supabase.from("coach_availability_exceptions").delete().eq("id", id).select("id").maybeSingle();
+  if (error || !data) return { message: "The availability exception could not be removed.", status: "error" };
   revalidatePath("/coach/availability");
+  return { message: "Availability exception removed.", status: "success" };
 }
 
 async function deliverBookingEmail(bookingId: string, event: "booked" | "rescheduled" | "cancelled") {

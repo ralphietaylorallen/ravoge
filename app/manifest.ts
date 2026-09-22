@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Ravoge",
     short_name: "Ravoge",
     description: "Private training operations for owners, coaches, and clients.",
-    start_url: "/login",
+    start_url: "/launch",
     scope: "/",
     display: "standalone",
     background_color: "#050606",

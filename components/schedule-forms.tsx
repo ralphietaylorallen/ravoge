@@ -63,5 +63,5 @@ export function BookingForm({ bookingId, duration, slots, timezone }: { bookingI
 
 export function CancelBookingForm({ bookingId }: { bookingId: string }) {
   const [state, action, pending] = useActionState(cancelSessionAction.bind(null, bookingId), initial);
-  return <form action={action} className={styles.cancelForm}><input aria-label="Cancellation reason" maxLength={500} name="reason" placeholder="Reason (optional)" /><button className={styles.secondaryAction} disabled={pending} type="submit">Cancel session</button><Result state={state} /></form>;
+  return <form action={action} className={styles.cancelForm} onSubmit={(event) => { if (!window.confirm("Cancel this session? This action updates every schedule.")) event.preventDefault(); }}><input aria-label="Cancellation reason" maxLength={500} name="reason" placeholder="Reason (optional)" /><button className={styles.secondaryAction} disabled={pending} type="submit">{pending ? "Cancelling…" : "Cancel session"}</button><Result state={state} /></form>;
 }

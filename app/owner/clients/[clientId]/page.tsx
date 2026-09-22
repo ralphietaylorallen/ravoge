@@ -7,6 +7,7 @@ import { ProgressChart, type ProgressMetric } from "@/components/progress-chart"
 import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
+import { DEFAULT_ORGANIZATION_TIMEZONE, localWeekStartDate } from "@/lib/timezone";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -131,9 +132,8 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
   const completedBookings = [...bookings].filter((booking) => booking.status === "completed").reverse();
   const weeklySessions = new Map<string, number>();
   completedBookings.forEach((booking) => {
-    const date = new Date(booking.starts_at);
-    const monday = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - ((date.getUTCDay() + 6) % 7)));
-    const key = monday.toISOString().slice(0, 10);
+    const key = localWeekStartDate(booking.starts_at, organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE);
+    if (!key) return;
     weeklySessions.set(key, (weeklySessions.get(key) ?? 0) + 1);
   });
   const progressMetrics: ProgressMetric[] = [

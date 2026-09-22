@@ -67,7 +67,11 @@ Payment collection, payroll, general messaging, and adaptive set intelligence re
 
 Each gym member uses a separate Supabase Auth identity. Owners invite additional owners or coaches from `/owner/team`; the invitation fixes the organization, email, and role in the database. Shared owner credentials are not supported.
 
-Owners can share `/coach/install` and `/client/install` as general access routes from `/owner/apps`. These links are conveniences only and never grant a role. New members must use the secure email-bound invitation created from `/owner/team`; Coach and Client invitations open the matching install page before continuing to signup or existing-account login. The beta email action opens the Owner's configured mail application with a pre-addressed Ravoge message—no general email provider or password-sharing workflow is introduced.
+Owners can share `/coach/install` and `/client/install` as general access routes from `/owner/apps`. These links are conveniences only and never grant a role. New members use the secure email-bound invitation created from `/owner/team`. Its QR/link contains only a random, expiring opaque token; the server immediately exchanges it for a two-hour `Secure`, `HttpOnly`, `SameSite=Lax` handoff cookie and removes the token from the visible URL. The installed app launches through `/launch`, which atomically accepts a still-valid exact-email invitation or routes to the locked login/signup screen. Passwords, sessions, JWTs, keys, and readable personal data are never embedded in an invitation QR.
+
+Organization calendar dates use the gym's IANA timezone. `America/Denver` is the documented fallback only when a legacy organization has no timezone. Schedule settings are saved through one database transaction so organization details, weekly hours, and session rules cannot partially update.
+
+Pull requests and pushes to `main` run clean installation, lint, typecheck, unit checks, a production build, local migration/database validation, and secret scanning in `.github/workflows/ci.yml`. Local database CI parity requires Docker or Podman; hosted test scripts use transaction rollback and must be run only after verifying the linked project is Ravoge.
 
 ## Environment and deployment
 

@@ -4,6 +4,7 @@ import { DashboardShell, dashboardStyles as styles } from "@/components/dashboar
 import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
+import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
 
 type ClientWorkout = {
   completed_at: string | null;
@@ -42,7 +43,7 @@ export default async function ClientPage() {
   const { membership, supabase, userId } = await requireRole("client");
   const [{ data: profile }, { data: organization }, { data: assignment }, { data: workoutRows }] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
-    supabase.from("organizations").select("name").eq("id", membership.organization_id).single(),
+    supabase.from("organizations").select("name,timezone").eq("id", membership.organization_id).single(),
     supabase.from("coach_client_assignments").select("coach_user_id").eq("organization_id", membership.organization_id).eq("status", "active").limit(1).maybeSingle(),
     supabase
       .from("workout_assignments")
@@ -57,7 +58,7 @@ export default async function ClientPage() {
     : { data: null };
   const coachName = coach?.preferred_name || coach?.full_name || "A coach has not been assigned yet.";
   const coachPhotoUrl = await getProfileImageUrl(supabase, coach?.avatar_path);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE);
   const workouts = (workoutRows ?? []) as ClientWorkout[];
   const current = workouts.filter((workout) => workout.status === "in_progress" || (workout.status === "assigned" && workout.scheduled_date <= today));
   const upcoming = workouts.filter((workout) => workout.status === "assigned" && workout.scheduled_date > today);

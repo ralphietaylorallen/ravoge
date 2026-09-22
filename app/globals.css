@@ -198,6 +198,27 @@ a {
   }
 }
 
+.route-state {
+  display: grid;
+  min-height: 100svh;
+  padding: 2rem;
+  place-content: center;
+  justify-items: start;
+  gap: 1rem;
+  background: radial-gradient(circle at 50% 30%, #17201e 0, #050606 52%);
+  color: #f6f5f3;
+}
+.route-state h1 { max-width: 36rem; margin: 0; font: 500 clamp(2rem, 6vw, 4.5rem)/1 "Space Grotesk Variable", sans-serif; }
+.route-state p { max-width: 34rem; margin: 0; color: #b4ac9b; line-height: 1.65; }
+.route-state a, .route-state button { min-height: 44px; padding: 0.75rem 1rem; border: 1px solid #b99761; background: transparent; color: #e6e4df; font: 600 0.75rem/1 "Space Grotesk Variable", sans-serif; letter-spacing: 0.12em; text-decoration: none; text-transform: uppercase; cursor: pointer; }
+.route-state a:focus-visible, .route-state button:focus-visible { outline: 2px solid #e0bd83; outline-offset: 4px; }
+.route-state-kicker { color: #c3a06a !important; font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; }
+.route-state-line { width: 10rem; height: 1px; background: linear-gradient(90deg, #d1ab6b, transparent); animation: route-loading 1.8s ease-in-out infinite; }
+@keyframes route-loading { 0%, 100% { opacity: .25; transform: scaleX(.55); transform-origin: left; } 50% { opacity: 1; transform: scaleX(1); transform-origin: left; } }
+@media (prefers-reduced-motion: reduce) { .route-state-line { animation: none; opacity: .65; } }
+
+html[data-pwa-standalone="true"] [data-install-instructions] { display: none; }
+
 /* Temporary coming-soon landing page */
 .coming-soon-shell {
   position: fixed;
