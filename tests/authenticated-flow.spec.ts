@@ -68,16 +68,14 @@ test("owner can open oversight and distribute role-specific app links", async ({
   await page.getByRole("link", { name: "Apps & access" }).click();
   await expect(page).toHaveURL(/\/owner\/apps$/);
   await expect(page.getByRole("heading", { name: "Apps & access" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open Coach App" })).toHaveAttribute("href", "/coach/install");
-  await expect(page.getByRole("link", { name: "Open Client App" })).toHaveAttribute("href", "/client/install");
-  await expect(page.locator('[data-qr-value="https://ravoge.com/coach/install"]')).toBeVisible();
-  await expect(page.locator('[data-qr-value="https://ravoge.com/client/install"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Coach App$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Client App$/ })).toBeVisible();
+  await expect(page.locator('[data-enrollment-card="coach"] [data-qr-value*="/enroll/coach?token="]')).toBeVisible();
+  await expect(page.locator('[data-enrollment-card="client"] [data-qr-value*="/enroll/client?token="]')).toBeVisible();
   await expect(page.getByRole("button", { name: "Download QR" })).toHaveCount(2);
-
-  const coachEmail = page.getByLabel("Recipient email").first();
-  await coachEmail.fill("coach@example.test");
-  const emailAction = page.getByRole("link", { name: "Email Coach App link" });
-  await expect(emailAction).toHaveAttribute("href", /mailto:coach%40example\.test.*ravoge\.com%2Fcoach%2Finstall/);
+  await expect(page.getByRole("button", { name: "Print QR" })).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Rotate QR" })).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Disable" })).toHaveCount(2);
 
   await page.getByRole("link", { name: "Training library" }).click();
   await page.getByRole("link", { name: "Import workout history" }).click();

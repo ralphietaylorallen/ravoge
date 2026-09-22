@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { RoleSignupShell } from "@/components/role-signup-shell";
-import { getInvitationContext } from "@/lib/invitations";
+import { getOrganizationEnrollmentContext } from "@/lib/invitations";
 
 export const metadata: Metadata = {
   title: "Client Signup | Ravoge",
@@ -15,8 +15,8 @@ export default async function ClientSignupPage({
 }) {
   const { invite, status } = await searchParams;
   if (invite) {
-    const invitation = await getInvitationContext(invite);
-    redirect(invitation?.role === "client" ? `/enroll/client?token=${encodeURIComponent(invite)}` : "/signup/client?status=invalid-invitation");
+    const enrollment = await getOrganizationEnrollmentContext(invite);
+    redirect(enrollment?.role === "client" ? `/enroll/client?token=${encodeURIComponent(invite)}` : "/signup/client?status=invalid-invitation");
   }
   return (
     <RoleSignupShell
