@@ -24,7 +24,7 @@ export default async function ClientProfilePage() {
       <article className={styles.metricCard}><span>Intake / account</span><strong>{intake ? "Complete" : "Pending"}</strong><small>{membership.status} membership · {profile?.account_status ?? "active"} account</small></article>
     </section>
     <div className={`${styles.detailGrid} ${styles.workspaceSection}`}>
-      <section className={styles.panel}><h2>Photo</h2><ProfilePhotoForm role="client" /></section>
+      <section className={styles.panel}><h2>Photo</h2><ProfilePhotoForm imageUrl={imageUrl} name={name} role="client" /></section>
       <section className={styles.panel}><h2>About</h2>{profile && <ProfileDetailsForm defaults={profile} role="client" />}<p className={styles.securityNote}>Organization, role, coach assignment, goal, intake status, and account status cannot be changed here.</p></section>
     </div>
   </DashboardShell>;

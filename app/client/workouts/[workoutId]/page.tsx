@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { completeWorkoutAction, setExerciseCompletionAction } from "@/app/client/actions";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
+import { PreworkoutCheckin } from "@/components/preworkout-checkin";
 import { requireRole } from "@/lib/auth";
 
 type ClientExercise = {
@@ -64,6 +65,10 @@ export default async function ClientWorkoutPage({
     .maybeSingle();
   const exercises = [...workout.workout_exercises].sort((a, b) => a.sort_order - b.sort_order);
   const allComplete = exercises.length > 0 && exercises.every((exercise) => exercise.completed_at);
+  const [{ data: questions }, { count: previousCheckins }] = await Promise.all([
+    supabase.from("organization_preworkout_questions").select("position,question_text,scale_min,scale_max").eq("organization_id", membership.organization_id).order("position"),
+    supabase.from("preworkout_checkins").select("id", { count: "exact", head: true }).eq("organization_id", membership.organization_id).eq("client_user_id", userId).eq("workout_assignment_id", workoutId),
+  ]);
 
   return (
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Client"} role="client">
@@ -117,6 +122,7 @@ export default async function ClientWorkoutPage({
           </button>
         </form>
       </section>
+      <PreworkoutCheckin questions={questions ?? []} previousCount={previousCheckins ?? 0} workoutId={workoutId} />
     </DashboardShell>
   );
 }

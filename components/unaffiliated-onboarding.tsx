@@ -41,7 +41,7 @@ export async function UnaffiliatedOnboarding({ role }: { role: "coach" | "client
         <div className={styles.detailGrid}>
           <section className={styles.panel}>
             <h2>Photo</h2>
-            <ProfilePhotoForm role={role} />
+            <ProfilePhotoForm imageUrl={imageUrl} name={name} role={role} />
           </section>
           <section className={styles.panel}>
             <h2>Base profile</h2>

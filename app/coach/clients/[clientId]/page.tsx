@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { generatePrescriptionAction } from "@/app/coach/actions";
+import { BaselineSummary, type BaselineRecord } from "@/components/baseline-summary";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { IntakeForm } from "@/components/intake-form";
@@ -34,17 +35,25 @@ export default async function CoachClientPage({ params, searchParams }: { params
   const { data: relationship } = await supabase.from("coach_client_assignments").select("client_user_id,status").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("client_user_id", clientId).eq("status", "active").maybeSingle();
   if (!relationship) notFound();
 
-  const [{ data: coachProfile }, { data: clientProfile }, { data: organization }, { data: workouts }, { data: intakeRows }, { data: stateRows }, { data: prescriptionRows }] = await Promise.all([
+  const [{ data: coachProfile }, { data: clientProfile }, { data: organization }, { data: workouts }, { data: intakeRows }, { data: stateRows }, { data: prescriptionRows }, { data: baselineRows }, { data: inbodyRows }] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("profiles").select("full_name,preferred_name,bio,avatar_path,account_status").eq("id", clientId).single(),
     supabase.from("organizations").select("name").eq("id", membership.organization_id).single(),
     supabase.from("workout_assignments").select("id,title,scheduled_date,status,workout_exercises(id,exercise_name,sets,reps,load,sort_order)").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("client_user_id", clientId).order("scheduled_date", { ascending: false }),
-    supabase.from("client_intakes").select("*").eq("organization_id", membership.organization_id).eq("client_user_id", clientId).order("version", { ascending: false }).limit(1),
+    supabase.from("client_intakes").select("*").eq("organization_id", membership.organization_id).eq("client_user_id", clientId).order("version", { ascending: false }),
     supabase.from("client_states").select("training_experience,recovery_capacity,current_readiness,movement_tolerance,volume_tolerance,constraint_tags,confidence").eq("organization_id", membership.organization_id).eq("client_user_id", clientId).order("calculated_at", { ascending: false }).limit(1),
     supabase.from("generated_prescriptions").select("id,title,status,generated_at").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("client_user_id", clientId).order("generated_at", { ascending: false }),
+    supabase.from("client_intake_baselines").select("intake_id,squat_variation,squat_one_rm_kg,squat_one_rm_method,bench_variation,bench_one_rm_kg,bench_one_rm_method,pullup_strict_reps,pullup_mode,rower_distance_m,rower_time_seconds,versa_duration_seconds,versa_feet,inbody_status").eq("organization_id", membership.organization_id).eq("client_user_id", clientId),
+    supabase.from("client_body_composition_assessments").select("intake_id,inbody_score,body_fat_percentage").eq("organization_id", membership.organization_id).eq("client_user_id", clientId).not("intake_id", "is", null),
   ]);
   if (!clientProfile) notFound();
   const latestIntake = (intakeRows?.[0] ?? null) as IntakeRow | null;
+  const baselineByIntake = new Map((baselineRows ?? []).map((row) => [row.intake_id, row]));
+  const baselineRecords = (intakeRows ?? []).flatMap((intake) => {
+    const baseline = baselineByIntake.get(intake.id);
+    const inbody = (inbodyRows ?? []).find((row) => row.intake_id === intake.id);
+    return baseline ? [{ ...baseline, version: intake.version, completed_at: intake.completed_at, inbody_score: inbody?.inbody_score, body_fat_percentage: inbody?.body_fat_percentage } as BaselineRecord] : [];
+  });
   const latestState = (stateRows?.[0] ?? null) as ClientState | null;
   const prescriptions = (prescriptionRows ?? []) as DraftPrescription[];
   const clientName = clientProfile.preferred_name || clientProfile.full_name;
@@ -54,6 +63,7 @@ export default async function CoachClientPage({ params, searchParams }: { params
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={coachProfile?.full_name ?? "Coach"} role="coach">
       <Link className={styles.backLink} href="/coach">← Back to clients</Link>
       <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhoto name={clientName} url={clientImageUrl} /><div><p className={styles.eyebrow}>Active client</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{latestIntake ? String(latestIntake.primary_goal).replaceAll("_", " ") : "Intake pending"} · Assigned coach</p><p className={styles.empty}>{clientProfile.bio || "No client About section yet."}</p></div></div><span className={styles.statusPill}>{clientProfile.account_status}</span></div>
+      <Link className={styles.action} href={`/coach/clients/${clientId}/book`}>Schedule session →</Link>
       <nav aria-label="Client profile sections" className={styles.tabs}><a href="#overview">Overview</a><a href="#intake">Intake</a><a href="#state">Assessment state</a><a href="#workouts">Workouts</a><a href="#history">History</a></nav>
       {notice && noticeMessages[notice] && <p className={`${styles.notice} ${notice === "prescription-unavailable" ? styles.error : ""}`} role="status">{noticeMessages[notice]}</p>}
 
@@ -78,6 +88,7 @@ export default async function CoachClientPage({ params, searchParams }: { params
 
       <section className={styles.workspaceSection} id="intake">
         <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Structured intake</p><h3>{latestIntake ? "Review or create a new version" : "Build the client baseline"}</h3></div><p>Every save creates an auditable version and recalculates state.</p></div>
+        <BaselineSummary records={baselineRecords} />
         <IntakeForm clientId={clientId} defaults={(latestIntake ?? {}) as never} />
       </section>
 

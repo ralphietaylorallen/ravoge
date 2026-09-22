@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ClientCoachAssignmentForm } from "@/components/client-coach-assignment-form";
+import { BaselineSummary, type BaselineRecord } from "@/components/baseline-summary";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { ProgressChart, type ProgressMetric } from "@/components/progress-chart";
 import { ProfilePhoto } from "@/components/profile-photo";
@@ -45,6 +46,7 @@ type Workout = {
 };
 type Booking = { ends_at: string; id: string; starts_at: string; status: string; timezone: string };
 type BodyComposition = {
+  intake_id: string | null;
   body_fat_mass_kg: number | null;
   body_fat_percentage: number | null;
   inbody_score: number | null;
@@ -87,6 +89,8 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
     { data: auditRows },
     { data: bookingRows },
     { data: bodyCompositionRows },
+    { data: intakeVersionRows },
+    { data: baselineRows },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("organizations").select("name,timezone").eq("id", organizationId).single(),
@@ -99,7 +103,9 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
     supabase.from("workout_assignments").select("id,title,scheduled_date,status,completed_at,coach_user_id,workout_exercises(id,exercise_name,sets,reps,load,sort_order)").eq("organization_id", organizationId).eq("client_user_id", clientId).order("scheduled_date", { ascending: false }),
     supabase.from("coach_client_assignment_audit").select("action,actor_user_id,coach_user_id,created_at").eq("organization_id", organizationId).eq("client_user_id", clientId).order("created_at", { ascending: false }).limit(12),
     supabase.from("bookings").select("id,starts_at,ends_at,timezone,status").eq("organization_id", organizationId).eq("client_user_id", clientId).order("starts_at", { ascending: false }),
-    supabase.from("client_body_composition_assessments").select("measured_at,weight_kg,skeletal_muscle_mass_kg,body_fat_percentage,body_fat_mass_kg,inbody_score").eq("organization_id", organizationId).eq("client_user_id", clientId).order("measured_at"),
+    supabase.from("client_body_composition_assessments").select("intake_id,measured_at,weight_kg,skeletal_muscle_mass_kg,body_fat_percentage,body_fat_mass_kg,inbody_score").eq("organization_id", organizationId).eq("client_user_id", clientId).order("measured_at"),
+    supabase.from("client_intakes").select("id,version,completed_at").eq("organization_id", organizationId).eq("client_user_id", clientId).order("version", { ascending: false }),
+    supabase.from("client_intake_baselines").select("intake_id,squat_variation,squat_one_rm_kg,squat_one_rm_method,bench_variation,bench_one_rm_kg,bench_one_rm_method,pullup_strict_reps,pullup_mode,rower_distance_m,rower_time_seconds,versa_duration_seconds,versa_feet,inbody_status").eq("organization_id", organizationId).eq("client_user_id", clientId),
   ]);
 
   const assignments = (assignmentRows ?? []) as Assignment[];
@@ -118,6 +124,13 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
   const workouts = (workoutRows ?? []) as Workout[];
   const bookings = (bookingRows ?? []) as Booking[];
   const bodyComposition = (bodyCompositionRows ?? []) as BodyComposition[];
+  const baselineByIntake = new Map((baselineRows ?? []).map((row) => [row.intake_id, row]));
+  const baselineRecords = (intakeVersionRows ?? []).flatMap((intakeVersion) => {
+    const baseline = baselineByIntake.get(intakeVersion.id);
+    if (!baseline) return [];
+    const inbody = bodyComposition.find((row) => row.intake_id === intakeVersion.id);
+    return [{ ...baseline, version: intakeVersion.version, completed_at: intakeVersion.completed_at, inbody_score: inbody?.inbody_score, body_fat_percentage: inbody?.body_fat_percentage } as BaselineRecord];
+  });
   const clientName = client?.preferred_name || client?.full_name || "Client";
   const clientImageUrl = await getProfileImageUrl(supabase, client?.avatar_path);
   const { data: invitation } = clientMembership.invitation_id
@@ -163,7 +176,7 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
       <section className={styles.workspaceSection}>
         <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Organization management</p><h3>Primary coach assignment</h3></div><p>The change is authorized by the database and audited to your Owner identity.</p></div>
         <div className={styles.detailGrid}>
-          <section className={styles.panel}><h2>Assign or reassign</h2><ClientCoachAssignmentForm clientId={clientId} coaches={coaches} currentCoachId={activeAssignment?.coach_user_id} /></section>
+          <section className={styles.panel}><h2>Assigned Coach</h2><p>{activeAssignment ? names.get(activeAssignment.coach_user_id) ?? "Coach" : "Unassigned"}</p><ClientCoachAssignmentForm clientId={clientId} coaches={coaches} currentCoachId={activeAssignment?.coach_user_id} /><Link className={styles.action} href={`/owner/clients/${clientId}/book`}>Schedule first session →</Link></section>
           <section className={styles.panel}><h2>Assignment activity</h2>{audits.length ? <ul className={styles.activityList}>{audits.map((event, index) => <li key={`${event.created_at}-${index}`}><div><strong>{event.action}</strong><small>{names.get(event.coach_user_id) ?? "Coach"}</small></div><span>{names.get(event.actor_user_id) ?? "Organization member"}<time dateTime={event.created_at}>{new Date(event.created_at).toLocaleString("en-US")}</time></span></li>)}</ul> : <p className={styles.empty}>No audited assignment changes yet.</p>}</section>
         </div>
       </section>
@@ -178,6 +191,7 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
           <article><span>Current injuries</span><strong>{intake.current_injuries || "None recorded"}</strong></article>
           <article><span>Movement limits</span><strong>{intake.movement_limitations || "None recorded"}</strong></article>
         </div> : <p className={styles.empty}>No intake has been completed.</p>}
+        <BaselineSummary records={baselineRecords} />
       </section>
 
       <section className={styles.workspaceSection} id="state">

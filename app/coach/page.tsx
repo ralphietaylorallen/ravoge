@@ -7,6 +7,7 @@ import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
 import { MutationActionForm } from "@/components/mutation-action-form";
+import { ClaimClientForm } from "@/components/claim-client-form";
 
 type PendingInvitation = { accepted_at: string | null; delivery_status: string; email: string; expires_at: string; id: string; revoked_at: string | null };
 
@@ -22,6 +23,8 @@ export default async function CoachPage() {
     ? await supabase.from("profiles").select("id,full_name,preferred_name,avatar_path").in("id", clientIds)
     : { data: [] };
   const photos = new Map(await Promise.all((clients ?? []).map(async (client: { id: string; avatar_path: string | null }) => [client.id, await getProfileImageUrl(supabase, client.avatar_path)] as const)));
+  const { data: unassignedClients } = await supabase.rpc("list_unassigned_clients_for_coach");
+  const unassignedPhotos = new Map<string, string | null>(await Promise.all((unassignedClients ?? []).map(async (client: { client_user_id: string; avatar_path: string | null }) => [client.client_user_id, await getProfileImageUrl(supabase, client.avatar_path)] as [string, string | null])));
   const { data: pendingRows } = await supabase
     .from("organization_invitations")
     .select("id,email,expires_at,delivery_status,accepted_at,revoked_at")
@@ -36,10 +39,15 @@ export default async function CoachPage() {
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Coach"} role="coach">
       <div className={styles.grid}>
         <section className={`${styles.panel} ${styles.panelWide}`}>
-          <h2>Assigned clients</h2>
+          <h2>My Clients</h2>
           {(clients ?? []).length ? (
             <ul className={styles.list}>{(clients ?? []).map((client: { id: string; full_name: string; preferred_name: string | null }) => { const name = client.preferred_name || client.full_name; return <li key={client.id}><ProfilePhoto name={name} size="small" url={photos.get(client.id)} /><Link href={`/coach/clients/${client.id}`}>{name}</Link><small>Open profile →</small></li>; })}</ul>
           ) : <p className={styles.empty}>No clients are assigned yet.</p>}
+        </section>
+        <section className={styles.panel}>
+          <h2>Unassigned Clients</h2>
+          <p className={styles.empty}>Only name, photo, and account status are visible until you assign an unclaimed Client to yourself.</p>
+          {(unassignedClients ?? []).length ? <ul className={styles.activityList}>{(unassignedClients ?? []).map((client: { client_user_id: string; full_name: string; preferred_name: string | null; account_status: string }) => <li key={client.client_user_id}><div><ProfilePhoto name={client.preferred_name || client.full_name} size="small" url={unassignedPhotos.get(client.client_user_id)} /><strong>{client.preferred_name || client.full_name}</strong><small>{client.account_status}</small></div><ClaimClientForm clientId={client.client_user_id} /></li>)}</ul> : <p className={styles.empty}>No unassigned Clients are available.</p>}
         </section>
         <section className={styles.panel}>
           <h2>Invite a client</h2>

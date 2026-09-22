@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import sharp from "sharp";
 
 import {
   dashboardForRole,
@@ -11,7 +12,7 @@ import {
   requireRole,
   type AccountRole,
 } from "@/lib/auth";
-import { PROFILE_IMAGE_BUCKET, PROFILE_IMAGE_MAX_BYTES, PROFILE_IMAGE_TYPES } from "@/lib/profile-images";
+import { PROFILE_IMAGE_BUCKET, PROFILE_IMAGE_MAX_BYTES } from "@/lib/profile-images";
 
 export type ProfileActionState = { message?: string; status: "idle" | "error" | "success" };
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -73,20 +74,32 @@ async function uploadProfilePhoto(role: Extract<AccountRole, "coach" | "client">
   const { membership, supabase, userId } = await getProfileActor(role);
   const file = formData.get("photo");
   if (!(file instanceof File) || file.size === 0) return { message: "Choose an image to upload.", status: "error" };
-  const extension = PROFILE_IMAGE_TYPES.get(file.type);
-  if (!extension || file.size > PROFILE_IMAGE_MAX_BYTES) {
-    return { message: "Use a JPG, PNG, or WebP image no larger than 5 MB.", status: "error" };
+  if (file.type !== "image/webp" || file.size > PROFILE_IMAGE_MAX_BYTES) {
+    return { message: "Crop the photo to a WebP image no larger than 5 MB.", status: "error" };
   }
+  let optimizedPhoto: Buffer;
+  try {
+    optimizedPhoto = await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 20_000_000 })
+      .rotate().resize(512, 512, { fit: "cover" }).webp({ quality: 88 }).toBuffer();
+  } catch {
+    return { message: "The image could not be decoded. Choose another photo.", status: "error" };
+  }
+  if (optimizedPhoto.length > PROFILE_IMAGE_MAX_BYTES) return { message: "The cropped photo is too large.", status: "error" };
   const { data: current } = await supabase.from("profiles").select("avatar_path").eq("id", userId).single();
-  const path = `${membership?.organization_id ?? UNASSIGNED_PROFILE_SCOPE}/${userId}/avatar.${extension}`;
-  const { error: uploadError } = await supabase.storage.from(PROFILE_IMAGE_BUCKET).upload(path, file, {
-    cacheControl: "3600",
-    contentType: file.type,
-    upsert: true,
+  const path = `${membership?.organization_id ?? UNASSIGNED_PROFILE_SCOPE}/${userId}/avatar/${crypto.randomUUID()}.webp`;
+  const { error: uploadError } = await supabase.storage.from(PROFILE_IMAGE_BUCKET).upload(path, optimizedPhoto, {
+    cacheControl: "31536000",
+    contentType: "image/webp",
+    upsert: false,
   });
   if (uploadError) return { message: "The photo upload was rejected. Check the file and try again.", status: "error" };
-  const { error: profileError } = await supabase.rpc("update_own_profile", { profile_patch: { avatarPath: path } });
-  if (profileError) return { message: "The photo uploaded but could not be attached to your profile.", status: "error" };
+  const { error: profileError } = membership
+    ? await supabase.rpc("update_own_profile", { profile_patch: { avatarPath: path } })
+    : await supabase.rpc("update_unaffiliated_profile_photo", { asset_path: path });
+  if (profileError) {
+    await supabase.storage.from(PROFILE_IMAGE_BUCKET).remove([path]);
+    return { message: "The photo could not be attached to your profile. Your previous photo remains unchanged.", status: "error" };
+  }
   if (current?.avatar_path && current.avatar_path !== path) {
     await supabase.storage.from(PROFILE_IMAGE_BUCKET).remove([current.avatar_path]);
   }

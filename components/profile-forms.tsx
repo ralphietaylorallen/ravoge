@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 import {
   addCertificationAction,
@@ -19,12 +21,85 @@ function Result({ state }: { state: ProfileActionState }) {
   return state.message ? <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p> : null;
 }
 
-export function ProfilePhotoForm({ role }: { role: "coach" | "client" }) {
-  const [state, action, pending] = useActionState(role === "coach" ? uploadCoachPhotoAction : uploadClientPhotoAction, initial);
-  return <form action={action} className={styles.form}>
-    <div className={styles.field}><label htmlFor="profile-photo">Profile photo <span>JPG, PNG, or WebP · 5 MB max</span></label><input accept="image/jpeg,image/png,image/webp" id="profile-photo" name="photo" required type="file" /></div>
-    <button className={styles.secondaryAction} disabled={pending} type="submit">{pending ? "Uploading…" : "Replace photo"}</button><Result state={state} />
-  </form>;
+export function ProfilePhotoForm({ role, name = "Ravoge", imageUrl }: { role: "coach" | "client"; name?: string; imageUrl?: string | null }) {
+  const router = useRouter();
+  const chooseRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [currentUrl, setCurrentUrl] = useState(imageUrl ?? null);
+  const [horizontal, setHorizontal] = useState(50);
+  const [vertical, setVertical] = useState(50);
+  const [zoom, setZoom] = useState(1);
+  const [message, setMessage] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!sourceUrl) return;
+    const image = new window.Image();
+    image.onload = () => { imageRef.current = image; paint(); };
+    image.src = sourceUrl;
+    return () => { imageRef.current = null; URL.revokeObjectURL(sourceUrl); };
+    // paint is deliberately called again by the position/zoom effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceUrl]);
+
+  function paint() {
+    const image = imageRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!image || !canvas || !context) return;
+    const side = Math.min(image.naturalWidth, image.naturalHeight) / zoom;
+    const left = (image.naturalWidth - side) * horizontal / 100;
+    const top = (image.naturalHeight - side) * vertical / 100;
+    context.clearRect(0, 0, 512, 512);
+    context.drawImage(image, left, top, side, side, 0, 0, 512, 512);
+  }
+
+  useEffect(() => { paint(); });
+
+  function selectFile(file?: File) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 20 * 1024 * 1024) {
+      setMessage("Choose a JPG, PNG, or WebP image no larger than 20 MB before cropping.");
+      return;
+    }
+    setMessage("");
+    setHorizontal(50); setVertical(50); setZoom(1);
+    setSourceUrl(URL.createObjectURL(file));
+  }
+
+  function save() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    startTransition(async () => {
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.88));
+      if (!blob || blob.type !== "image/webp") { setMessage("This browser could not prepare the cropped WebP image."); return; }
+      const data = new FormData();
+      data.set("photo", new File([blob], "profile.webp", { type: "image/webp" }));
+      const action = role === "coach" ? uploadCoachPhotoAction : uploadClientPhotoAction;
+      const result = await action({ status: "idle" }, data);
+      setMessage(result.message ?? "");
+      if (result.status === "success") {
+        setCurrentUrl(canvas.toDataURL("image/webp", 0.88));
+        setSourceUrl(null);
+        router.refresh();
+      }
+    });
+  }
+
+  return <div className={styles.form}>
+    <button aria-label="Change profile photo" className={styles.photoPicker} onClick={() => chooseRef.current?.click()} type="button">
+      {currentUrl ? <Image alt="" height={112} src={currentUrl} unoptimized width={112} /> : <span>{name.trim().charAt(0).toUpperCase() || "R"}</span>}
+      <small>Tap photo to change</small>
+    </button>
+    <input accept="image/jpeg,image/png,image/webp" aria-label="Choose a profile photo" hidden onChange={(event) => selectFile(event.target.files?.[0])} ref={chooseRef} type="file" />
+    <input accept="image/jpeg,image/png,image/webp" aria-label="Take a profile photo" capture="user" hidden onChange={(event) => selectFile(event.target.files?.[0])} ref={cameraRef} type="file" />
+    <div className={styles.photoChoices}><button className={styles.secondaryAction} onClick={() => cameraRef.current?.click()} type="button">Take photo</button><button className={styles.secondaryAction} onClick={() => chooseRef.current?.click()} type="button">Choose photo</button></div>
+    {sourceUrl && <div className={styles.photoCrop}><p className={styles.eyebrow}>Crop and reposition</p><canvas aria-label="Cropped profile photo preview" height={512} ref={canvasRef} role="img" width={512} /><label className={styles.field}>Move left / right<input max={100} min={0} onChange={(event) => setHorizontal(Number(event.target.value))} type="range" value={horizontal} /></label><label className={styles.field}>Move up / down<input max={100} min={0} onChange={(event) => setVertical(Number(event.target.value))} type="range" value={vertical} /></label><label className={styles.field}>Zoom<input max={2} min={1} onChange={(event) => setZoom(Number(event.target.value))} step={0.05} type="range" value={zoom} /></label><button className={styles.action} disabled={pending} onClick={save} type="button">{pending ? "Saving…" : "Save photo"}</button></div>}
+    {message && <p className={styles.notice} role="status">{message}</p>}
+  </div>;
 }
 
 type ProfileDefaults = { bio?: string | null; full_name: string; preferred_name?: string | null; specialties?: string[]; years_coaching?: number | null };
