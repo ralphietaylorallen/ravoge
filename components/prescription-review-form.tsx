@@ -31,12 +31,14 @@ export function PrescriptionReviewForm({
   exercises,
   exerciseOptions,
   prescriptionId,
+  scheduledDate,
   title,
 }: {
   clientId: string;
   exercises: RecommendationExercise[];
   exerciseOptions: ExerciseOption[];
   prescriptionId: string;
+  scheduledDate: string;
   title: string;
 }) {
   const approve = approvePrescriptionAction.bind(null, clientId, prescriptionId);
@@ -70,7 +72,7 @@ export function PrescriptionReviewForm({
     <form action={action} className={styles.reviewForm}>
       <div className={styles.formColumns}>
         <div className={styles.field}><label htmlFor="review-title">Workout name</label><input defaultValue={title} id="review-title" maxLength={120} name="title" required /></div>
-        <div className={styles.field}><label htmlFor="review-date">Assign date</label><input defaultValue={new Date().toISOString().slice(0, 10)} id="review-date" name="scheduledDate" required type="date" /></div>
+        <div className={styles.field}><label htmlFor="review-date">Assign date</label><input defaultValue={scheduledDate} id="review-date" name="scheduledDate" required type="date" /></div>
       </div>
       <div className={styles.field}><label htmlFor="review-instructions">Coach instructions</label><textarea id="review-instructions" maxLength={4000} name="instructions" rows={3} /></div>
 

@@ -17,7 +17,7 @@ test("coming-soon artwork fills the viewport without overflow", async ({ page },
   const currentSource = await artwork.evaluate(
     (image) => (image as HTMLImageElement).currentSrc,
   );
-  if (testInfo.project.name === "phone") {
+  if (["iphone", "android"].includes(testInfo.project.name)) {
     expect(currentSource).toContain("ravoge-coming-soon-mobile.webp");
   } else {
     expect(currentSource).toContain("ravoge-coming-soon-desktop.webp");

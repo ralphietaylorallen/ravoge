@@ -2,6 +2,7 @@ import { setEquipmentAvailabilityAction } from "@/app/owner/actions";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { EquipmentForm } from "@/components/equipment-form";
 import { requireRole } from "@/lib/auth";
+import { MutationActionForm } from "@/components/mutation-action-form";
 
 type EquipmentRow = {
   equipment_type: string;
@@ -42,9 +43,7 @@ export default async function OwnerEquipmentPage() {
                     <span>{item.equipment_type.replaceAll("_", " ")}{item.quantity ? ` · ${item.quantity}` : ""}</span>
                     {item.notes && <p>{item.notes}</p>}
                   </div>
-                  <form action={setEquipmentAvailabilityAction.bind(null, item.id, !item.is_available)}>
-                    <button className={styles.secondaryAction} type="submit">{item.is_available ? "Available" : "Unavailable"}</button>
-                  </form>
+                  <MutationActionForm action={setEquipmentAvailabilityAction.bind(null, item.id, !item.is_available)} className={styles.secondaryAction} label={item.is_available ? "Available" : "Unavailable"} pendingLabel="Updating…" />
                 </li>
               ))}
             </ul>

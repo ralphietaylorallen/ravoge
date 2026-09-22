@@ -4,6 +4,7 @@ import type { AccountRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export type InvitationContext = {
+  accountExists: boolean;
   email: string;
   expiresAt: string;
   inviterName: string;
@@ -13,6 +14,7 @@ export type InvitationContext = {
 };
 
 type InvitationContextRow = {
+  account_exists: boolean;
   email: string;
   expires_at: string;
   inviter_name: string;
@@ -27,7 +29,7 @@ export async function getInvitationContext(invitationToken?: string) {
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc(
-    "get_organization_invitation_context_v2",
+    "get_organization_invitation_handoff",
     { invitation_token: token },
   );
   const row = (data as InvitationContextRow[] | null)?.[0];
@@ -39,6 +41,7 @@ export async function getInvitationContext(invitationToken?: string) {
     return null;
   }
   return {
+    accountExists: row.account_exists,
     email: row.email,
     expiresAt: row.expires_at,
     inviterName: row.inviter_name,

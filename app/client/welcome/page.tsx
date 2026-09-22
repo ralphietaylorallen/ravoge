@@ -39,11 +39,11 @@ export default async function ClientWelcomePage() {
       </p>
 
       <div className={styles.installActions}>
-        <PwaInstallButton className={styles.primaryAction} fallbackHref="/client/install" />
+        <PwaInstallButton className={styles.primaryAction} continueHref="/client" roleLabel="Client" />
         <Link className={styles.installSecondary} href="/client">Open Client App</Link>
       </div>
 
-      <div className={styles.installGrid}>
+      <div className={styles.installGrid} data-install-instructions>
         <section><span>01</span><h2>Open in Safari</h2><p>On iPhone or iPad, open Ravoge in Safari.</p></section>
         <section><span>02</span><h2>Tap Share</h2><p>Choose Add to Home Screen, then tap Add.</p></section>
         <section><span>03</span><h2>Open Ravoge</h2><p>Use the Ravoge icon and sign in with the account you just created. The invitation is not needed again.</p></section>

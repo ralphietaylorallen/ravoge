@@ -22,8 +22,9 @@ export default defineConfig({
         timeout: 180_000,
       },
   projects: [
-    { name: "phone", use: { ...devices["iPhone 13"], browserName: "chromium", channel: "chrome" } },
-    { name: "tablet", use: { viewport: { width: 768, height: 1024 } } },
+    { name: "iphone", use: { ...devices["iPhone 13"], browserName: "chromium", channel: "chrome" } },
+    { name: "android", use: { ...devices["Pixel 7"], browserName: "chromium", channel: "chrome" } },
+    { name: "ipad", use: { ...devices["iPad (gen 7)"], browserName: "chromium", channel: "chrome" } },
     { name: "desktop", use: { viewport: { width: 1440, height: 1000 } } },
   ],
 });
