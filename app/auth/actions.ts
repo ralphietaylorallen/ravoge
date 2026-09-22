@@ -22,6 +22,7 @@ const SIGNUP_OWNER_TOKEN_COOKIE = "ravoge_signup_owner_token";
 const SIGNUP_ORGANIZATION_COOKIE = "ravoge_signup_organization";
 
 export type ActionState = {
+  emailDeliveryStatus?: "failed" | "not_configured" | "sent";
   invitationId?: string;
   invitationRole?: AccountRole;
   invitationUrl?: string;
@@ -238,7 +239,7 @@ export async function signupAction(
 
   if (hasInvitation) {
     const { data: invitationRows, error: contextError } = await supabase.rpc(
-      "get_organization_invitation_context",
+      "get_organization_invitation_context_v2",
       { invitation_token: invitationToken },
     );
     const invitation = (invitationRows as Array<{ email: string; role: AccountRole }> | null)?.[0];
@@ -305,6 +306,9 @@ export async function signupAction(
           : "Your account is ready, but gym setup needs to be completed.",
         status: "error",
       };
+    }
+    if (role === "client" && provisionedRole === "client") {
+      redirect("/client/welcome");
     }
     redirect(dashboardForRole(provisionedRole));
   }
@@ -474,12 +478,15 @@ async function createInvitation(role: AccountRole, formData: FormData): Promise<
 
   revalidatePath("/owner/team");
   return {
+    emailDeliveryStatus: emailResult.status,
     invitationId: invitation.invitation_id,
     invitationRole: role,
     invitationUrl,
     message: emailResult.status === "sent"
-      ? "Invite created and email sent."
-      : "Secure invitation created. Copy or email the link below.",
+      ? `Invitation sent to ${invitation.email}.`
+      : emailResult.status === "not_configured"
+        ? "Email delivery is not configured. The secure invitation is ready to copy."
+        : "Email delivery failed. The secure invitation is still ready to copy.",
     recipientEmail: invitation.email,
     status: "success",
   };

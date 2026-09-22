@@ -7,6 +7,9 @@ for (const app of [
   test(`${app.label} install route is role-specific, responsive, and non-authorizing`, async ({ context, page }) => {
     await page.goto(app.path);
 
+    const logo = page.getByRole("link", { name: "Ravoge home" }).locator("img");
+    await expect(logo).toBeVisible();
+    expect(await logo.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await expect(page.getByRole("heading", { name: "Install Ravoge" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
     await expect(page.getByRole("link", { name: `Create ${app.label} account` })).toHaveAttribute("href", app.signup);
@@ -45,8 +48,21 @@ test("web app manifest exposes the production PWA foundation", async ({ request 
     theme_color: "#050606",
   });
   expect(manifest.icons).toEqual(expect.arrayContaining([
-    expect.objectContaining({ sizes: "any", src: "/icon.svg", type: "image/svg+xml" }),
+    expect.objectContaining({ purpose: "any", sizes: "192x192", src: "/brand/ravoge-app-icon-192.png", type: "image/png" }),
+    expect.objectContaining({ purpose: "maskable", sizes: "512x512", src: "/brand/ravoge-app-icon-512.png", type: "image/png" }),
   ]));
+  for (const path of [
+    "/brand/ravoge-wolf-source.jpg",
+    "/brand/ravoge-wolf-transparent.png",
+    "/brand/ravoge-app-icon-192.png",
+    "/brand/ravoge-app-icon-512.png",
+    "/icon.png",
+    "/apple-icon.png",
+  ]) {
+    const icon = await request.get(path);
+    expect(icon.ok(), `${path} should resolve`).toBe(true);
+    expect(icon.headers()["content-type"]).toMatch(/^image\/(png|jpeg)$/);
+  }
 });
 
 test("install guidance remains still with reduced motion", async ({ page }) => {

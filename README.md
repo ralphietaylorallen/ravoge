@@ -57,12 +57,13 @@ Hosted Supabase Auth uses `https://ravoge.com` as its Site URL. The redirect all
 - Installable Coach and Client web-app entry routes with an Owner Apps & Access distribution screen
 - Private profile images, Coach/Client profile editing, and structured Coach certifications (pending migration release)
 - Timezone-aware gym hours, Coach availability, single-source bookings, calendar exports, and an optional Resend transactional-email adapter
+- Coach-created Client invitations with atomic assignment, Owner-wide Client attribution, deterministic operations reports, and exact session-value/compensation snapshots
 - Coach client profiles with secure, ordered workout assignment creation
 - Client dashboard and workout detail with secure exercise/workout completion
 - Local, bundled Inter and Space Grotesk variable font files
 - Original project-owned photography assets for coach/tablet and client/mobile sections
 
-Payments, general messaging, and adaptive set intelligence remain outside the current milestone. See [docs/architecture.md](docs/architecture.md) for architecture and security boundaries.
+Payment collection, payroll, general messaging, and adaptive set intelligence remain outside the current milestone. Revenue values are reporting estimates only. See [docs/architecture.md](docs/architecture.md) for architecture and security boundaries.
 
 Each gym member uses a separate Supabase Auth identity. Owners invite additional owners or coaches from `/owner/team`; the invitation fixes the organization, email, and role in the database. Shared owner credentials are not supported.
 

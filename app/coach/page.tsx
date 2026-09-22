@@ -6,6 +6,8 @@ import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
 
+type PendingInvitation = { delivery_status: string; email: string; expires_at: string; id: string };
+
 export default async function CoachPage() {
   const { membership, supabase, userId } = await requireRole("coach");
   const [{ data: profile }, { data: organization }, { data: assignments }] = await Promise.all([
@@ -18,6 +20,17 @@ export default async function CoachPage() {
     ? await supabase.from("profiles").select("id,full_name,preferred_name,avatar_path").in("id", clientIds)
     : { data: [] };
   const photos = new Map(await Promise.all((clients ?? []).map(async (client: { id: string; avatar_path: string | null }) => [client.id, await getProfileImageUrl(supabase, client.avatar_path)] as const)));
+  const { data: pendingRows } = await supabase
+    .from("organization_invitations")
+    .select("id,email,expires_at,delivery_status")
+    .eq("organization_id", membership.organization_id)
+    .eq("invited_by", userId)
+    .eq("role", "client")
+    .is("accepted_at", null)
+    .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
+  const pendingInvitations = (pendingRows ?? []) as PendingInvitation[];
 
   return (
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Coach"} role="coach">
@@ -31,6 +44,19 @@ export default async function CoachPage() {
         <section className={styles.panel}>
           <h2>Invite a client</h2>
           <InviteForm role="client" />
+          {pendingInvitations.length ? (
+            <>
+              <h3 className={styles.subheading}>Pending invitations</h3>
+              <ul className={styles.activityList}>
+                {pendingInvitations.map((invitation) => (
+                  <li key={invitation.id}>
+                    <div><strong>{invitation.email}</strong><small>Email: {invitation.delivery_status.replaceAll("_", " ")}</small></div>
+                    <span>Expires<time dateTime={invitation.expires_at}>{new Date(invitation.expires_at).toLocaleDateString("en-US")}</time></span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
         </section>
       </div>
     </DashboardShell>

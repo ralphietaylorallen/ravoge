@@ -30,3 +30,45 @@ export function zonedLocalDateTimeToIso(localValue: string, timezone: string) {
   if (final.year !== desired.year || final.month !== desired.month || final.day !== desired.day || final.hour !== desired.hour || final.minute !== desired.minute) return null;
   return new Date(guess).toISOString();
 }
+
+export function localDateInTimeZone(value: Date | string, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: timezone,
+    year: "numeric",
+  }).formatToParts(new Date(value));
+  const mapped = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${mapped.year}-${mapped.month}-${mapped.day}`;
+}
+
+export function shiftLocalDate(localDate: string, days: number) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDate);
+  if (!match) return null;
+  const shifted = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days));
+  return shifted.toISOString().slice(0, 10);
+}
+
+export function localDateStartIso(localDate: string, timezone: string) {
+  return zonedLocalDateTimeToIso(`${localDate}T00:00`, timezone);
+}
+
+export function organizationTodayWindow(timezone: string, now = new Date()) {
+  const localDate = localDateInTimeZone(now, timezone);
+  const nextDate = shiftLocalDate(localDate, 1);
+  const startIso = localDateStartIso(localDate, timezone);
+  const endIso = nextDate ? localDateStartIso(nextDate, timezone) : null;
+  return startIso && endIso ? { endIso, localDate, startIso } : null;
+}
+
+export function organizationWeekWindow(timezone: string, now = new Date()) {
+  const localDate = localDateInTimeZone(now, timezone);
+  const [year, month, day] = localDate.split("-").map(Number);
+  const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const startDate = shiftLocalDate(localDate, mondayOffset);
+  const endDate = startDate ? shiftLocalDate(startDate, 7) : null;
+  const startIso = startDate ? localDateStartIso(startDate, timezone) : null;
+  const endIso = endDate ? localDateStartIso(endDate, timezone) : null;
+  return startIso && endIso ? { endIso, startDate, startIso } : null;
+}

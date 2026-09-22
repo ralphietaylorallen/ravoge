@@ -34,14 +34,14 @@ async function logout(page: Page) {
   await expect(page).toHaveURL(/\/login$/);
 }
 
-async function createInvite(page: Page, role: "owner" | "coach" | "client", email: string) {
-  await page.goto("/owner/team");
+async function createInvite(page: Page, role: "owner" | "coach" | "client", email: string, actor: "owner" | "coach" = "owner") {
+  await page.goto(actor === "owner" ? "/owner/team" : "/coach");
   const section = page.locator("section").filter({
     has: page.getByRole("heading", { name: `Invite ${role}` }),
   });
   await section.getByLabel("Email").fill(email);
-  await section.getByRole("button", { name: `Invite ${role}` }).click();
-  await expect(section.getByRole("status")).toContainText("Secure invitation created");
+  await section.getByRole("button", { name: role === "client" ? "Send invite" : `Invite ${role}` }).click();
+  await expect(section.getByRole("link", { name: "Open secure invitation" })).toBeVisible();
   const invitationUrl = await section.getByRole("link", { name: "Open secure invitation" }).getAttribute("href");
   expect(invitationUrl).toMatch(/^https?:\/\/.+\?invite=[A-Za-z0-9_-]{32,}$/);
   return invitationUrl!;
@@ -104,10 +104,15 @@ test.describe("hosted production-stabilization flow", () => {
 
     const existingCoachInvite = await createInvite(owner, "coach", credentials!.coach.email);
     await acceptExistingInvite(coach, existingCoachInvite, credentials!.coach.email, /\/coach$/);
-    await logout(coach);
 
-    const clientInvite = await createInvite(owner, "client", credentials!.client.email);
+    const clientInvite = await createInvite(coach, "client", credentials!.client.email, "coach");
     await acceptExistingInvite(client, clientInvite, credentials!.client.email, /\/client$/);
+
+    await coach.goto("/coach");
+    await expect(coach.getByRole("link", { name: "Client Self" })).toBeVisible();
+    await owner.goto("/owner/clients");
+    await expect(owner.getByText(`Coach: ${credentials!.coach.name}`)).toBeVisible();
+    await expect(owner.getByText(`Invited by: ${credentials!.coach.name}`)).toBeVisible();
 
     const newCoachInvite = await createInvite(owner, "coach", credentials!.invitedCoach.email);
     await invitedCoach.goto(newCoachInvite);
@@ -149,6 +154,14 @@ test.describe("hosted production-stabilization flow", () => {
     await owner.getByLabel("Primary coach").selectOption({ label: credentials!.invitedCoach.name });
     await owner.getByRole("button", { name: "Assign coach" }).click();
     await expect(owner.getByRole("status")).toContainText("Primary coach assignment updated");
+
+    await coach.goto("/coach");
+    await expect(coach.getByRole("link", { name: "Client Self" })).toHaveCount(0);
+    await owner.goto("/owner/reports");
+    await expect(owner.getByRole("heading", { name: "Reports" })).toBeVisible();
+    await expect(owner.getByRole("heading", { name: "Operational metrics" })).toBeVisible();
+    await owner.goto("/owner/revenue");
+    await expect(owner.getByRole("heading", { name: "Revenue" })).toBeVisible();
 
     await invitedCoach.goto("/coach");
     await invitedCoach.getByRole("link", { name: "Client Self" }).click();
