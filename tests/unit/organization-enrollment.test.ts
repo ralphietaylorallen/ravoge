@@ -7,23 +7,23 @@ import {
   organizationEnrollmentUrl,
 } from "../../lib/organization-enrollment.ts";
 
-const secret = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const fixtureKey = "00".repeat(32);
 
 test("organization enrollment tokens are deterministic opaque 256-bit credentials", () => {
   const first = deriveOrganizationEnrollmentToken(
     "00000000-0000-4000-8000-000000000001",
     "00000000-0000-4000-8000-000000000002",
-    secret,
+    fixtureKey,
   );
   const same = deriveOrganizationEnrollmentToken(
     "00000000-0000-4000-8000-000000000001",
     "00000000-0000-4000-8000-000000000002",
-    secret,
+    fixtureKey,
   );
   const rotated = deriveOrganizationEnrollmentToken(
     "00000000-0000-4000-8000-000000000001",
     "00000000-0000-4000-8000-000000000003",
-    secret,
+    fixtureKey,
   );
   assert.match(first, /^[A-Za-z0-9_-]{43}$/);
   assert.equal(first, same);
