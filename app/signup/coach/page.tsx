@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { RoleSignupShell } from "@/components/role-signup-shell";
-import { getInvitationContext } from "@/lib/invitations";
+import { getOrganizationEnrollmentContext } from "@/lib/invitations";
 
 export const metadata: Metadata = {
   title: "Coach Signup | Ravoge",
@@ -11,17 +11,18 @@ export const metadata: Metadata = {
 export default async function CoachSignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string; status?: string }>;
+  searchParams: Promise<{ enrollment?: string; invite?: string; status?: string }>;
 }) {
-  const { invite, status } = await searchParams;
+  const { enrollment, invite, status } = await searchParams;
   if (invite) {
-    const invitation = await getInvitationContext(invite);
-    redirect(invitation?.role === "coach" ? `/enroll/coach?token=${encodeURIComponent(invite)}` : "/signup/coach?status=invalid-invitation");
+    const enrollment = await getOrganizationEnrollmentContext(invite);
+    redirect(enrollment?.role === "coach" ? `/enroll/coach?token=${encodeURIComponent(invite)}` : "/signup/coach?status=invalid-invitation");
   }
   return (
     <RoleSignupShell
       accountType="Coach"
       description="For trainers programming and managing their clients."
+      enrollmentToken={enrollment}
       invalidInvitation={status === "invalid-invitation"}
       role="coach"
     />

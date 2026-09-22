@@ -120,8 +120,8 @@ export async function completeSignupProvisioning(
 
   if (invitationToken) {
     const { error: invitationError } = await supabase.rpc(
-      "accept_organization_invitation",
-      { invitation_token: invitationToken },
+      "accept_organization_enrollment",
+      { enrollment_token: invitationToken },
     );
     if (invitationError) {
       logAuthError("invitation acceptance", invitationError);
@@ -166,14 +166,14 @@ export async function loginAction(
   }
 
   let membership = await getActiveMembership(data.user.id, supabase);
-  if (!membership && invitationToken) {
+  if (invitationToken) {
     const { error: invitationError } = await supabase.rpc(
-      "accept_organization_invitation",
-      { invitation_token: invitationToken },
+      "accept_organization_enrollment",
+      { enrollment_token: invitationToken },
     );
     if (invitationError) {
       logAuthError("existing-user invitation acceptance", invitationError);
-      return { message: "This invitation is invalid, expired, or belongs to another email.", status: "error" };
+      return { message: "This enrollment is invalid, disabled, belongs to another email, or conflicts with your existing account role.", status: "error" };
     }
     membership = await getActiveMembership(data.user.id, supabase);
   }
@@ -223,6 +223,7 @@ export async function signupAction(
   const enrollment = await getEnrollmentHandoff();
   const invitationToken = asString(formData.get("invitationToken")) || enrollment?.token || "";
   const hasInvitation = invitationToken.length > 0;
+  let enrollmentKind: "email_invitation" | "organization_qr" | null = null;
 
   if (fullName.length < 2 || fullName.length > 120) {
     return { message: "Enter your full name.", status: "error" };
@@ -245,18 +246,26 @@ export async function signupAction(
   await clearSignupCookies();
 
   if (hasInvitation) {
-    const { data: invitationRows, error: contextError } = await supabase.rpc(
-      "get_organization_invitation_context_v2",
-      { invitation_token: invitationToken },
+    const { data: enrollmentRows, error: contextError } = await supabase.rpc(
+      "get_organization_enrollment_handoff",
+      { enrollment_token: invitationToken },
     );
-    const invitation = (invitationRows as Array<{ email: string; role: AccountRole }> | null)?.[0];
-    if (contextError || !invitation) {
+    const enrollmentContext = (enrollmentRows as Array<{
+      email: string | null;
+      enrollment_kind: "email_invitation" | "organization_qr";
+      role: AccountRole;
+    }> | null)?.[0];
+    if (contextError || !enrollmentContext) {
       if (contextError) logAuthError("invitation lookup", contextError);
-      return { message: "This invitation is invalid or has expired.", status: "error" };
+      return { message: "This enrollment is invalid, disabled, or has expired.", status: "error" };
     }
-    if (invitation.role !== role || invitation.email !== email) {
-      return { message: "This invitation does not match this account type and email.", status: "error" };
+    if (
+      enrollmentContext.role !== role
+      || (enrollmentContext.enrollment_kind === "email_invitation" && enrollmentContext.email !== email)
+    ) {
+      return { message: "This enrollment does not match this account type and email.", status: "error" };
     }
+    enrollmentKind = enrollmentContext.enrollment_kind;
     await setSignupCookie(SIGNUP_INVITE_COOKIE, invitationToken);
   } else if (role === "owner") {
     ownerSignupToken = randomBytes(32).toString("base64url");
@@ -309,12 +318,16 @@ export async function signupAction(
     if (!provisionedRole) {
       return {
         message: hasInvitation
-          ? "Your account is ready, but this invitation could not be accepted."
+          ? "Your account is ready, but this enrollment could not be accepted."
           : "Your account is ready, but gym setup needs to be completed.",
         status: "error",
       };
     }
-    if (role === "client" && provisionedRole === "client") {
+    if (
+      role === "client"
+      && provisionedRole === "client"
+      && enrollmentKind !== "organization_qr"
+    ) {
       redirect("/client/welcome");
     }
     redirect(dashboardForRole(provisionedRole));

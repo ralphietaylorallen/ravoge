@@ -65,7 +65,7 @@ test("web app manifest exposes the production PWA foundation", async ({ request 
   }
 });
 
-test("standalone launch hides installation instructions and continues to access", async ({ page }) => {
+test("standalone launch automatically continues to access", async ({ page }) => {
   await page.addInitScript(() => {
     const nativeMatchMedia = window.matchMedia.bind(window);
     window.matchMedia = (query) => query === "(display-mode: standalone)"
@@ -73,9 +73,7 @@ test("standalone launch hides installation instructions and continues to access"
       : nativeMatchMedia(query);
   });
   await page.goto("/client/install");
-  await expect(page.getByRole("link", { name: /Continue to Client access/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Install Ravoge" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "iPhone or iPad" })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/login$/);
 });
 
 test("iOS in-app browsers direct installation back to Safari", async ({ page }) => {
@@ -119,6 +117,11 @@ test("service worker and security headers support a network-only install shell",
   expect(enrollment.headers()["cache-control"]).toContain("no-store");
   expect(enrollment.headers()["x-robots-tag"]).toContain("noindex");
   expect(enrollment.headers()["referrer-policy"]).toBe("no-referrer");
+});
+
+test("invalid enrollment cannot obtain an install manifest", async ({ request }) => {
+  const response = await request.get("/api/enrollment/invalid-enrollment-token-000000000000000/manifest");
+  expect(response.status()).toBe(404);
 });
 
 test("install guidance remains still with reduced motion", async ({ page }) => {

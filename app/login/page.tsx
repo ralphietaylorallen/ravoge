@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { AuthEntryShell } from "@/components/auth-entry-shell";
 import { LoginForm } from "@/components/login-form";
 import { getEnrollmentHandoff } from "@/lib/enrollment";
-import { getInvitationContext } from "@/lib/invitations";
+import { getOrganizationEnrollmentContext } from "@/lib/invitations";
 
 import styles from "@/components/auth-entry.module.css";
 
@@ -17,14 +17,16 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string; status?: string }>;
+  searchParams: Promise<{ enrollment?: string; invite?: string; status?: string }>;
 }) {
-  const { invite, status } = await searchParams;
+  const { enrollment: enrollmentToken, invite, status } = await searchParams;
   if (invite) {
-    const legacyInvitation = await getInvitationContext(invite);
-    redirect(legacyInvitation ? `/enroll/${legacyInvitation.role}?token=${encodeURIComponent(invite)}` : "/login?status=invalid-invitation");
+    const legacyEnrollment = await getOrganizationEnrollmentContext(invite);
+    redirect(legacyEnrollment ? `/enroll/${legacyEnrollment.role}?token=${encodeURIComponent(invite)}` : "/login?status=invalid-invitation");
   }
-  const invitation = (await getEnrollmentHandoff())?.invitation ?? null;
+  const enrollment = enrollmentToken
+    ? await getOrganizationEnrollmentContext(enrollmentToken)
+    : (await getEnrollmentHandoff())?.enrollment ?? null;
   return (
     <AuthEntryShell>
       <p className={styles.eyebrow}>Ravoge access</p>
@@ -35,7 +37,8 @@ export default async function LoginPage({
         </p>
       ) : null}
       <LoginForm
-        invitationEmail={invitation?.email}
+        invitationEmail={enrollment?.email ?? undefined}
+        invitationToken={enrollment ? enrollmentToken : undefined}
       />
     </AuthEntryShell>
   );

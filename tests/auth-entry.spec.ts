@@ -125,7 +125,7 @@ test("an invitation token is never rendered as a visible form field", async ({ c
   const invite = "abcdefghijklmnopqrstuvwxyzABCDEFGH1234567890";
   await page.goto(`/signup/coach?invite=${invite}`);
   await expect(page.getByLabel("Invitation code")).toHaveCount(0);
-  await expect(page.getByText(/This invitation is invalid/i)).toBeVisible();
+  await expect(page.getByText(/This enrollment is invalid/i)).toBeVisible();
   expect(await context.cookies()).toEqual([]);
 });
 
@@ -135,7 +135,7 @@ test("an invalid owner invitation fails cleanly without exposing its token", asy
 
   await expect(page.getByLabel("Invitation code")).toHaveCount(0);
   await expect(page.getByLabel("Gym name")).toHaveCount(0);
-  await expect(page.getByText(/This invitation is invalid/i)).toBeVisible();
+  await expect(page.getByText(/This enrollment is invalid/i)).toBeVisible();
   expect(await context.cookies()).toEqual([]);
 });
 
@@ -147,7 +147,7 @@ test("an invalid invitation hint does not crash a signup route", async ({ page }
   ).toBeVisible();
   await expect(page.getByLabel("Invitation code")).toHaveCount(0);
   await expect(page.getByLabel("Gym name")).toHaveCount(0);
-  await expect(page.getByText(/This invitation is invalid/i)).toBeVisible();
+  await expect(page.getByText(/This enrollment is invalid/i)).toBeVisible();
 });
 
 test("Owner setup recovery requires an authenticated account", async ({ page }) => {

@@ -5,15 +5,17 @@ import { useActionState } from "react";
 
 import { signupAction } from "@/app/auth/actions";
 import type { AccountRole } from "@/lib/auth";
-import type { InvitationContext } from "@/lib/invitations";
+import type { EnrollmentContext } from "@/lib/invitations";
 
 import styles from "./auth-entry.module.css";
 
 export function SignupForm({
-  invitation,
+  enrollment,
+  enrollmentToken,
   role,
 }: {
-  invitation?: InvitationContext;
+  enrollment?: EnrollmentContext;
+  enrollmentToken?: string;
   role: AccountRole;
 }) {
   const action = signupAction.bind(null, role);
@@ -23,19 +25,20 @@ export function SignupForm({
 
   return (
     <>
-      {invitation && (
+      {enrollment && (
         <p className={styles.invitationContext}>
-          Join <strong>{invitation.organizationName}</strong> as {invitation.role}. Invited by{" "}
-          <strong>{invitation.inviterName}</strong> ({invitation.inviterRole}).
+          Join <strong>{enrollment.organizationName}</strong> as {enrollment.role}.
+          {enrollment.enrollmentKind === "email_invitation" ? <> Invited by <strong>{enrollment.inviterName}</strong> ({enrollment.inviterRole}).</> : null}
         </p>
       )}
       <form action={formAction} className={styles.form}>
+        {enrollmentToken ? <input name="invitationToken" type="hidden" value={enrollmentToken} /> : null}
         <div className={styles.field}>
           <label htmlFor="fullName">Full name</label>
           <input autoComplete="name" id="fullName" name="fullName" required />
         </div>
 
-        {role === "owner" && !invitation ? (
+        {role === "owner" && !enrollment ? (
           <div className={styles.field}>
             <label htmlFor="organizationName">Gym name</label>
             <input id="organizationName" name="organizationName" required />
@@ -46,10 +49,10 @@ export function SignupForm({
           <label htmlFor="email">Email</label>
           <input
             autoComplete="email"
-            defaultValue={invitation?.email ?? ""}
+            defaultValue={enrollment?.email ?? ""}
             id="email"
             name="email"
-            readOnly={Boolean(invitation)}
+            readOnly={Boolean(enrollment?.email)}
             required
             type="email"
           />
@@ -79,11 +82,11 @@ export function SignupForm({
         )}
       </form>
 
-      {invitation && (
+      {enrollment && (
         <p className={styles.intentNote}>
           Already have a Ravoge account?{" "}
-          <Link href="/login">
-            Sign in to accept this invitation.
+          <Link href={enrollmentToken ? `/login?enrollment=${encodeURIComponent(enrollmentToken)}` : "/login"}>
+            Sign in to continue this enrollment.
           </Link>
         </p>
       )}
