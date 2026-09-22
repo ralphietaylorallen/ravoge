@@ -7,4 +7,10 @@ create index organization_invitations_accepted_by_idx
 create index organization_invitations_invited_by_idx
   on public.organization_invitations (invited_by);
 
-revoke all on function public.rls_auto_enable() from public, anon, authenticated;
+do $$
+begin
+  if to_regprocedure('public.rls_auto_enable()') is not null then
+    execute 'revoke all on function public.rls_auto_enable() from public, anon, authenticated';
+  end if;
+end;
+$$;
