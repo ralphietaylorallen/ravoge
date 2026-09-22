@@ -33,6 +33,88 @@ export type TrainingImportActionState = {
   status: "idle" | "error" | "success";
 };
 
+export type RevenueActionState = {
+  message?: string;
+  status: "idle" | "error" | "success";
+};
+
+function parseMoneyToMinor(value: string) {
+  const normalized = value.trim();
+  if (!/^\d{1,7}(?:\.\d{1,2})?$/.test(normalized)) return null;
+  const [whole, fraction = ""] = normalized.split(".");
+  return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+}
+
+function parsePercentToBasisPoints(value: string) {
+  const normalized = value.trim();
+  if (!/^\d{1,3}(?:\.\d{1,2})?$/.test(normalized)) return null;
+  const [whole, fraction = ""] = normalized.split(".");
+  const basisPoints = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  return basisPoints <= 10000 ? basisPoints : null;
+}
+
+export async function saveSessionPricingAction(
+  _state: RevenueActionState,
+  formData: FormData,
+): Promise<RevenueActionState> {
+  const { supabase } = await requireRole("owner");
+  const rawPrice = String(formData.get("sessionPrice") ?? "").trim();
+  const priceMinor = rawPrice ? parseMoneyToMinor(rawPrice) : null;
+  if (rawPrice && priceMinor === null) {
+    return { message: "Enter a valid session value with no more than two decimal places.", status: "error" };
+  }
+
+  const { error } = await supabase.rpc("configure_organization_session_pricing", {
+    session_currency: "USD",
+    session_price_minor: priceMinor,
+  });
+  if (error) {
+    return { message: "Session pricing could not be saved.", status: "error" };
+  }
+
+  revalidatePath("/owner/revenue");
+  return { message: rawPrice ? "Default session value saved." : "Default session value removed.", status: "success" };
+}
+
+export async function saveCoachCompensationAction(
+  coachId: string,
+  _state: RevenueActionState,
+  formData: FormData,
+): Promise<RevenueActionState> {
+  const { supabase } = await requireRole("owner");
+  if (!UUID_PATTERN.test(coachId)) {
+    return { message: "Choose an active Coach.", status: "error" };
+  }
+
+  const model = String(formData.get("model") ?? "");
+  if (!new Set(["none", "hourly", "percentage"]).has(model)) {
+    return { message: "Choose a valid compensation model.", status: "error" };
+  }
+  const hourlyRateMinor = model === "hourly"
+    ? parseMoneyToMinor(String(formData.get("hourlyRate") ?? ""))
+    : null;
+  const commissionBasisPoints = model === "percentage"
+    ? parsePercentToBasisPoints(String(formData.get("commissionPercentage") ?? ""))
+    : null;
+  if ((model === "hourly" && hourlyRateMinor === null) || (model === "percentage" && commissionBasisPoints === null)) {
+    return { message: model === "hourly" ? "Enter a valid hourly amount." : "Enter a percentage from 0 to 100.", status: "error" };
+  }
+
+  const { error } = await supabase.rpc("configure_coach_compensation", {
+    commission_basis_points: commissionBasisPoints,
+    compensation_currency: "USD",
+    compensation_model: model,
+    hourly_rate_minor: hourlyRateMinor,
+    target_coach_user_id: coachId,
+  });
+  if (error) {
+    return { message: "Coach compensation could not be saved.", status: "error" };
+  }
+
+  revalidatePath("/owner/revenue");
+  return { message: "Coach compensation saved for future or rescheduled sessions.", status: "success" };
+}
+
 export async function parseTrainingHistoryAction(
   _state: TrainingImportActionState,
   formData: FormData,

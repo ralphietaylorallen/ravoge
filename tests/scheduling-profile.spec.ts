@@ -5,7 +5,7 @@ import { createBookingEmailContent, sendBookingEmail } from "../lib/booking-emai
 
 test("new profile and schedule routes remain server protected", async ({ page }) => {
   test.setTimeout(60_000);
-  for (const path of ["/owner/schedule", "/owner/setup", "/coach/profile", "/coach/schedule", "/coach/availability", "/client/profile", "/client/book", "/client/schedule"]) {
+  for (const path of ["/owner/schedule", "/owner/setup", "/owner/reports", "/owner/revenue", "/coach/profile", "/coach/schedule", "/coach/availability", "/client/profile", "/client/book", "/client/schedule", "/client/welcome"]) {
     await page.goto(path);
     const roleRoot = `/${path.split("/")[1]}`;
     await expect(page).toHaveURL(new RegExp(`/login\\?next=${roleRoot.replaceAll("/", "\\/")}$`));

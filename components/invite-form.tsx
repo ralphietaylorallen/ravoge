@@ -32,7 +32,7 @@ export function InviteForm({ role }: { role: keyof typeof invitationActions }) {
         <input autoComplete="email" id={emailId} name="email" required type="email" />
       </div>
       <button className={styles.action} disabled={pending} type="submit">
-        {pending ? "Creating…" : `Invite ${role}`}
+        {pending ? "Creating…" : role === "client" ? "Send invite" : `Invite ${role}`}
       </button>
       {state.message && (
         <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">
@@ -41,6 +41,13 @@ export function InviteForm({ role }: { role: keyof typeof invitationActions }) {
       )}
       {state.status === "success" && state.invitationUrl && (
         <div className={styles.inviteResult}>
+          <strong>
+            {state.emailDeliveryStatus === "sent"
+              ? "Email confirmed sent"
+              : state.emailDeliveryStatus === "not_configured"
+                ? "Email not configured"
+                : "Email delivery failed"}
+          </strong>
           <a href={state.invitationUrl}>Open secure invitation</a>
           <CopyLinkButton label="Copy secure invitation" url={state.invitationUrl} />
           {emailHref && <a className={styles.secondaryAction} href={emailHref}>Email invitation</a>}

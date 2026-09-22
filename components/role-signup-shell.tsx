@@ -32,9 +32,9 @@ export async function RoleSignupShell({
         Back
       </Link>
 
-      <p className={styles.eyebrow}>Selected account type</p>
-      <h1 className={styles.roleHeading}>{accountType}</h1>
-      <p className={styles.lede}>{description}</p>
+      <p className={styles.eyebrow}>{invitation ? "Secure gym invitation" : "Selected account type"}</p>
+      <h1 className={styles.roleHeading}>{invitation ? `Join ${invitation.organizationName}` : accountType}</h1>
+      <p className={styles.lede}>{invitation ? `${invitation.inviterName} invited you to join as ${invitation.role}.` : description}</p>
 
       {invitationIsValid ? (
         <SignupForm

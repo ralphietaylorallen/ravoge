@@ -104,6 +104,14 @@ Organizations define an IANA timezone, non-overnight weekly hours, date-specific
 
 Transactional delivery is separate in `booking_email_deliveries`, so a provider failure never rolls back a valid booking. The server-only Resend adapter produces branded booked/rescheduled/cancelled messages, a normal Google Calendar event link, and an attached `.ics` event with stable `<booking-id>@ravoge.com` identity. No intake, health, or workout detail is rendered into email/calendar content. When `RESEND_API_KEY` or a verified `RAVOGE_EMAIL_FROM` is absent, no provider request is made and the delivery record is finalized as `skipped`; booking and schedule state remain authoritative and complete.
 
+### Coach acquisition and Owner operations V1
+
+A Coach-created Client invitation derives both the gym and inviter from the authenticated active Coach membership. The opaque invitation stores this server-trusted provenance. When the exact confirmed email accepts a Client invitation, the existing membership trigger creates the organization membership and, only when the inviter is still an active Coach in that organization, the active Coach assignment in the same transaction. An Owner-created Client invitation creates no arbitrary assignment. Repeated acceptance is idempotent and the unique active-assignment constraint prevents two simultaneous primary Coaches.
+
+Client history remains attached to the canonical Auth identity and organization membership. Owner reassignment inactivates the previous Coach assignment and activates the new one; RLS removes the former Coach's access immediately. Owners can see invitation attribution, factual Client/Coach activity, body-composition chronology, and deterministic follow-up reasons without transferring ownership of the Client to a Coach. Body-composition values are stored separately from membership records and are never medically interpreted.
+
+Revenue V1 is reporting/configuration only. Organization session values use integer minor currency units; Coach percentage settings use integer basis points; booking snapshots record the configured session value, estimated Coach amount, gym retained amount, zero Ravoge platform fee, and an informational payment status. Hourly estimates use the scheduled duration with decimal-safe database arithmetic. Existing booking snapshots are not retroactively rewritten when configuration changes. No payment collection, payroll, invoicing, or settlement is implemented.
+
 Supabase and Netlify projects already exist. Before any future database mutation or deployment:
 
 1. Read the configured project/site ID from the local, non-committed environment or connected CLI.

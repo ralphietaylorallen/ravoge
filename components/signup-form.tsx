@@ -27,7 +27,8 @@ export function SignupForm({
     <>
       {invitation && (
         <p className={styles.invitationContext}>
-          Join <strong>{invitation.organizationName}</strong> as {invitation.role}.
+          Join <strong>{invitation.organizationName}</strong> as {invitation.role}. Invited by{" "}
+          <strong>{invitation.inviterName}</strong> ({invitation.inviterRole}).
         </p>
       )}
       <form action={formAction} className={styles.form}>
