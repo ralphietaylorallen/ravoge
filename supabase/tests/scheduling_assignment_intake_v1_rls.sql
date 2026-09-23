@@ -35,6 +35,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','c1000000-0000-4000-8000-000000000002',true);
 do $$ begin
   if (select count(*) from public.list_unassigned_clients_for_coach()) <> 1 then raise exception 'Unassigned pool exposed assigned or cross-organization Client'; end if;
+  if (select count(*) from public.list_other_assigned_clients_for_coach())<>1 or not exists(select 1 from public.list_other_assigned_clients_for_coach() where client_user_id='c1000000-0000-4000-8000-000000000004' and assigned_coach_name='V1 Coach A2') then raise exception 'Other Coach assignment labels are incorrect or cross organization'; end if;
   if exists (select 1 from public.profiles where id='c1000000-0000-4000-8000-000000000004') then raise exception 'Unassigned Coach read assigned Client details'; end if;
   begin perform public.claim_unassigned_client('c1000000-0000-4000-8000-000000000004'); raise exception 'Coach stole assigned Client'; exception when others then if sqlerrm='Coach stole assigned Client' then raise; end if; end;
   begin perform public.claim_unassigned_client('c2000000-0000-4000-8000-000000000002'); raise exception 'Coach claimed cross-organization Client'; exception when others then if sqlerrm='Coach claimed cross-organization Client' then raise; end if; end;

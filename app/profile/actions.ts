@@ -106,6 +106,10 @@ async function uploadProfilePhoto(role: Extract<AccountRole, "coach" | "client">
   revalidatePath(`/${role}`);
   revalidatePath(`/${role}/profile`);
   revalidatePath(`/${role}/onboarding`);
+  revalidatePath("/owner/clients");
+  revalidatePath("/owner/team");
+  revalidatePath(`/owner/clients/${userId}`);
+  revalidatePath(`/coach/clients/${userId}`);
   return { message: "Profile photo updated.", status: "success" };
 }
 

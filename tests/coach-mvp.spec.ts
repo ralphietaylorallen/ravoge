@@ -22,6 +22,7 @@ test("coach opens an assigned client and saves a workout", async ({ page }, test
   await expect(page).toHaveURL(new RegExp(`/coach/clients/${assignedClientId}$`));
   await expect(page.getByRole("heading", { name: "Ravoge E2E Client" })).toBeVisible();
 
+  await page.getByText("Create a workout", { exact: true }).click();
   await page.getByLabel("Workout name").fill("E2E Strength Session");
   await page.getByLabel("Date").fill("2026-09-21");
   await page.getByLabel("Coach instructions").fill("Controlled tempo throughout.");
@@ -34,7 +35,8 @@ test("coach opens an assigned client and saves a workout", async ({ page }, test
 
   await expect(page.getByRole("status")).toContainText("Workout assigned successfully");
   await expect(page.getByText("E2E Strength Session")).toBeVisible();
-  await expect(page.getByText("Back Squat")).toBeVisible();
+  await page.getByRole("link", { name: /E2E Strength Session/ }).click();
+  await expect(page.getByText("Back Squat", { exact: true })).toBeVisible();
 
   if (unassignedClientId) {
     await page.goto(`/coach/clients/${unassignedClientId}`);

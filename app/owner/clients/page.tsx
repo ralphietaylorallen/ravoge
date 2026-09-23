@@ -1,7 +1,6 @@
-import Link from "next/link";
+import { ClientDirectory } from "@/components/client-directory";
 
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
-import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
 
@@ -32,7 +31,7 @@ export default async function OwnerClientsPage() {
     { data: workouts },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
-    supabase.from("organizations").select("name").eq("id", organizationId).single(),
+    supabase.from("organizations").select("name,timezone").eq("id", organizationId).single(),
     supabase
       .from("organization_memberships")
       .select("user_id,status,invitation_id,created_at")
@@ -63,50 +62,25 @@ export default async function OwnerClientsPage() {
   const names = new Map((profiles ?? []).map((profile: { id: string; full_name: string; preferred_name: string | null }) => [profile.id, profile.preferred_name || profile.full_name]));
   const photos = new Map(await Promise.all((profiles ?? []).map(async (profile: { id: string; avatar_path: string | null }) => [profile.id, await getProfileImageUrl(supabase, profile.avatar_path)] as const)));
   const coachByClient = new Map(activeAssignments.map((assignment) => [assignment.client_user_id, assignment.coach_user_id]));
-  const invitationById = new Map((invitations ?? []).map((invitation: { id: string; invited_by: string }) => [invitation.id, invitation]));
   const latestByClient = <T extends { client_user_id: string }>(rows: T[]) => {
     const map = new Map<string, T>();
     rows.forEach((row) => { if (!map.has(row.client_user_id)) map.set(row.client_user_id, row); });
     return map;
   };
-  const latestAppointments = latestByClient((bookings ?? []) as { client_user_id: string; starts_at: string; status: string }[]);
+  const requestTime = new Date().getTime();
+  const latestAppointments = latestByClient(((bookings ?? []) as { client_user_id: string; starts_at: string; status: string }[]).filter((booking) => booking.status === "scheduled" && Date.parse(booking.starts_at) >= requestTime).reverse());
   const latestIntakes = latestByClient((intakes ?? []) as { client_user_id: string; completed_at: string }[]);
   const latestWorkouts = latestByClient((workouts ?? []) as { client_user_id: string; completed_at: string | null; status: string; updated_at: string }[]);
 
-  return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
-      <div className={styles.pageHeading}>
-        <div><p className={styles.eyebrow}>Owner View</p><h2>Clients</h2></div>
-        <p>Review every client in this organization, their primary coach, intake state, prescriptions, and workout history.</p>
-      </div>
-      <section className={`${styles.panel} ${styles.panelWide}`}>
-        <h2>Organization clients</h2>
-        {clients.length ? (
-          <ul className={styles.directoryList}>
-            {clients.map((client) => {
-              const coachId = coachByClient.get(client.user_id);
-              return (
-                <li key={client.user_id}>
-                  <ProfilePhoto name={names.get(client.user_id) ?? "Client"} size="small" url={photos.get(client.user_id)} />
-                  <div>
-                    <Link href={`/owner/clients/${client.user_id}`}>{names.get(client.user_id) ?? "Client"}</Link>
-                    <small>{coachId ? `Coach: ${names.get(coachId) ?? "Assigned coach"}` : "Coach not assigned"}</small>
-                    <small>
-                      Invited by: {client.invitation_id
-                        ? names.get(invitationById.get(client.invitation_id)?.invited_by ?? "") ?? "Organization member"
-                        : "Owner setup / legacy"}
-                    </small>
-                    <small>Latest appointment: {latestAppointments.has(client.user_id) ? `${new Date(latestAppointments.get(client.user_id)!.starts_at).toLocaleString("en-US")} · ${latestAppointments.get(client.user_id)!.status}` : "None"}</small>
-                    <small>Latest intake: {latestIntakes.has(client.user_id) ? new Date(latestIntakes.get(client.user_id)!.completed_at).toLocaleDateString("en-US") : "Pending"}</small>
-                    <small>Latest workout: {latestWorkouts.has(client.user_id) ? `${new Date(latestWorkouts.get(client.user_id)!.completed_at ?? latestWorkouts.get(client.user_id)!.updated_at).toLocaleDateString("en-US")} · ${latestWorkouts.get(client.user_id)!.status}` : "None"}</small>
-                  </div>
-                  <span className={client.status === "active" ? styles.statusPill : styles.mutedPill}>{client.status}</span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : <p className={styles.empty}>No client memberships yet.</p>}
-      </section>
-    </DashboardShell>
-  );
+  const timezone = organization?.timezone ?? "America/Denver";
+  const date = (value: string, time = false) => new Intl.DateTimeFormat("en-US", { timeZone: timezone, month: "short", day: "numeric", ...(time ? { hour: "numeric", minute: "2-digit" } as const : {}) }).format(new Date(value));
+  return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
+    <div className={styles.pageHeading}><div><h2>Clients</h2><p className={styles.profileMeta}>Manage all clients in {organization?.name ?? "your gym"}.</p></div></div>
+    <ClientDirectory clients={clients.map((client) => {
+      const coachId = coachByClient.get(client.user_id);
+      const next = latestAppointments.get(client.user_id);
+      const workout = latestWorkouts.get(client.user_id);
+      return { id: client.user_id, name: names.get(client.user_id) ?? "Client", photo: photos.get(client.user_id) ?? null, status: client.status, coachId: coachId ?? null, coach: coachId ? names.get(coachId) ?? "Coach" : "Not assigned", joined: date(client.created_at), nextSession: next ? date(next.starts_at, true) : "None", intake: latestIntakes.has(client.user_id) ? "Complete" : "Pending", workout: workout ? date(workout.completed_at ?? workout.updated_at) : "None" };
+    })} />
+  </DashboardShell>;
 }

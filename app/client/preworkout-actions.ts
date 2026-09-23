@@ -10,7 +10,7 @@ export async function submitPreworkoutCheckinAction(workoutId: string, _state: C
   const { supabase } = await requireRole("client");
   if (!/^[0-9a-f-]{36}$/i.test(workoutId)) return { status: "error", message: "Workout is unavailable." };
   const answers = Array.from({ length: 8 }, (_, index) => ({ position: index + 1, answer: Number(formData.get(`answer-${index + 1}`)) }));
-  if (answers.some(({ answer }) => !Number.isFinite(answer))) return { status: "error", message: "Answer each numeric question." };
+  if (answers.some(({ answer }) => !Number.isFinite(answer) || answer < 1 || answer > 10)) return { status: "error", message: "Answer each question from 1 to 10." };
   const { error } = await supabase.rpc("submit_preworkout_checkin", { target_booking_id: null, target_workout_assignment_id: workoutId, submitted_answers: answers });
   if (error) return { status: "error", message: "Check-in was not saved. Confirm the workout and answer ranges." };
   revalidatePath(`/client/workouts/${workoutId}`);

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { OperationsTabs } from "@/components/operations-tabs";
+import { StaffBookingPage } from "@/components/staff-booking-page";
+import { BookingList } from "@/components/booking-list";
 import { ClientCoachAssignmentForm } from "@/components/client-coach-assignment-form";
 import { BaselineSummary, type BaselineRecord } from "@/components/baseline-summary";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
@@ -44,7 +47,7 @@ type Workout = {
   title: string;
   workout_exercises: { exercise_name: string; id: string; load: number | null; reps: number; sets: number; sort_order: number }[];
 };
-type Booking = { ends_at: string; id: string; starts_at: string; status: string; timezone: string };
+type Booking = { coach_user_id: string; ends_at: string; id: string; starts_at: string; status: string; timezone: string };
 type BodyComposition = {
   intake_id: string | null;
   body_fat_mass_kg: number | null;
@@ -61,7 +64,9 @@ function level(score: number) {
   return "Developed";
 }
 
-export default async function OwnerClientDetailPage({ params }: { params: Promise<{ clientId: string }> }) {
+export default async function OwnerClientDetailPage({ params, searchParams }: { params: Promise<{ clientId: string }>; searchParams: Promise<{ tab?: string; date?: string; duration?: string; coach?: string; reschedule?: string }> }) {
+  const query = await searchParams;
+  const tab = ["overview", "schedule", "intake", "progress", "workouts", "notes"].includes(query.tab ?? "") ? query.tab! : "overview";
   const { clientId } = await params;
   if (!UUID_PATTERN.test(clientId)) notFound();
   const { membership, supabase, userId } = await requireRole("owner");
@@ -69,7 +74,7 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
 
   const { data: clientMembership } = await supabase
     .from("organization_memberships")
-    .select("user_id,status,invitation_id")
+    .select("user_id,status,invitation_id,created_at")
     .eq("organization_id", organizationId)
     .eq("user_id", clientId)
     .eq("role", "client")
@@ -102,7 +107,7 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
     supabase.from("generated_prescriptions").select("id,title,status,generated_at,coach_user_id").eq("organization_id", organizationId).eq("client_user_id", clientId).order("generated_at", { ascending: false }),
     supabase.from("workout_assignments").select("id,title,scheduled_date,status,completed_at,coach_user_id,workout_exercises(id,exercise_name,sets,reps,load,sort_order)").eq("organization_id", organizationId).eq("client_user_id", clientId).order("scheduled_date", { ascending: false }),
     supabase.from("coach_client_assignment_audit").select("action,actor_user_id,coach_user_id,created_at").eq("organization_id", organizationId).eq("client_user_id", clientId).order("created_at", { ascending: false }).limit(12),
-    supabase.from("bookings").select("id,starts_at,ends_at,timezone,status").eq("organization_id", organizationId).eq("client_user_id", clientId).order("starts_at", { ascending: false }),
+    supabase.from("bookings").select("id,coach_user_id,starts_at,ends_at,timezone,status").eq("organization_id", organizationId).eq("client_user_id", clientId).order("starts_at", { ascending: false }),
     supabase.from("client_body_composition_assessments").select("intake_id,measured_at,weight_kg,skeletal_muscle_mass_kg,body_fat_percentage,body_fat_mass_kg,inbody_score").eq("organization_id", organizationId).eq("client_user_id", clientId).order("measured_at"),
     supabase.from("client_intakes").select("id,version,completed_at").eq("organization_id", organizationId).eq("client_user_id", clientId).order("version", { ascending: false }),
     supabase.from("client_intake_baselines").select("intake_id,squat_variation,squat_one_rm_kg,squat_one_rm_method,bench_variation,bench_one_rm_kg,bench_one_rm_method,pullup_strict_reps,pullup_mode,rower_distance_m,rower_time_seconds,versa_duration_seconds,versa_feet,inbody_status").eq("organization_id", organizationId).eq("client_user_id", clientId),
@@ -114,10 +119,11 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
   const audits = (auditRows ?? []) as AuditEvent[];
   const profileIds = [...new Set([...coachIds, ...audits.map((row) => row.actor_user_id)])];
   const { data: profiles } = profileIds.length
-    ? await supabase.from("profiles").select("id,full_name").in("id", profileIds)
+    ? await supabase.from("profiles").select("id,full_name,avatar_path").in("id", profileIds)
     : { data: [] };
   const names = new Map((profiles ?? []).map((profile: { id: string; full_name: string }) => [profile.id, profile.full_name]));
-  const coaches = coachIds.map((id) => ({ id, name: names.get(id) ?? "Coach" }));
+  const coachPhotos = new Map(await Promise.all((profiles ?? []).map(async (profile) => [profile.id, await getProfileImageUrl(supabase, profile.avatar_path)] as const)));
+  const coaches = coachIds.map((id) => ({ id, name: names.get(id) ?? "Coach", photo: coachPhotos.get(id) }));
   const intake = (intakeRows?.[0] ?? null) as Intake | null;
   const state = (stateRows?.[0] ?? null) as ClientState | null;
   const prescriptions = (prescriptionRows ?? []) as Prescription[];
@@ -157,70 +163,27 @@ export default async function OwnerClientDetailPage({ params }: { params: Promis
     { label: "Training frequency", unit: "sessions/week", points: [...weeklySessions].map(([date, value]) => ({ date: `${date}T12:00:00Z`, value })) },
   ];
 
-  return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
-      <Link className={styles.backLink} href="/owner/clients">← Back to clients</Link>
-      <div className={styles.detailHeader}>
-        <div className={styles.profileHero}><ProfilePhoto name={clientName} url={clientImageUrl} /><div><p className={styles.eyebrow}>Owner View · Client</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{activeAssignment ? `Primary coach: ${names.get(activeAssignment.coach_user_id) ?? "Assigned coach"}` : "Primary coach not assigned"}</p><p className={styles.empty}>{client?.bio || "No client About section yet."}</p></div></div>
-        <span className={clientMembership.status === "active" ? styles.statusPill : styles.mutedPill}>{clientMembership.status}</span>
-      </div>
-      <nav aria-label="Client oversight sections" className={styles.tabs}><a href="#overview">Overview</a><a href="#intake">Intake</a><a href="#state">State</a><a href="#prescriptions">Prescriptions</a><a href="#history">Workout history</a><a href="#bookings">Bookings</a><a href="#progress">Progress</a></nav>
 
-      <section className={styles.profileOverview} id="overview">
-        <article className={styles.metricCard}><span>Intake</span><strong>{intake ? `Version ${intake.version}` : "Pending"}</strong><small>{intake ? new Date(intake.completed_at).toLocaleDateString("en-US") : "No intake recorded"}</small></article>
-        <article className={styles.metricCard}><span>Prescriptions</span><strong>{prescriptions.length}</strong><small>{prescriptions.filter((row) => row.status === "draft").length} awaiting coach review</small></article>
-        <article className={styles.metricCard}><span>Workouts</span><strong>{workouts.length}</strong><small>{workouts.filter((row) => row.status === "completed").length} completed</small></article>
-        <article className={styles.metricCard}><span>Invited by</span><strong>{inviterName}</strong><small>Organization acquisition provenance</small></article>
-      </section>
-
-      <section className={styles.workspaceSection}>
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Organization management</p><h3>Primary coach assignment</h3></div><p>The change is authorized by the database and audited to your Owner identity.</p></div>
-        <div className={styles.detailGrid}>
-          <section className={styles.panel}><h2>Assigned Coach</h2><p>{activeAssignment ? names.get(activeAssignment.coach_user_id) ?? "Coach" : "Unassigned"}</p><ClientCoachAssignmentForm clientId={clientId} coaches={coaches} currentCoachId={activeAssignment?.coach_user_id} /><Link className={styles.action} href={`/owner/clients/${clientId}/book`}>Schedule first session →</Link></section>
-          <section className={styles.panel}><h2>Assignment activity</h2>{audits.length ? <ul className={styles.activityList}>{audits.map((event, index) => <li key={`${event.created_at}-${index}`}><div><strong>{event.action}</strong><small>{names.get(event.coach_user_id) ?? "Coach"}</small></div><span>{names.get(event.actor_user_id) ?? "Organization member"}<time dateTime={event.created_at}>{new Date(event.created_at).toLocaleString("en-US")}</time></span></li>)}</ul> : <p className={styles.empty}>No audited assignment changes yet.</p>}</section>
-        </div>
-      </section>
-
-      <section className={styles.workspaceSection} id="intake">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Structured intake</p><h3>Client baseline</h3></div></div>
-        {intake ? <div className={styles.stateGrid}>
-          <article><span>Primary goal</span><strong>{intake.primary_goal.replaceAll("_", " ")}</strong></article>
-          <article><span>Experience</span><strong>{intake.experience_level}</strong></article>
-          <article><span>Recent consistency</span><strong>{intake.recent_consistency}</strong></article>
-          <article><span>Weekly target</span><strong>{intake.training_frequency_goal} sessions</strong></article>
-          <article><span>Current injuries</span><strong>{intake.current_injuries || "None recorded"}</strong></article>
-          <article><span>Movement limits</span><strong>{intake.movement_limitations || "None recorded"}</strong></article>
-        </div> : <p className={styles.empty}>No intake has been completed.</p>}
-        <BaselineSummary records={baselineRecords} />
-      </section>
-
-      <section className={styles.workspaceSection} id="state">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Ravoge state</p><h3>Latest calculated summary</h3></div></div>
-        {state ? <div className={styles.stateGrid}>
-          <article><span>Training level</span><strong>{level(state.training_experience)}</strong></article><article><span>Recovery</span><strong>{level(state.recovery_capacity)}</strong></article><article><span>Readiness</span><strong>{level(state.current_readiness)}</strong></article><article><span>Volume tolerance</span><strong>{level(state.volume_tolerance)}</strong></article><article><span>Movement tolerance</span><strong>{level(state.movement_tolerance)}</strong></article><article><span>Confidence</span><strong>{state.confidence.overall ?? "Low"}</strong></article><article className={styles.stateConstraints}><span>Constraints</span><strong>{state.constraint_tags.length ? state.constraint_tags.join(", ").replaceAll("_", " ") : "None recorded"}</strong></article>
-        </div> : <p className={styles.empty}>No calculated client state yet.</p>}
-      </section>
-
-      <section className={styles.workspaceSection} id="prescriptions">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Generated prescriptions</p><h3>Recommendation status</h3></div></div>
-        {prescriptions.length ? <ul className={styles.activityList}>{prescriptions.map((prescription) => <li key={prescription.id}><div><strong>{prescription.title}</strong><small>Coach: {names.get(prescription.coach_user_id) ?? "Coach"}</small></div><span>{prescription.status}<time dateTime={prescription.generated_at}>{new Date(prescription.generated_at).toLocaleDateString("en-US")}</time></span></li>)}</ul> : <p className={styles.empty}>No prescriptions generated yet.</p>}
-      </section>
-
-      <section className={styles.workspaceSection} id="history">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Training record</p><h3>Workout history</h3></div></div>
-        {workouts.length ? <ul className={styles.workoutList}>{workouts.map((workout) => <li key={workout.id}><div className={styles.workoutSummary}><div><strong>{workout.title}</strong><time dateTime={workout.scheduled_date}>{workout.scheduled_date} · {names.get(workout.coach_user_id) ?? "Coach"}</time></div><span>{workout.status.replaceAll("_", " ")}</span></div><ol className={styles.compactExercises}>{[...workout.workout_exercises].sort((a, b) => a.sort_order - b.sort_order).map((exercise) => <li key={exercise.id}><span>{exercise.exercise_name}</span><small>{exercise.sets} × {exercise.reps}{exercise.load !== null ? ` · ${exercise.load}` : ""}</small></li>)}</ol></li>)}</ul> : <p className={styles.empty}>No workout history yet.</p>}
-      </section>
-
-      <section className={styles.workspaceSection} id="bookings">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Scheduling history</p><h3>Bookings</h3></div></div>
-        {bookings.length ? <ul className={styles.activityList}>{bookings.map((booking) => <li key={booking.id}><div><strong>{new Date(booking.starts_at).toLocaleString("en-US", { timeZone: booking.timezone })}</strong><small>{Math.round((Date.parse(booking.ends_at) - Date.parse(booking.starts_at)) / 60000)} minutes</small></div><span>{booking.status}</span></li>)}</ul> : <p className={styles.empty}>No booking history yet.</p>}
-      </section>
-
-      <section className={styles.workspaceSection} id="progress">
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Factual chronology</p><h3>Client progress</h3></div><p>Recorded measurements and completion history only. Ravoge does not interpolate or medically interpret these values.</p></div>
-        <ProgressChart metrics={progressMetrics} />
-        {bodyComposition.length ? <div className={styles.tableScroll} tabIndex={0}><table className={styles.previewTable}><thead><tr><th>Date</th><th>Weight</th><th>Skeletal muscle</th><th>Body fat %</th><th>Body fat mass</th><th>InBody score</th></tr></thead><tbody>{bodyComposition.map((row) => <tr key={row.measured_at}><td>{new Date(row.measured_at).toLocaleDateString("en-US")}</td><td>{row.weight_kg ?? "—"}</td><td>{row.skeletal_muscle_mass_kg ?? "—"}</td><td>{row.body_fat_percentage ?? "—"}</td><td>{row.body_fat_mass_kg ?? "—"}</td><td>{row.inbody_score ?? "—"}</td></tr>)}</tbody></table></div> : null}
-      </section>
-    </DashboardShell>
-  );
+  const timezone = organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE;
+  const requestTime = new Date().getTime();
+  const nextBooking = [...bookings].filter((booking) => booking.status === "scheduled" && Date.parse(booking.starts_at) >= requestTime).sort((a,b) => a.starts_at.localeCompare(b.starts_at))[0];
+  const latestBody = bodyComposition.at(-1);
+  const basePath = `/owner/clients/${clientId}`;
+  const formatDate = (value: string) => new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: timezone }).format(new Date(value));
+  return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
+    <Link className={styles.backLink} href="/owner/clients">← Clients</Link>
+    <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhoto name={clientName} url={clientImageUrl} /><div><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>Client · {organization?.name} · Joined {formatDate(clientMembership.created_at)}</p></div></div><span className={clientMembership.status === "active" ? styles.successPill : styles.mutedPill}>{clientMembership.status}</span></div>
+    <OperationsTabs active={tab} basePath={basePath} tabs={[{id:"overview",label:"Overview"},{id:"schedule",label:"Schedule"},{id:"intake",label:"Intake"},{id:"progress",label:"Progress"},{id:"workouts",label:"Workouts"},{id:"notes",label:"Notes"}]} />
+    {tab === "overview" && <div className={styles.overviewCards}>
+      <section className={styles.operationCard}><h3>Assigned Coach</h3>{activeAssignment ? <div className={styles.coachIdentity}><ProfilePhoto name={names.get(activeAssignment.coach_user_id) ?? "Coach"} url={coachPhotos.get(activeAssignment.coach_user_id)} size="small" /><strong>{names.get(activeAssignment.coach_user_id) ?? "Coach"}</strong></div> : <div className={styles.emptyAssignment}><span aria-hidden="true">♙</span><strong>No coach assigned yet</strong><p>Assign a coach to plan training and book the first session.</p></div>}<ClientCoachAssignmentForm clientId={clientId} clientName={clientName} coaches={coaches} currentCoachId={activeAssignment?.coach_user_id} />{activeAssignment && <Link className={styles.secondaryAction} href={`${basePath}?tab=schedule`}>Schedule session →</Link>}</section>
+      <section className={styles.operationCard}><h3>Client status</h3><dl className={styles.factList}><div><dt>Next session</dt><dd>{nextBooking ? new Date(nextBooking.starts_at).toLocaleString("en-US", {timeZone:timezone,month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}) : "None"}</dd></div><div><dt>Intake status</dt><dd><span className={intake ? styles.successPill : styles.pendingPill}>{intake ? "Complete" : "Pending"}</span></dd></div><div><dt>Current phase</dt><dd>{prescriptions.length ? "Foundation" : "Not started"}</dd></div><div><dt>Latest workout</dt><dd>{workouts[0]?.title ?? "None"}</dd></div><div><dt>Member since</dt><dd>{formatDate(clientMembership.created_at)}</dd></div></dl></section>
+      <section className={styles.operationCard}><h3>Recent activity</h3><ul className={styles.activityList}><li><div><strong>Joined {organization?.name}</strong><small>{formatDate(clientMembership.created_at)}</small></div></li><li><div><strong>{activeAssignment ? "Coach assigned" : "Awaiting coach assignment"}</strong><small>Invited by {inviterName}</small></div></li>{audits.slice(0,3).map((event) => <li key={event.created_at}><div><strong>{event.action.replaceAll("_"," ")}</strong><small>{names.get(event.coach_user_id) ?? "Coach"} · {formatDate(event.created_at)}</small></div></li>)}</ul></section>
+      <section className={styles.operationCard}><h3>Body composition (InBody)</h3>{latestBody ? <dl className={styles.factList}><div><dt>InBody score</dt><dd>{latestBody.inbody_score ?? "Not recorded"}</dd></div><div><dt>Body fat</dt><dd>{latestBody.body_fat_percentage !== null ? `${latestBody.body_fat_percentage}%` : "Not recorded"}</dd></div><div><dt>Test date</dt><dd>{formatDate(latestBody.measured_at)}</dd></div></dl> : <div className={styles.emptyAssignment}><strong>No InBody data yet</strong><p>Complete intake to add baseline measurements.</p></div>}<Link className={styles.secondaryAction} href={`${basePath}?tab=intake`}>Go to Intake</Link></section>
+    </div>}
+    {tab === "schedule" && <><StaffBookingPage clientId={clientId} embedded role="owner" searchParams={query} /><section className={styles.operationCard}><h3>Client sessions</h3><BookingList bookings={bookings.map((booking) => ({id:booking.id,clientUserId:clientId,clientName,clientPhotoUrl:clientImageUrl,coachName:names.get(booking.coach_user_id) ?? "Coach",startsAt:booking.starts_at,endsAt:booking.ends_at,status:booking.status,timezone:booking.timezone,gymName:organization?.name ?? "Gym"}))} empty="No sessions booked yet." perspective="owner" staffControls /></section></>}
+    {tab === "intake" && <section className={styles.operationCard}><h3>Intake & baseline</h3><p className={styles.empty}>{intake ? `Version ${intake.version} · ${formatDate(intake.completed_at)} · ${intake.primary_goal.replaceAll("_"," ")}` : "Your assigned Coach can run the guided intake evaluation from their Client workspace."}</p><BaselineSummary records={baselineRecords} />{state && <div className={styles.stateGrid}><article><span>Readiness</span><strong>{level(state.current_readiness)}</strong></article><article><span>Recovery</span><strong>{level(state.recovery_capacity)}</strong></article><article><span>Confidence</span><strong>{state.confidence.overall ?? "Low"}</strong></article></div>}</section>}
+    {tab === "workouts" && <section className={styles.operationCard}><h3>Workout history</h3>{workouts.length ? <ul className={styles.workoutList}>{workouts.map((workout) => <li key={workout.id}><div className={styles.workoutSummary}><div><strong>{workout.title}</strong><small>{workout.scheduled_date} · {names.get(workout.coach_user_id) ?? "Coach"}</small></div><span className={workout.status === "completed" ? styles.successPill : styles.mutedPill}>{workout.status.replaceAll("_"," ")}</span></div><ol className={styles.compactExercises}>{[...workout.workout_exercises].sort((a,b)=>a.sort_order-b.sort_order).map((exercise)=><li key={exercise.id}><span>{exercise.exercise_name}</span><small>{exercise.sets} × {exercise.reps} · {exercise.load ?? "Bodyweight"}</small></li>)}</ol></li>)}</ul> : <p className={styles.empty}>No workouts assigned yet.</p>}</section>}
+    {tab === "notes" && <section className={styles.operationCard}><h3>Client notes</h3><p className={styles.empty}>{client?.bio || "No client About section yet."}</p><dl className={styles.factList}><div><dt>Current injuries</dt><dd>{intake?.current_injuries || "None recorded"}</dd></div><div><dt>Movement limitations</dt><dd>{intake?.movement_limitations || "None recorded"}</dd></div></dl></section>}
+    {tab === "progress" && <><ProgressChart metrics={progressMetrics} /><section className={styles.operationCard}><h3>InBody history</h3>{bodyComposition.length ? <div className={styles.tableScroll} tabIndex={0}><table className={styles.previewTable}><thead><tr><th>Date</th><th>Weight (kg)</th><th>Muscle (kg)</th><th>Body fat</th><th>Score</th></tr></thead><tbody>{bodyComposition.map((row)=><tr key={row.measured_at}><td>{formatDate(row.measured_at)}</td><td>{row.weight_kg ?? "—"}</td><td>{row.skeletal_muscle_mass_kg ?? "—"}</td><td>{row.body_fat_percentage ?? "—"}%</td><td>{row.inbody_score ?? "—"}</td></tr>)}</tbody></table></div> : <p className={styles.empty}>No measurements yet.</p>}</section></>}
+  </DashboardShell>;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, type ReactNode } from "react";
 
 import { saveClientIntakeAction } from "@/app/coach/actions";
 
@@ -59,13 +59,20 @@ function ScaleSelect({ defaultValue, id, label, required = true }: { defaultValu
   );
 }
 
-export function IntakeForm({ clientId, defaults = {} }: { clientId: string; defaults?: IntakeDefaults }) {
+export function IntakeForm({ clientId, defaults = {}, checkin }: { clientId: string; defaults?: IntakeDefaults; checkin?: ReactNode }) {
+  const [step,setStep]=useState(0);
+  const [tests,setTests]=useState({rower:true,versa:false});
+  const [review,setReview]=useState<[string,string][]>([]);
+  const formRef=useRef<HTMLFormElement>(null);
+  const steps=["Pre-workout check-in","Strength tests","Conditioning","InBody","Review & save"];
+  function go(next:number) { if(next===4&&formRef.current) setReview([...new FormData(formRef.current).entries()].filter(([key,value])=>typeof value==="string"&&value!==""&&!key.startsWith("$")).map(([key,value])=>[key,String(value)])); setStep(next); }
+  function validate(event:React.FormEvent<HTMLFormElement>) { if(!event.currentTarget.checkValidity()){ event.preventDefault(); const invalid=event.currentTarget.querySelector(":invalid") as HTMLInputElement|null; const container=invalid?.closest("[data-step]") as HTMLElement|null; if(container) setStep(Number(container.dataset.step)); requestAnimationFrame(()=>invalid?.reportValidity()); } }
   const saveForClient = saveClientIntakeAction.bind(null, clientId);
   const [state, action, pending] = useActionState(saveForClient, { status: "idle" as const });
   const [inbodyStatus, setInbodyStatus] = useState("pending");
   return (
-    <form action={action} className={styles.intakeForm}>
-      <details className={styles.formSection} open>
+    <><nav aria-label="Intake steps" className={styles.intakeSteps}>{steps.map((label,index)=><button aria-current={step===index?"step":undefined} key={label} onClick={()=>go(index)} type="button"><span>{index+1}</span>{label}</button>)}</nav>{step===0&&checkin}<form action={action} className={styles.intakeForm} noValidate onSubmit={validate} ref={formRef}>
+      <details className={styles.formSection} data-step={0} hidden={step!==0} open>
         <summary><span>01</span> Goals &amp; context</summary>
         <div className={styles.sectionFields}>
           <div className={styles.formColumns}>
@@ -79,7 +86,7 @@ export function IntakeForm({ clientId, defaults = {} }: { clientId: string; defa
         </div>
       </details>
 
-      <details className={styles.formSection} open>
+      <details className={styles.formSection} data-step={0} hidden={step!==0} open>
         <summary><span>02</span> Training history</summary>
         <div className={styles.sectionFields}>
           <div className={styles.formColumns}>
@@ -91,7 +98,7 @@ export function IntakeForm({ clientId, defaults = {} }: { clientId: string; defa
         </div>
       </details>
 
-      <details className={styles.formSection} open>
+      <details className={styles.formSection} data-step={0} hidden={step!==0} open>
         <summary><span>03</span> Limitations &amp; movement</summary>
         <div className={styles.sectionFields}>
           <div className={styles.field}><label htmlFor="currentInjuries">Current injuries</label><textarea defaultValue={defaults.current_injuries} id="currentInjuries" maxLength={4000} name="currentInjuries" rows={3} /></div>
@@ -105,7 +112,7 @@ export function IntakeForm({ clientId, defaults = {} }: { clientId: string; defa
         </div>
       </details>
 
-      <details className={styles.formSection}>
+      <details className={styles.formSection} data-step={0} hidden={step!==0} open>
         <summary><span>04</span> Baseline &amp; recovery</summary>
         <div className={styles.sectionFields}>
           <p className={styles.formHint}>Baseline scores are optional. Leaving them blank intentionally lowers state confidence.</p>
@@ -123,7 +130,7 @@ export function IntakeForm({ clientId, defaults = {} }: { clientId: string; defa
         </div>
       </details>
 
-      <details className={styles.formSection}>
+      <details className={styles.formSection} data-step={0} hidden={step!==0} open>
         <summary><span>05</span> Preferences &amp; notes</summary>
         <div className={styles.sectionFields}>
           <div className={styles.formColumns}>
@@ -135,8 +142,8 @@ export function IntakeForm({ clientId, defaults = {} }: { clientId: string; defa
         </div>
       </details>
 
-      <details className={styles.formSection} open>
-        <summary><span>06</span> Measured strength baseline</summary>
+      <details className={styles.formSection} data-step={1} hidden={step!==1} open>
+        <summary><span>02</span> Measured strength baseline</summary>
         <div className={styles.sectionFields}>
           <p className={styles.formHint}>Record measured values in kilograms. Mark each 1RM as tested or estimated; do not fabricate a test.</p>
           <div className={styles.formColumns}><div className={styles.field}><label htmlFor="squatVariation">Squat variation</label><select id="squatVariation" name="squatVariation" required><option value="back_squat">Back Squat</option><option value="front_squat">Front Squat</option><option value="goblet_squat">Goblet Squat</option><option value="other">Other</option></select></div><div className={styles.field}><label htmlFor="squatOtherVariation">Other variation <span>when selected</span></label><input id="squatOtherVariation" maxLength={120} name="squatOtherVariation" /></div></div>
@@ -150,25 +157,27 @@ export function IntakeForm({ clientId, defaults = {} }: { clientId: string; defa
         </div>
       </details>
 
-      <details className={styles.formSection} open>
-        <summary><span>07</span> Conditioning baseline</summary>
+      <details className={styles.formSection} data-step={2} hidden={step!==2} open>
+        <summary><span>03</span> Conditioning baseline</summary>
         <div className={styles.sectionFields}><p className={styles.formHint}>Complete at least one test. Both may be recorded.</p>
-          <h3>Rower</h3><div className={styles.threeColumns}><div className={styles.field}><label htmlFor="rowerDistanceM">Distance (m)</label><input id="rowerDistanceM" min={1} name="rowerDistanceM" type="number" /></div><div className={styles.field}><label htmlFor="rowerTimeSeconds">Time (seconds)</label><input id="rowerTimeSeconds" min={1} name="rowerTimeSeconds" type="number" /></div><div className={styles.field}><label htmlFor="rowerCalories">Calories <span>optional</span></label><input id="rowerCalories" min={0} name="rowerCalories" type="number" /></div></div>
+          <div className={styles.choiceGrid}><label><input checked={tests.rower} onChange={event=>setTests({...tests,rower:event.target.checked})} type="checkbox"/>Rower</label><label><input checked={tests.versa} onChange={event=>setTests({...tests,versa:event.target.checked})} type="checkbox"/>Versa Climber</label></div><fieldset className={styles.conditioningTest} disabled={!tests.rower} hidden={!tests.rower}><legend>Rower</legend><div className={styles.threeColumns}><div className={styles.field}><label htmlFor="rowerDistanceM">Distance (m)</label><input id="rowerDistanceM" min={1} name="rowerDistanceM" type="number" /></div><div className={styles.field}><label htmlFor="rowerTimeSeconds">Time (seconds)</label><input id="rowerTimeSeconds" min={1} name="rowerTimeSeconds" type="number" /></div><div className={styles.field}><label htmlFor="rowerCalories">Calories <span>optional</span></label><input id="rowerCalories" min={0} name="rowerCalories" type="number" /></div></div>
           <div className={styles.threeColumns}><div className={styles.field}><label htmlFor="rowerPaceSecondsPer500m">Average pace (sec/500m) <span>optional</span></label><input id="rowerPaceSecondsPer500m" min={1} name="rowerPaceSecondsPer500m" step="0.01" type="number" /></div><div className={styles.field}><label htmlFor="rowerAverageHeartRate">Average HR <span>optional</span></label><input id="rowerAverageHeartRate" min={30} name="rowerAverageHeartRate" type="number" /></div><div className={styles.field}><label htmlFor="rowerNotes">Notes <span>optional</span></label><input id="rowerNotes" maxLength={1000} name="rowerNotes" /></div></div>
-          <h3>Versa Climber</h3><div className={styles.threeColumns}><div className={styles.field}><label htmlFor="versaDurationSeconds">Duration (seconds)</label><input id="versaDurationSeconds" min={1} name="versaDurationSeconds" type="number" /></div><div className={styles.field}><label htmlFor="versaFeet">Feet climbed / output</label><input id="versaFeet" min={1} name="versaFeet" type="number" /></div><div className={styles.field}><label htmlFor="versaCalories">Calories <span>optional</span></label><input id="versaCalories" min={0} name="versaCalories" type="number" /></div></div>
-          <div className={styles.formColumns}><div className={styles.field}><label htmlFor="versaAverageHeartRate">Average HR <span>optional</span></label><input id="versaAverageHeartRate" min={30} name="versaAverageHeartRate" type="number" /></div><div className={styles.field}><label htmlFor="versaNotes">Notes <span>optional</span></label><input id="versaNotes" maxLength={1000} name="versaNotes" /></div></div>
+          </fieldset><fieldset className={styles.conditioningTest} disabled={!tests.versa} hidden={!tests.versa}><legend>Versa Climber</legend><div className={styles.threeColumns}><div className={styles.field}><label htmlFor="versaDurationSeconds">Duration (seconds)</label><input id="versaDurationSeconds" min={1} name="versaDurationSeconds" type="number" /></div><div className={styles.field}><label htmlFor="versaFeet">Feet climbed / output</label><input id="versaFeet" min={1} name="versaFeet" type="number" /></div><div className={styles.field}><label htmlFor="versaCalories">Calories <span>optional</span></label><input id="versaCalories" min={0} name="versaCalories" type="number" /></div></div>
+          <div className={styles.formColumns}><div className={styles.field}><label htmlFor="versaAverageHeartRate">Average HR <span>optional</span></label><input id="versaAverageHeartRate" min={30} name="versaAverageHeartRate" type="number" /></div><div className={styles.field}><label htmlFor="versaNotes">Notes <span>optional</span></label><input id="versaNotes" maxLength={1000} name="versaNotes" /></div></div></fieldset>
         </div>
       </details>
 
-      <details className={styles.formSection} open>
-        <summary><span>08</span> InBody baseline</summary>
+      <details className={styles.formSection} data-step={3} hidden={step!==3} open>
+        <summary><span>04</span> InBody baseline</summary>
         <div className={styles.sectionFields}><div className={styles.field}><label htmlFor="inbodyStatus">Assessment status</label><select id="inbodyStatus" name="inbodyStatus" onChange={(event) => setInbodyStatus(event.target.value)} value={inbodyStatus}><option value="pending">Pending InBody — baseline incomplete</option><option value="completed">Completed InBody</option></select></div>
           {inbodyStatus === "completed" && <><div className={styles.field}><label htmlFor="inbodyTestDate">Test date</label><input id="inbodyTestDate" name="inbodyTestDate" required type="date" /></div><div className={styles.threeColumns}>{[["weightKg","Weight (kg)"],["inbodyScore","InBody Score"],["skeletalMuscleMassKg","Skeletal muscle mass (kg)"],["bodyFatMassKg","Body fat mass (kg)"],["bodyFatPercentage","Body fat (%)"],["bmi","BMI"],["visceralFatLevel","Visceral fat level"],["ecwTbw","ECW/TBW"],["bmrKcal","BMR (kcal)"]].map(([key, label]) => <div className={styles.field} key={key}><label htmlFor={key}>{label}</label><input id={key} min={0} name={key} required step={key === "bmrKcal" ? "1" : "0.001"} type="number" /></div>)}</div></>}
         </div>
       </details>
 
-      <button className={styles.action} disabled={pending} type="submit">{pending ? "Calculating…" : "Save versioned intake & baseline"}</button>
+      {step===4&&<section className={styles.operationCard}><h3>Review your evaluation</h3><p className={styles.formHint}>Measurements use kilograms. Saving creates a new baseline version and preserves earlier assessments.</p><dl className={styles.reviewValues}>{review.map(([key,value])=><div key={key+value}><dt>{key.replace(/([A-Z])/g," $1")}</dt><dd>{value.replaceAll("_"," ")}</dd></div>)}</dl></section>}
+      <div className={styles.stepActions}>{step>0&&<button className={styles.secondaryAction} onClick={()=>go(step-1)} type="button">← Back</button>}{step<4&&<button className={styles.action} onClick={()=>go(step+1)} type="button">Continue →</button>}</div>
+      <button className={styles.action} hidden={step!==4} disabled={pending} type="submit">{pending ? "Calculating…" : "Save versioned intake & baseline"}</button>
       {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
-    </form>
+    </form></>
   );
 }
