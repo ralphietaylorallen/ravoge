@@ -1,23 +1,32 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 
 import { logoutAction } from "@/app/auth/actions";
 import { Logo } from "@/components/logo";
 import type { AccountRole } from "@/lib/auth";
+import { DashboardNavigation } from "./dashboard-navigation";
+import { ProfilePhoto } from "./profile-photo";
+import { createClient } from "@/lib/supabase/server";
+import { getProfileImageUrl } from "@/lib/profile-images";
 
 import styles from "./dashboard.module.css";
 
-export function DashboardShell({
+export async function DashboardShell({
   children,
   gymName,
   name,
   role,
+  compact = false,
 }: {
   children: ReactNode;
   gymName: string;
   name: string;
   role: AccountRole;
+  compact?: boolean;
 }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: profile } = user ? await supabase.from("profiles").select("avatar_path").eq("id", user.id).maybeSingle() : { data: null };
+  const photo = await getProfileImageUrl(supabase, profile?.avatar_path);
   const navigation = role === "owner"
     ? [{ href: "/owner", label: "Overview" }, { href: "/owner/team", label: "Team" }, { href: "/owner/schedule", label: "Schedule" }, { href: "/owner/clients", label: "Clients" }, { href: "/owner/reports", label: "Reports" }, { href: "/owner/revenue", label: "Revenue" }, { href: "/owner/equipment", label: "Equipment" }, { href: "/owner/training-library", label: "Training library" }, { href: "/owner/apps", label: "Apps & access" }]
     : role === "coach"
@@ -27,10 +36,9 @@ export function DashboardShell({
     <main className={styles.shell}>
       <aside className={styles.sidebar}>
         <Logo />
-        <nav aria-label={`${role} navigation`}>
-          {navigation.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
-        </nav>
+        <DashboardNavigation items={navigation} role={role} />
         <div className={styles.identity}>
+          <ProfilePhoto name={name} size="small" url={photo} />
           <span>{role}</span>
           <strong>{name}</strong>
           <small>{gymName}</small>
@@ -46,11 +54,12 @@ export function DashboardShell({
             </form>
           </div>
         </header>
-        <section className={styles.hero}>
+        {!compact && <section className={styles.hero}>
           <p className={styles.eyebrow}>{gymName}</p>
           <h1 className={styles.title}>Welcome, {name}.</h1>
           <p className={styles.lede}>Secure training operations, built around coach judgment.</p>
-        </section>
+        </section>}
+        {compact && <div className={styles.operationTopSpace} />}
         {children}
       </div>
     </main>

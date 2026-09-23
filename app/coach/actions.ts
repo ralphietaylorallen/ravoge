@@ -209,14 +209,45 @@ export async function saveClientIntakeAction(
     trainingYears,
   };
 
-  const { error } = await supabase.rpc("upsert_client_intake", {
+  const baselineKeys = [
+    "squatVariation", "squatOtherVariation", "squatLoadKg", "squatReps", "squatOneRmKg",
+    "squatOneRmMethod", "squatNotes", "benchVariation", "benchLoadKg", "benchReps",
+    "benchOneRmKg", "benchOneRmMethod", "benchNotes", "pullupStrictReps", "pullupMode",
+    "pullupAdjustmentKg", "pullupNotes", "rowerDistanceM", "rowerTimeSeconds", "rowerCalories",
+    "rowerPaceSecondsPer500m", "rowerAverageHeartRate", "rowerNotes", "versaDurationSeconds",
+    "versaFeet", "versaCalories", "versaAverageHeartRate", "versaNotes",
+  ] as const;
+  const baseline = Object.fromEntries(baselineKeys.map((key) => [key, text(key, 1000)]));
+  const requiredBaseline = ["squatVariation", "squatLoadKg", "squatReps", "squatOneRmKg", "squatOneRmMethod", "benchVariation", "benchLoadKg", "benchReps", "benchOneRmKg", "benchOneRmMethod", "pullupStrictReps", "pullupMode"];
+  const hasRower = Boolean(baseline.rowerDistanceM && baseline.rowerTimeSeconds);
+  const hasVersa = Boolean(baseline.versaDurationSeconds && baseline.versaFeet);
+  if (requiredBaseline.some((key) => !baseline[key]) || (!hasRower && !hasVersa) ||
+    (baseline.squatVariation === "other" && !baseline.squatOtherVariation) ||
+    (baseline.pullupMode !== "bodyweight" && !baseline.pullupAdjustmentKg) ||
+    (baseline.pullupMode === "bodyweight" && baseline.pullupAdjustmentKg)) {
+    return { message: "Record Squat, Bench, Pull-Ups, and at least one complete conditioning test. Check mode-specific fields.", status: "error" };
+  }
+  const inbodyStatus = text("inbodyStatus", 20);
+  if (!new Set(["pending", "completed"]).has(inbodyStatus)) return { message: "Choose an InBody status.", status: "error" };
+  const inbodyKeys = ["testDate", "weightKg", "inbodyScore", "skeletalMuscleMassKg", "bodyFatMassKg", "bodyFatPercentage", "bmi", "visceralFatLevel", "ecwTbw", "bmrKcal"] as const;
+  const inbody = inbodyStatus === "pending" ? { status: "pending" } : {
+    status: "completed",
+    ...Object.fromEntries(inbodyKeys.map((key) => [key, text(key === "testDate" ? "inbodyTestDate" : key, 40)])),
+  };
+  if (inbodyStatus === "completed" && inbodyKeys.some((key) => !(inbody as Record<string, string>)[key])) {
+    return { message: "A completed InBody needs a test date and every core measurement.", status: "error" };
+  }
+
+  const { error } = await supabase.rpc("save_client_intake_v1", {
+    baseline_payload: baseline,
+    inbody_payload: inbody,
     intake_payload: payload,
     target_client_user_id: clientId,
   });
   if (error) return { message: "The intake could not be saved. Confirm the client assignment and all required values.", status: "error" };
 
   revalidatePath(`/coach/clients/${clientId}`);
-  return { message: "Intake saved and client state recalculated.", status: "success" };
+  return { message: "Versioned intake and baseline saved; client state recalculated.", status: "success" };
 }
 
 export async function generatePrescriptionAction(clientId: string) {

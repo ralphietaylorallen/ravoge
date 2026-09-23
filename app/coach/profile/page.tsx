@@ -21,7 +21,7 @@ export default async function CoachProfilePage() {
   return <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={name} role="coach">
     <div className={styles.profileHero}><ProfilePhoto name={name} url={imageUrl} /><div><p className={styles.eyebrow}>Coach profile</p><h2 className={styles.detailTitle}>{profile?.full_name ?? "Coach"}</h2><p className={styles.profileMeta}>{profile?.specialties?.length ? profile.specialties.join(" · ") : "Add your specialties and credentials"}</p></div></div>
     <div className={styles.detailGrid}>
-      <section className={styles.panel}><h2>Photo</h2><ProfilePhotoForm role="coach" /></section>
+      <section className={styles.panel}><h2>Photo</h2><ProfilePhotoForm imageUrl={imageUrl} name={name} role="coach" /></section>
       <section className={styles.panel}><h2>Profile details</h2>{profile && <ProfileDetailsForm defaults={profile} role="coach" />}</section>
     </div>
     <section className={styles.workspaceSection}><div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Credentials</p><h3>Certifications</h3></div><p>Structured credentials for owner and assigned-client visibility. Ravoge does not externally verify them yet.</p></div>
