@@ -5,7 +5,8 @@ import { OperationsTabs } from "@/components/operations-tabs";
 import { CoachCheckin } from "@/components/coach-checkin";
 import { ProgressChart } from "@/components/progress-chart";
 import { localDateInTimeZone } from "@/lib/timezone";
-import { generatePrescriptionAction } from "@/app/coach/actions";
+import { WorkoutGenerationStatus } from "@/components/workout-generation-status";
+import type { WorkoutReadiness } from "@/lib/workout-readiness";
 import { BaselineSummary, type BaselineRecord } from "@/components/baseline-summary";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { ProfilePhoto } from "@/components/profile-photo";
@@ -52,9 +53,10 @@ export default async function CoachClientPage({ params, searchParams }: { params
     supabase.from("client_body_composition_assessments").select("intake_id,inbody_score,body_fat_percentage,weight_kg,skeletal_muscle_mass_kg,measured_at").eq("organization_id", membership.organization_id).eq("client_user_id", clientId),
   ]);
   if (!clientProfile) notFound();
-  const [{data:bookings},{data:questions}]=await Promise.all([
+  const [{data:bookings},{data:questions},{data:generationReadiness}]=await Promise.all([
     supabase.from("bookings").select("id,starts_at,timezone,status").eq("organization_id",membership.organization_id).eq("client_user_id",clientId).eq("coach_user_id",userId).eq("status","scheduled").gte("starts_at",new Date().toISOString()).order("starts_at"),
     supabase.from("organization_preworkout_questions").select("position,question_text,scale_min,scale_max").eq("organization_id",membership.organization_id).order("position"),
+    supabase.rpc("get_workout_generation_readiness",{target_client_user_id:clientId}),
   ]);
   const latestIntake = (intakeRows?.[0] ?? null) as IntakeRow | null;
   const baselineByIntake = new Map((baselineRows ?? []).map((row) => [row.intake_id, row]));
@@ -82,7 +84,8 @@ export default async function CoachClientPage({ params, searchParams }: { params
     {tab==="workouts"&&<>
       <div className={styles.summaryNumbers}><span><small>Today’s workout</small><strong>{todayWorkout?.title??"Not scheduled"}</strong></span><span><small>Next session</small><strong>{bookings?.[0]?new Date(bookings[0].starts_at).toLocaleString("en-US",{timeZone:bookings[0].timezone,month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}):"Not booked"}</strong></span><span><small>Current phase</small><strong>{prescriptions.length?"Foundation":"Not started"}</strong></span><span><small>Latest readiness</small><strong>{latestState?`${Math.round(latestState.current_readiness*10)}/10`:"Not assessed"}</strong></span></div>
       {todayWorkout&&<Link className={styles.todayWorkout} href={`${basePath}/workouts/${todayWorkout.id}`}><span><small>TODAY’S WORKOUT</small><strong>{todayWorkout.title}</strong></span><span>Open workout →</span></Link>}
-      <section className={styles.operationCard}><div className={styles.sectionHeading}><h3>Workout plan</h3>{latestIntake&&<form action={generatePrescriptionAction.bind(null,clientId)}><button className={styles.action} type="submit">Generate Ravoge workout</button></form>}</div>
+      <WorkoutGenerationStatus clientId={clientId} readiness={generationReadiness as WorkoutReadiness|null}/>
+      <section className={styles.operationCard}><div className={styles.sectionHeading}><h3>Workout plan</h3></div>
       {prescriptions.filter(item=>item.status==="draft").map(item=><Link className={styles.todayWorkout} key={item.id} href={`${basePath}/prescriptions/${item.id}`}><strong>{item.title}</strong><span>Review draft →</span></Link>)}
       {assignedWorkouts.length?<ul className={styles.workoutPlanList}>{assignedWorkouts.map(workout=><li key={workout.id}><Link href={`${basePath}/workouts/${workout.id}`}><div><strong>{workout.title}</strong><small>{workout.scheduled_date} · {workout.workout_exercises.length} exercises</small></div><span className={workout.status==="completed"?styles.successPill:styles.mutedPill}>{workout.status.replaceAll("_"," ")}</span><span aria-hidden="true">→</span></Link></li>)}</ul>:<p className={styles.empty}>No workouts assigned yet. Complete intake or create a plan below.</p>}
       </section><details className={styles.operationCard}><summary>Create a workout</summary><WorkoutForm clientId={clientId}/></details>

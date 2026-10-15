@@ -61,14 +61,14 @@ export function PwaInstallButton({ className, continueHref, roleLabel }: {
             setPromptEvent(null);
             return;
           }
-          document.querySelector<HTMLElement>("[data-install-instructions]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          document.querySelector<HTMLElement>("[data-install-instructions]")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
         }}
         type="button"
       >
-        Install Ravoge <span aria-hidden="true">→</span>
+        {iosMode ? "Show Home Screen steps" : "Install Ravoge"} <span aria-hidden="true">→</span>
       </button>
       <p id="install-guidance" role="status">
-        {iosMode === "safari" ? "In Safari: tap Share, then Add to Home Screen."
+        {iosMode === "safari" ? "Open in Safari → tap Share → Add to Home Screen → open Ravoge."
           : iosMode === "other" ? "For installation, rescan this QR with Camera and open it in Safari."
             : promptEvent ? "Your browser will open its secure installation prompt."
               : "Use your browser menu to install or add Ravoge to the Home Screen."}

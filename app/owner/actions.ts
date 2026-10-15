@@ -234,6 +234,16 @@ export async function addEquipmentAction(
   return { message: "Equipment added.", status: "success" };
 }
 
+export async function saveEquipmentChecklistAction(_state: EquipmentActionState, form: FormData): Promise<EquipmentActionState> {
+  const { supabase } = await requireRole("owner");
+  const selected = [...new Set(form.getAll("equipmentType").map(String))];
+  if (!selected.length || selected.some(type => !EQUIPMENT_TYPES.has(type))) return { status: "error", message: "Select the equipment types actually available at your gym." };
+  const { error } = await supabase.rpc("add_equipment_checklist", { selected_types: selected });
+  if (error) return { status: "error", message: "The equipment checklist could not be saved." };
+  revalidatePath("/owner/equipment");
+  return { status: "success", message: "Selected equipment types added. Existing inventory and quantities were preserved." };
+}
+
 export async function setEquipmentAvailabilityAction(equipmentId: string, isAvailable: boolean, _state: EquipmentActionState): Promise<EquipmentActionState> {
   void _state;
   const { membership, supabase } = await requireRole("owner");

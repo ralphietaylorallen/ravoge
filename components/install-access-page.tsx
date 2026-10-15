@@ -49,7 +49,7 @@ export async function InstallAccessPage({ enrollmentToken, role, status }: {
 
       <div className={styles.installGrid} data-install-instructions>
         <section><span>01</span><h2>Install</h2><p>Tap Install Ravoge. Android and Chromium use the native prompt when available.</p></section>
-        <section><span>02</span><h2>iPhone or iPad</h2><p>In Safari, tap Share, then Add to Home Screen. If this opened inside another iOS app, rescan the QR with Camera to continue in Safari.</p></section>
+        <section><span>02</span><h2>iPhone or iPad</h2><p>Open in Safari → tap Share → Add to Home Screen → open Ravoge. If this opened inside another iOS app, open this page in Safari first.</p></section>
         <section><span>03</span><h2>Continue securely</h2><p>Open the Ravoge icon. Your gym and role remain server-verified; your password is never stored in the link or QR.</p></section>
       </div>
 
@@ -64,7 +64,7 @@ export async function InstallAccessPage({ enrollmentToken, role, status }: {
           Install first, then open the Ravoge icon from your Home Screen to {enrollment.accountExists ? "sign in" : `create your ${label} account`}.
         </p>
       )}
-      <p className={styles.intentNote}>The organization enrollment is authorized by this secure link. Your organization and role are resolved and validated server-side before membership is created.</p>
+      <p className={styles.intentNote}>{enrollment ? "Your gym and role are verified from your invitation before membership is created." : role === "coach" ? "Ask your gym Owner for an invitation sent to your own email. Installing the app does not grant gym access." : "Use your gym’s Client QR or your individual invitation to join."}</p>
     </AuthEntryShell>
   );
 }

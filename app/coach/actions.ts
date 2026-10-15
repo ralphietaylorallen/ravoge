@@ -262,6 +262,14 @@ export async function generatePrescriptionAction(clientId: string) {
   redirect(`/coach/clients/${clientId}/prescriptions/${data}`);
 }
 
+export async function confirmGenerationSafetyAction(clientId: string, intakeId: string, form: FormData) {
+  const { supabase } = await requireRole("coach");
+  if (!UUID_PATTERN.test(clientId) || !UUID_PATTERN.test(intakeId) || form.get("confirmed") !== "yes") redirect(`/coach/clients/${clientId}?notice=prescription-unavailable`);
+  const { error } = await supabase.rpc("confirm_intake_generation_safety", { target_intake_id: intakeId });
+  if (error) redirect(`/coach/clients/${clientId}?notice=prescription-unavailable`);
+  revalidatePath(`/coach/clients/${clientId}`);
+}
+
 export type PrescriptionActionState = {
   message?: string;
   status: "idle" | "error" | "success";

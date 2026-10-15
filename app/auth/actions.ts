@@ -13,8 +13,10 @@ import {
   getVerifiedUser,
   onboardingForRole,
   type AccountRole,
+  requireRole,
 } from "@/lib/auth";
 import { sendInvitationEmail } from "@/lib/invitation-email";
+import { normalizeInvitationEmail, parseInvitationEmails, MAX_BULK_INVITATIONS } from "@/lib/invitation-input";
 import { clearEnrollmentHandoff, getEnrollmentHandoff } from "@/lib/enrollment";
 import { createClient } from "@/lib/supabase/server";
 
@@ -419,7 +421,11 @@ export async function updatePasswordAction(
 
 export async function logoutAction() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
+  await clearEnrollmentHandoff();
+  const cookieStore = await cookies();
+  for (const name of [SIGNUP_INVITE_COOKIE, SIGNUP_OWNER_TOKEN_COOKIE, SIGNUP_ORGANIZATION_COOKIE]) cookieStore.delete(name);
+  revalidatePath("/", "layout");
   redirect("/login");
 }
 
@@ -441,8 +447,8 @@ export async function completeIdentitySetupAction(
 }
 
 async function createInvitation(role: AccountRole, formData: FormData): Promise<ActionState> {
-  const email = asString(formData.get("email")).toLowerCase();
-  if (!/^\S+@\S+\.\S+$/.test(email)) {
+  const email = normalizeInvitationEmail(asString(formData.get("email")));
+  if (!email) {
     return { message: "Enter a valid email address.", status: "error" };
   }
 
@@ -501,7 +507,7 @@ async function createInvitation(role: AccountRole, formData: FormData): Promise<
     invitationRole: role,
     invitationUrl,
     message: emailResult.status === "sent"
-      ? `Invitation sent to ${invitation.email}.`
+      ? `Invitation submitted to the email provider for ${invitation.email}.`
       : emailResult.status === "not_configured"
         ? "Email delivery is not configured. The secure invitation is ready to copy."
         : "Email delivery failed. The secure invitation is still ready to copy.",
@@ -535,4 +541,59 @@ export async function revokeInvitationAction(invitationId: string, _state: Actio
   revalidatePath("/owner/team");
   revalidatePath("/coach");
   return { message: "Invitation revoked.", status: "success" };
+}
+
+export type BulkInvitationState = {
+  status: "idle" | "error" | "success";
+  message?: string;
+  results?: Array<{ email: string; status: string; invitationUrl?: string }>;
+};
+
+export async function bulkInviteAction(_state: BulkInvitationState, form: FormData): Promise<BulkInvitationState> {
+  const { supabase, membership } = await requireRole("owner");
+  const role = String(form.get("role") ?? "");
+  const raw = String(form.get("emails") ?? "");
+  if (raw.length > 10000) return { status: "error", message: "Use at most 10,000 characters per invitation batch." };
+  const parsed = parseInvitationEmails(raw);
+  if (!["owner", "coach", "client"].includes(role) || !parsed.emails.length || parsed.invalid.length || parsed.tooMany) {
+    return { status: "error", message: `Use one valid email per line, up to ${MAX_BULK_INVITATIONS} unique recipients. Nothing was sent. ${parsed.invalid.length ? `${parsed.invalid.length} invalid line(s).` : ""}` };
+  }
+  const results: NonNullable<BulkInvitationState["results"]> = [];
+  const { data: existing, error: lookupError } = await supabase.from("organization_invitations").select("email").eq("organization_id", membership.organization_id).in("email", parsed.emails).is("accepted_at", null).is("revoked_at", null).gt("expires_at", new Date().toISOString());
+  if (lookupError) return { status: "error", message: "Existing invitations could not be checked. Nothing was sent; refresh and try again." };
+  const pending = new Set((existing ?? []).map(item => item.email));
+  for (let offset = 0; offset < parsed.emails.length; offset += 5) {
+    results.push(...await Promise.all(parsed.emails.slice(offset, offset + 5).map(async email => {
+      if (pending.has(email)) return { email, status: "already_pending" };
+      const single = new FormData(); single.set("email", email);
+      const result = await createInvitation(role as AccountRole, single);
+      return { email, status: result.status === "error" ? "not_created" : result.emailDeliveryStatus ?? "failed", invitationUrl: result.invitationUrl };
+    })));
+  }
+  return { status: "success", message: `${results.length} recipient(s) processed. ${parsed.duplicates.length} duplicate(s) skipped. Check each result below.`, results };
+}
+
+export async function refreshInvitationAction(invitationId: string, _state: ActionState, form: FormData): Promise<ActionState> {
+  const { supabase } = await requireRole("owner");
+  if (!/^[0-9a-f-]{36}$/i.test(invitationId)) return { status: "error", message: "Invitation unavailable." };
+  const token = randomBytes(32).toString("base64url");
+  const { data, error } = await supabase.rpc("refresh_organization_invitation", {
+    target_invitation_id: invitationId,
+    new_token_hash: createHash("sha256").update(token).digest("hex"),
+    new_expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+  });
+  const invitation = (data as Array<{ email: string; role: AccountRole; organization_name: string }> | null)?.[0];
+  if (error || !invitation) return { status: "error", message: "This invitation cannot be refreshed. Check that it has not been accepted or revoked." };
+  const invitationUrl = `${await getRequestOrigin()}/enroll/${invitation.role}?token=${encodeURIComponent(token)}`;
+  const resend = form.get("intent") === "resend";
+  const delivery = resend ? await sendInvitationEmail({ invitationUrl, organizationName: invitation.organization_name, recipientEmail: invitation.email, role: invitation.role }) : null;
+  if (delivery) {
+    await supabase.rpc("record_organization_invitation_delivery", {
+      target_invitation_id: invitationId, new_delivery_status: delivery.status,
+      new_delivery_error: delivery.error, new_provider_message_id: delivery.id,
+    });
+  }
+  revalidatePath("/owner/team");
+  return { status: "success", invitationUrl, recipientEmail: invitation.email, emailDeliveryStatus: delivery?.status,
+    message: delivery?.status === "sent" ? "Invitation submitted to the email provider." : delivery?.status === "not_configured" ? "Email is not configured. Copy the new secure link below." : delivery?.status === "failed" ? "Email delivery failed. Copy the new secure link below." : "New secure link ready. The previous link no longer works." };
 }

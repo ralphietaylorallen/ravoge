@@ -28,12 +28,13 @@ select * from public.ensure_organization_enrollment_credential(
   'ed000000-0000-4000-8000-000000000001',
   encode(extensions.digest('ravoge-org-a-client-token-000000000001','sha256'),'hex')
 );
-select * from public.ensure_organization_enrollment_credential(
-  'coach',
-  'ec000000-0000-4000-8000-000000000002',
-  'ed000000-0000-4000-8000-000000000002',
-  encode(extensions.digest('ravoge-org-a-coach-token-0000000000001','sha256'),'hex')
-);
+do $$ begin
+  begin
+    perform * from public.ensure_organization_enrollment_credential('coach','ec000000-0000-4000-8000-000000000002','ed000000-0000-4000-8000-000000000002',encode(extensions.digest('ravoge-org-a-coach-token-0000000000001','sha256'),'hex'));
+    raise exception 'Reusable Coach enrollment was enabled';
+  exception when raise_exception then if sqlerrm='Reusable Coach enrollment was enabled' then raise; end if; end;
+end $$;
+select * from public.create_organization_invitation('qr-coach@example.test','coach',encode(extensions.digest('ravoge-individual-coach-invite-000001','sha256'),'hex'),now()+interval '1 day');
 
 do $$ begin
   begin
@@ -47,7 +48,7 @@ do $$ begin
 end $$;
 reset role;
 do $$ begin
-  if (select count(*) from public.organization_enrollment_credentials where organization_id='ea000000-0000-4000-8000-000000000001') <> 2 then
+  if (select count(*) from public.organization_enrollment_credentials where organization_id='ea000000-0000-4000-8000-000000000001') <> 1 then
     raise exception 'Owner credentials were not scoped to the organization';
   end if;
 end $$;
@@ -116,18 +117,24 @@ do $$ begin
   end if;
 end $$;
 
--- A Coach QR creates only the fixed Coach membership.
+-- A Coach joins only through the exact-email individual invitation.
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','e1000000-0000-4000-8000-000000000004',true);
-select public.accept_organization_enrollment('ravoge-org-a-coach-token-0000000000001');
+do $$ begin
+  begin
+    perform public.accept_organization_enrollment('ravoge-org-a-coach-token-0000000000001');
+    raise exception 'Reusable Coach token granted access';
+  exception when others then if sqlerrm='Reusable Coach token granted access' then raise; end if; end;
+end $$;
+select public.accept_organization_enrollment('ravoge-individual-coach-invite-000001');
 do $$ begin
   if not exists (
     select 1 from public.organization_memberships
     where organization_id='ea000000-0000-4000-8000-000000000001'
       and user_id='e1000000-0000-4000-8000-000000000004'
       and role='coach' and status='active'
-  ) then raise exception 'Coach QR did not create the intended membership'; end if;
+  ) then raise exception 'Individual Coach invitation did not create the intended membership'; end if;
 end $$;
 
 -- An existing conflicting identity cannot use the Client QR to change role.
@@ -221,20 +228,20 @@ do $$ begin
   end;
 end $$;
 select * from public.ensure_organization_enrollment_credential(
-  'coach',
+  'client',
   'ec000000-0000-4000-8000-000000000003',
   'ed000000-0000-4000-8000-000000000004',
-  encode(extensions.digest('ravoge-org-b-coach-token-0000000000001','sha256'),'hex')
+  encode(extensions.digest('ravoge-org-b-client-token-000000000001','sha256'),'hex')
 );
 reset role;
 do $$ begin
-  if (select status from public.organization_enrollment_credentials where organization_id='ea000000-0000-4000-8000-000000000001' and authorized_role='coach') <> 'active' then
-    raise exception 'Owner B changed Owner A Coach QR';
+  if (select status from public.organization_enrollment_credentials where organization_id='ea000000-0000-4000-8000-000000000001' and authorized_role='client') <> 'disabled' then
+    raise exception 'Owner B changed Owner A Client QR';
   end if;
   if not exists (
     select 1 from public.organization_enrollment_credentials
     where organization_id='eb000000-0000-4000-8000-000000000001'
-      and authorized_role='coach'
+      and authorized_role='client'
   ) then raise exception 'Owner B could not create only their own credential'; end if;
 end $$;
 

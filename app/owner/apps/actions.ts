@@ -10,7 +10,7 @@ import {
 
 function roleFromForm(formData: FormData): EnrollmentRole {
   const role = formData.get("role");
-  if (role !== "coach" && role !== "client") throw new Error("Invalid enrollment role.");
+  if (role !== "client") throw new Error("Coaches join by individual email invitation. Only Client enrollment QRs can be managed here.");
   return role;
 }
 

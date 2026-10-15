@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { addEquipmentAction } from "@/app/owner/actions";
+import { addEquipmentAction, saveEquipmentChecklistAction } from "@/app/owner/actions";
 
 import styles from "./dashboard.module.css";
 
@@ -14,6 +14,16 @@ const equipmentTypes = [
   ["medicine_balls", "Medicine balls"], ["specialty_equipment", "Specialty equipment"],
   ["other", "Other"],
 ];
+
+export function EquipmentChecklist({ existing }: { existing: string[] }) {
+  const [state, action, pending] = useActionState(saveEquipmentChecklistAction, { status: "idle" as const });
+  return <form action={action} className={styles.form}>
+    <div className={styles.checklistGrid}>{equipmentTypes.map(([value, label]) => <label className={styles.checkboxLabel} key={value}><input name="equipmentType" value={value} type="checkbox" disabled={existing.includes(value)}/>{label}{existing.includes(value) ? " — already saved" : ""}</label>)}</div>
+    <p className={styles.formHint}>Select only equipment you actually have. This adds missing types without replacing inventory or guessing quantities. Manage availability of saved items below.</p>
+    <button className={styles.action} disabled={pending}>Save available equipment</button>
+    {state.message && <p role="status" className={styles.notice}>{state.message}</p>}
+  </form>;
+}
 
 export function EquipmentForm() {
   const [state, action, pending] = useActionState(addEquipmentAction, { status: "idle" as const });

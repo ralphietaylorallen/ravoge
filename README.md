@@ -34,13 +34,14 @@ Copy `.env.example` to a gitignored `.env.local`, or use the linked Ravoge Netli
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
-The scheduling email integration is server-only and becomes active when these Netlify values are configured:
+The invitation and scheduling email integrations are server-only and become active when these Netlify values are configured:
 
 - `RESEND_API_KEY` — Resend API key, marked secret and never exposed with a `NEXT_PUBLIC_` prefix.
 - `RAVOGE_EMAIL_FROM` — verified Ravoge sender identity.
 - `RAVOGE_APP_URL` — optional public application origin; production defaults to `https://ravoge.com`.
 
 If the Resend key or sender is absent, bookings still complete and the separate delivery record is marked `skipped`; no provider request is attempted.
+Invitations remain valid with delivery status `not_configured` and a secure copy-link fallback. A provider accepting a message is not proof of inbox delivery. Verify the sending domain in Resend before live email testing.
 
 Use only the publishable key. Never put a secret or `service_role` key in a `NEXT_PUBLIC_` variable or Git.
 
@@ -67,7 +68,21 @@ Payment collection, payroll, general messaging, and adaptive set intelligence re
 
 Each gym member uses a separate Supabase Auth identity. Owners invite additional owners or coaches from `/owner/team`; the invitation fixes the organization, email, and role in the database. Shared owner credentials are not supported.
 
-`/owner/apps` provides separate reusable organization enrollment QRs for Coaches and Clients. The opaque QR is the Owner’s authorization for the fixed organization and role stored on the server; it contains no readable organization data, password, session, JWT, or API key. The install page uses an enrollment-specific PWA manifest so the opaque handoff survives browser-to-installed-app launch without relying only on a temporary cookie. New and existing accounts then accept the server-resolved membership through `/launch`. Owners can rotate or disable either QR without affecting established members. Person-specific email invitations from `/owner/team` use the same canonical acceptance engine, retain exact-email binding, and remain the preferred remote distribution option.
+`/owner/apps` provides a generic Coach installation QR (`/coach/install`) and a gym-specific Client enrollment QR. Coach installation never grants membership: each Coach needs an individual, email-bound invitation from Team. Legacy reusable Coach credentials are disabled without changing existing memberships. Owners can rotate or disable the Client QR. Its enrollment-specific manifest preserves the secure handoff into `/launch`; new and existing Clients join only the QR’s stored organization and Client role.
+
+On iPad/iPhone: open in Safari → Share → Add to Home Screen → open Ravoge. Each installed device can retain its own Coach session. Logging out clears that device’s session and enrollment handoff without signing other people out.
+
+## Coach-led beta workflow
+
+1. Owner selects actual available equipment in `/owner/equipment`. Existing inventory and quantities are preserved. Review Client-specific readiness there after intake.
+2. Owner invites each Coach from Team, individually or with one email per line. Check delivery status; copy a secure invitation when email is unavailable. Resend/preparing a new link replaces the prior link and extends expiry. Revoked or accepted invitations cannot be refreshed.
+3. Client scans the gym’s Client QR, creates an account or signs in, and joins that gym. Owner assigns the Coach, or a Coach claims the unassigned Client through the existing flow.
+4. Coach saves intake, goals and baseline, maps restrictions to the structured constraints/exercise exclusions, and confirms the latest intake safety review.
+5. Coach chooses **Generate workout**, reviews the draft, then **Approve & assign**. Only then does the Client see the assigned workout. The manual builder remains available below the generated-workout flow.
+
+Owners review imports under `/owner/training-library`. Original source cells remain immutable; each review creates a separate revision. Explicit, recognized fixed-set programming can be published after review. EMOMs, timed stations, percentage loads, per-side instructions and incomplete/unknown prescriptions remain in Needs review. Their raw source is retained; missing quantities are never invented. The current fixed-set generator does not support publishing those complex protocols.
+
+Generation prefers a compatible published gym workout, then relevant published gym exercises with global safe-library fallback. Selection and approval check the latest intake, goal, experience, exclusions, equipment and session duration. Source review revision and generation context are recorded on each draft. A new intake requires a new safety review. See [the audit](docs/beta-readiness-audit.md).
 
 Organization calendar dates use the gym's IANA timezone. `America/Denver` is the documented fallback only when a legacy organization has no timezone. Schedule settings are saved through one database transaction so organization details, weekly hours, and session rules cannot partially update.
 
