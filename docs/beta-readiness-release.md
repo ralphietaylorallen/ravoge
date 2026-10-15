@@ -128,6 +128,7 @@ unused-index information. These were not silently reconfigured.
 - `lib/organization-enrollment.ts`
 - `lib/training-review.ts`
 - `lib/workout-readiness.ts`
+- `package.json`
 - `scripts/verify-beta-database.mjs`
 - `scripts/verify-beta-ui.mjs`
 - `scripts/with-ravoge-public-env.mjs`
