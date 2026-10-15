@@ -74,6 +74,26 @@ after its test passed and browser contexts closed; it exited successfully.
 Production and Deploy Preview runs must be verified and reported separately;
 local acceptance alone is not a production-readiness claim.
 
+Hosted preview diagnostics identified a test-origin limitation: Netlify canonicalizes
+enrollment between its preview alias and immutable deploy hostname. Playwright's
+relative `goto` uses its configured base URL, unlike a real same-origin page link,
+so it could leave the host that held the new account's cookies. The journey now
+resolves authenticated navigation against each page's actual origin and explicitly
+reloads new Coach/Client sessions. Production `/launch` stays on `ravoge.com`.
+Temporary cookie-metadata diagnostics were removed; no cookie values were logged.
+An added diagnostic used a strict `main` locator while Next.js temporarily rendered
+both a loading boundary and the dashboard; that diagnostic was removed, preserving
+the actual assigned-workout visibility assertion.
+The existing-Client login check also now waits for its actual login navigation
+before filling fields: otherwise a slower hosted transition replaced the previous
+signup form after the test had filled it, leaving the new login email blank.
+
+The corrected complete hosted journey passed on preview deploy
+`6ad15dd77597e1320fdf6e5e` (application commit `a2ec205`): 1 passed, 0 failed,
+including new and existing identities, session reloads, six simultaneous Coaches,
+and the complete Coach-to-Client workout flow. It ran with
+`RAVOGE_BETA_QA=yes PLAYWRIGHT_BASE_URL=https://6ad15dd77597e1320fdf6e5e--ravoge.netlify.app node scripts/verify-beta-ui.mjs`.
+
 ## Advisor results
 
 No new exposed table lacks RLS. New privileged RPCs explicitly validate active

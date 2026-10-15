@@ -18,13 +18,17 @@ async function signup(page: Page, name: string, email: string, role: string) {
   else expect(await emailField.inputValue() === email).toBe(true);
   await page.getByLabel("Password", { exact: true }).fill(password); await page.getByLabel("Confirm password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Create account" }).click(); await expect(page).toHaveURL(new RegExp(`/${role}$`));
+  await page.reload();
+  await expect(page.getByRole("navigation", { name: `${role} navigation` }), await page.locator("body").innerText()).toBeVisible();
 }
 async function launchEnrollment(page: Page, url: string) {
   await page.goto(path(url));
   const href = await page.locator('link[rel="manifest"]').getAttribute("href");
   expect(Boolean(href?.startsWith("/api/enrollment/"))).toBe(true);
   const manifest = await (await page.request.get(href!)).json();
-  await page.goto(manifest.start_url);
+  // Netlify may canonicalize enrollment to a preview alias. Navigate as a real
+  // same-origin link would, rather than jumping back to Playwright's baseURL.
+  await page.goto(new URL(manifest.start_url, page.url()).href);
 }
 async function responsive(page: Page, label: string, testInfo: import("@playwright/test").TestInfo) {
   for (const [width, height] of [[390, 844], [768, 1024], [1024, 768], [1440, 1000]]) {
@@ -107,30 +111,44 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   expect(/^[0-9a-f-]{36}$/i.test(actualClientId)).toBe(true);
   await page.getByRole("button", { name: "Assign Coach", exact: true }).click();
   const dialog = page.getByRole("dialog"); await dialog.getByRole("radio", { name: /Beta New Coach/ }).check(); await dialog.getByRole("button", { name: "Confirm assignment" }).click(); await expect(dialog).not.toBeVisible();
-  await coach.goto(`/coach/clients/${actualClientId}?tab=intake`);
-  await expect(coach.getByRole("heading", { name: "Beta New Client", exact: true })).toBeVisible();
+  await coach.goto(new URL(`/coach/clients/${actualClientId}?tab=intake`, coach.url()).href);
+  await expect(coach.getByRole("heading", { name: "Beta New Client", exact: true }), await coach.locator("body").innerText()).toBeVisible();
   await coach.getByLabel("Session duration", { exact: true }).fill("45");
   await coach.getByRole("button", { name: "Continue →", exact: true }).click();
   for (const [id, value] of Object.entries({ squatLoadKg: "40", squatReps: "5", squatOneRmKg: "45", benchLoadKg: "25", benchReps: "5", benchOneRmKg: "30", pullupStrictReps: "0" })) await coach.locator(`#${id}`).fill(value);
   await coach.getByRole("button", { name: "Continue →", exact: true }).click(); await coach.locator("#rowerDistanceM").fill("500"); await coach.locator("#rowerTimeSeconds").fill("120");
   await coach.getByRole("button", { name: "Continue →", exact: true }).click(); await coach.getByRole("button", { name: "Continue →", exact: true }).click();
   await coach.getByRole("button", { name: "Save versioned intake & baseline" }).click(); await expect(coach.getByRole("status")).toContainText("Versioned intake and baseline saved");
-  await coach.goto(`/coach/clients/${actualClientId}`);
+  await coach.goto(new URL(`/coach/clients/${actualClientId}`, coach.url()).href);
   await coach.getByRole("checkbox", { name: /I reviewed the latest intake/ }).check(); await coach.getByRole("button", { name: "Confirm intake safety review" }).click();
   await expect(coach.getByRole("button", { name: "Generate workout", exact: true })).toBeEnabled();
   await coach.getByRole("button", { name: "Generate workout", exact: true }).click(); await expect(coach.getByText(/Source: organization_workout/)).toBeVisible();
-  await client.goto("/client"); await expect(client.getByRole("link", { name: /Beta Gym Strength/ })).toHaveCount(0);
+  await client.goto(new URL("/client", client.url()).href); await expect(client).toHaveURL(/\/client$/);
+  await client.screenshot({ path: testInfo.outputPath("client-before-approval.png"), fullPage: true });
+  await expect(client.getByRole("navigation", { name: "client navigation" }), await client.locator("body").innerText()).toBeVisible();
+  await expect(client.getByRole("link", { name: /Beta Gym Strength/ })).toHaveCount(0);
   await responsive(coach, "prescription", testInfo);
   await coach.getByRole("button", { name: "Approve & assign" }).click(); await expect(coach.getByRole("status")).toContainText("now assigned");
-  await client.reload(); await client.getByRole("link", { name: /Beta Gym Strength/ }).click();
+  await client.reload(); await expect(client).toHaveURL(/\/client$/);
+  await client.screenshot({ path: testInfo.outputPath("client-after-approval.png"), fullPage: true });
+  await expect(client.getByRole("link", { name: /Beta Gym Strength/ })).toBeVisible();
+  await client.getByRole("link", { name: /Beta Gym Strength/ }).click();
   await expect(client.getByRole("heading", { name: "Beta Gym Strength", exact: true })).toBeVisible(); await expect(client.getByText("Goblet Squat", { exact: true })).toBeVisible(); await responsive(client, "client-workout", testInfo);
   // An existing Client uses the same gym QR without creating a second identity.
   const existingClientContext = await browser.newContext(); const existingClientPage = await existingClientContext.newPage();
   await launchEnrollment(existingClientPage, clientQr!);
   await existingClientPage.getByRole("link", { name: /Sign in to continue this enrollment/ }).click();
+  await expect(existingClientPage).toHaveURL(/\/login\?enrollment=/);
+  await expect(existingClientPage.getByRole("heading", { name: "Welcome back", exact: true })).toBeVisible();
   if (await existingClientPage.getByLabel("Email", { exact: true }).isEditable()) await existingClientPage.getByLabel("Email", { exact: true }).fill(existingClient.email);
+  await expect(existingClientPage.getByLabel("Email", { exact: true })).toHaveValue(existingClient.email);
   await existingClientPage.getByLabel("Password", { exact: true }).fill(existingClient.password);
-  await existingClientPage.getByRole("button", { name: "Login", exact: true }).click(); await expect(existingClientPage).toHaveURL(/\/client$/);
+  await existingClientPage.getByRole("button", { name: "Login", exact: true }).click();
+  try { await expect(existingClientPage).toHaveURL(/\/client$/); }
+  catch {
+    await existingClientPage.screenshot({ path: testInfo.outputPath("existing-client-acceptance.png"), fullPage: true });
+    throw new Error(`Existing Client acceptance did not complete: ${await existingClientPage.locator("body").innerText()}`);
+  }
   // Six distinct Coach sessions remain authenticated at the same time.
   const extraContexts = [];
   for (const account of accounts.filter(account => account.role === "coach")) { const ctx = await browser.newContext({ viewport: { width: 1024, height: 768 } }); const actor = await ctx.newPage(); await login(actor, account, "/coach"); extraContexts.push(ctx); }
