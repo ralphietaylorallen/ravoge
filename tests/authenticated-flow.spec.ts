@@ -70,12 +70,13 @@ test("owner can open oversight and distribute role-specific app links", async ({
   await expect(page.getByRole("heading", { name: "Apps & access" })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Coach App$/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Client App$/ })).toBeVisible();
-  await expect(page.locator('[data-enrollment-card="coach"] [data-qr-value*="/enroll/coach?token="]')).toBeVisible();
+  await expect(page.locator('[data-app-access-card="coach"] [data-qr-value="https://ravoge.com/coach/install"]')).toBeVisible();
+  await expect(page.locator('[data-enrollment-card="coach"]')).toHaveCount(0);
   await expect(page.locator('[data-enrollment-card="client"] [data-qr-value*="/enroll/client?token="]')).toBeVisible();
   await expect(page.getByRole("button", { name: "Download QR" })).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Print QR" })).toHaveCount(2);
-  await expect(page.getByRole("button", { name: "Rotate QR" })).toHaveCount(2);
-  await expect(page.getByRole("button", { name: "Disable" })).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Rotate QR" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Disable" })).toHaveCount(1);
 
   await page.getByRole("link", { name: "Training library" }).click();
   await page.getByRole("link", { name: "Import workout history" }).click();

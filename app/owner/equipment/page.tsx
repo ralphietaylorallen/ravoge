@@ -1,9 +1,10 @@
 import { setEquipmentAvailabilityAction } from "@/app/owner/actions";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
-import { EquipmentForm } from "@/components/equipment-form";
+import { EquipmentForm, EquipmentChecklist } from "@/components/equipment-form";
 import { EquipmentPhotoScan } from "@/components/equipment-photo-scan";
 import { requireRole } from "@/lib/auth";
 import { MutationActionForm } from "@/components/mutation-action-form";
+import type { WorkoutReadiness } from "@/lib/workout-readiness";
 
 type EquipmentRow = {
   equipment_type: string;
@@ -14,13 +15,19 @@ type EquipmentRow = {
   quantity: number | null;
 };
 
-export default async function OwnerEquipmentPage() {
+export default async function OwnerEquipmentPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
+  const { client: requestedClient } = await searchParams;
   const { membership, supabase, userId } = await requireRole("owner");
   const [{ data: profile }, { data: organization }, { data: equipment }] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("organizations").select("name").eq("id", membership.organization_id).single(),
     supabase.from("organization_equipment").select("id,equipment_type,name,quantity,is_available,notes").eq("organization_id", membership.organization_id).order("name"),
   ]);
+  const { data: members } = await supabase.from("organization_memberships").select("user_id").eq("organization_id", membership.organization_id).eq("role", "client").eq("status", "active");
+  const { data: clients } = members?.length ? await supabase.from("profiles").select("id,full_name").in("id", members.map(m => m.user_id)).order("full_name") : { data: [] };
+  const clientId = clients?.some(client => client.id === requestedClient) ? requestedClient : clients?.[0]?.id;
+  const { data: readinessData } = clientId ? await supabase.rpc("get_workout_generation_readiness", { target_client_user_id: clientId }) : { data: null };
+  const readiness = readinessData as WorkoutReadiness | null;
 
   return (
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
@@ -28,6 +35,11 @@ export default async function OwnerEquipmentPage() {
         <div><p className={styles.eyebrow}>Gym foundation</p><h2>Equipment</h2></div>
         <p>Prescription recommendations use only equipment marked available here.</p>
       </div>
+      <section className={styles.operationCard}><h2>Available equipment checklist</h2><EquipmentChecklist existing={[...new Set((equipment ?? []).map(item => item.equipment_type))]}/></section>
+      <section className={styles.operationCard}><h2>Workout readiness by Client</h2>
+        {clients?.length ? <form method="get" className={styles.accessActions}><label className={styles.field}><span>Client</span><select name="client" defaultValue={clientId}>{clients.map(client => <option key={client.id} value={client.id}>{client.full_name}</option>)}</select></label><button className={styles.secondaryAction}>Check readiness</button></form> : <p>Add or enroll a Client, then have their Coach save the intake.</p>}
+        {readiness && <><p>{readiness.compatibleExercises} safe compatible movement blocks for the latest intake, goal, experience, restrictions and actual equipment. {readiness.ready ? "Ready for Coach generation." : "Setup or review is needed."}</p><ul>{readiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>{!readiness.ready && Boolean(readiness.missingEquipment?.length) && <p className={styles.formHint}>Missing equipment among potential matches: {readiness.missingEquipment!.join(", ").replaceAll("_", " ")}. Do not select equipment you do not have.</p>}</>}
+      </section>
       <EquipmentPhotoScan />
       <div className={styles.detailGrid}>
         <section className={`${styles.panel} ${styles.createPanel}`}>
@@ -49,7 +61,7 @@ export default async function OwnerEquipmentPage() {
                 </li>
               ))}
             </ul>
-          ) : <p className={styles.empty}>Add the Pitt’s actual equipment before generating a workout.</p>}
+          ) : <p className={styles.empty}>Select your gym’s actual equipment before generating a workout.</p>}
         </section>
       </div>
     </DashboardShell>

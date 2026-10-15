@@ -86,6 +86,7 @@ export async function ensureOrganizationEnrollmentCredential(
   supabase: SupabaseClient,
   role: EnrollmentRole,
 ) {
+  if (role !== "client") throw new Error("Coaches require an individual email invitation.");
   const credentialId = randomUUID();
   const rotationNonce = randomUUID();
   const token = deriveOrganizationEnrollmentToken(credentialId, rotationNonce);

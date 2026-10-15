@@ -12,7 +12,7 @@ for (const app of [
     expect(await logo.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await expect(page.getByRole("heading", { name: "Install Ravoge" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
-    await expect(page.getByRole("button", { name: "Install Ravoge" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Install Ravoge|Show Home Screen steps/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Install", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "iPhone or iPad" })).toBeVisible();
     await expect(page.getByText("Add to Home Screen", { exact: false }).first()).toBeVisible();

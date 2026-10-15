@@ -105,6 +105,7 @@ begin
 end $$;
 
 -- Same state and equipment produce the same safe recommendation.
+select public.confirm_intake_generation_safety((select id from public.client_intakes where client_user_id='61000000-0000-0000-0000-000000000003' order by version desc limit 1));
 insert into gate4_test_prescriptions (id, kind) values
   (public.generate_initial_prescription_v0('61000000-0000-0000-0000-000000000003'), 'strength-1'),
   (public.generate_initial_prescription_v0('61000000-0000-0000-0000-000000000003'), 'strength-2');
@@ -146,6 +147,7 @@ select public.upsert_client_intake(
     "constraintTags":[],"customFields":{}
   }'::jsonb
 );
+select public.confirm_intake_generation_safety((select id from public.client_intakes where client_user_id='61000000-0000-0000-0000-000000000003' order by version desc limit 1));
 insert into gate4_test_prescriptions (id, kind) values
   (public.generate_initial_prescription_v0('61000000-0000-0000-0000-000000000003'), 'conditioning');
 do $$

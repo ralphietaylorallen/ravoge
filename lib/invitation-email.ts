@@ -1,3 +1,5 @@
+import "server-only";
+
 type InvitationEmail = {
   invitationUrl: string;
   organizationName: string;
@@ -38,11 +40,12 @@ export async function sendInvitationEmail(input: InvitationEmail) {
         "Content-Type": "application/json",
       },
       method: "POST",
+      signal: AbortSignal.timeout(10_000),
     });
     const payload = await response.json() as { id?: string; message?: string };
     if (!response.ok || !payload.id) {
       return {
-        error: payload.message ?? `Email provider returned ${response.status}.`,
+        error: `Email provider rejected delivery (${response.status}). Check the sender and provider configuration.`,
         id: null,
         status: "failed" as const,
       };

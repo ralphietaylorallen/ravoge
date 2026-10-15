@@ -7,6 +7,7 @@ import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
 import { MutationActionForm } from "@/components/mutation-action-form";
+import { BulkInvitations, InvitationControls } from "@/components/team-invitations";
 
 type MemberRow = {
   is_primary_owner: boolean;
@@ -16,6 +17,7 @@ type MemberRow = {
 };
 
 type InvitationRow = {
+  delivery_status: string;
   accepted_at: string | null;
   created_at: string;
   email: string;
@@ -43,7 +45,7 @@ export default async function OwnerTeamPage() {
       .order("created_at"),
     supabase
       .from("organization_invitations")
-      .select("id, email, role, expires_at, created_at, accepted_at, revoked_at")
+      .select("id, email, role, expires_at, created_at, accepted_at, revoked_at, delivery_status")
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: false }),
   ]);
@@ -86,6 +88,7 @@ export default async function OwnerTeamPage() {
       </div>
 
       <div className={styles.grid}>
+        <section className={styles.panel}><h2>Invite your team</h2><BulkInvitations /></section>
         {(["owner", "coach", "client"] as const).map((role) => (
           <section className={styles.panel} key={role}>
             <h2>{role}s</h2>
@@ -143,8 +146,9 @@ export default async function OwnerTeamPage() {
               {((invitations ?? []) as InvitationRow[]).map((invitation) => {
                 const status = invitation.accepted_at ? "accepted" : invitation.revoked_at ? "revoked" : invitation.expires_at <= nowIso ? "expired" : "pending";
                 return <li key={invitation.id}>
-                  <span>{invitation.email}<small>{invitation.role} · {status} · expires {new Date(invitation.expires_at).toLocaleDateString("en-US")}</small></span>
-                  {status === "pending" ? <MutationActionForm action={revokeInvitationAction.bind(null, invitation.id)} confirmMessage={`Revoke the ${invitation.role} invitation for ${invitation.email}?`} label="Revoke" /> : null}
+                  <div><strong>{invitation.email}</strong><small>{invitation.role} · {status} · expires {new Date(invitation.expires_at).toLocaleDateString("en-US")}</small><small>{invitation.delivery_status === "not_configured" ? "Email not configured" : invitation.delivery_status === "failed" ? "Failed delivery" : invitation.delivery_status === "sent" ? "Submitted to email provider" : "Email pending"}</small>
+                  {["pending", "expired"].includes(status) && <InvitationControls id={invitation.id}/>}</div>
+                  {["pending", "expired"].includes(status) ? <MutationActionForm action={revokeInvitationAction.bind(null, invitation.id)} confirmMessage={`Revoke the ${invitation.role} invitation for ${invitation.email}?`} label="Revoke" /> : null}
                 </li>;
               })}
             </ul>

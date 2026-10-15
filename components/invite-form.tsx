@@ -44,7 +44,7 @@ export function InviteForm({ role }: { role: keyof typeof invitationActions }) {
         <div className={styles.inviteResult}>
           <strong>
             {state.emailDeliveryStatus === "sent"
-              ? "Email confirmed sent"
+              ? "Submitted to email provider"
               : state.emailDeliveryStatus === "not_configured"
                 ? "Email not configured"
                 : "Email delivery failed"}

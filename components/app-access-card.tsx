@@ -27,10 +27,10 @@ export function AppAccessCard({
   }, [email, role, url]);
 
   return (
-    <article className={styles.accessCard}>
+    <article className={styles.accessCard} data-app-access-card={role.toLowerCase()}>
       <div>
         <p className={styles.eyebrow}>{role} App</p>
-        <h2>{role === "Coach" ? "Send Ravoge to Coach" : "Send Ravoge to Client"}</h2>
+        <h2>{role === "Coach" ? "Install Coach App" : "Install Client App"}</h2>
         <p>{description}</p>
       </div>
       <div className={styles.accessActions}>
