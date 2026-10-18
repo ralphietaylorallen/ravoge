@@ -3,7 +3,7 @@ import { BookingList, type BookingListItem } from "@/components/booking-list";
 import { ClosureForm, OrganizationScheduleForm } from "@/components/schedule-forms";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { requireRole } from "@/lib/auth";
-import { getProfileImageUrl } from "@/lib/profile-images";
+import { getProfileThumbnailUrl as getProfileImageUrl } from "@/lib/profile-images";
 import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone, localDateStartIso, shiftLocalDate } from "@/lib/timezone";
 import { MutationActionForm } from "@/components/mutation-action-form";
 

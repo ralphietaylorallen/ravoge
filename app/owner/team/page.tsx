@@ -4,8 +4,9 @@ import { revokeInvitationAction } from "@/app/auth/actions";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { InviteForm } from "@/components/invite-form";
 import { ProfilePhoto } from "@/components/profile-photo";
+import { ProfilePhotoForm } from "@/components/profile-photo-editor";
 import { requireRole } from "@/lib/auth";
-import { getProfileImageUrl } from "@/lib/profile-images";
+import { getProfileThumbnailUrl as getProfileImageUrl } from "@/lib/profile-images";
 import { MutationActionForm } from "@/components/mutation-action-form";
 import { BulkInvitations, InvitationControls } from "@/components/team-invitations";
 
@@ -93,15 +94,15 @@ export default async function OwnerTeamPage() {
           <section className={styles.panel} key={role}>
             <h2>{role}s</h2>
             {memberRows.some((row) => row.role === role) ? (
-              <ul className={styles.list}>
+              <ul className={`${styles.list} ${styles.teamMembers}`}>
                 {memberRows
                   .filter((row) => row.role === role)
                   .map((row) => {
                     const name = names.get(row.user_id) ?? (role === "owner" ? "Owner" : role === "coach" ? "Coach" : "Client");
                     return (
                     <li key={row.user_id}>
-                      <span className={styles.memberIdentity}>
-                        <ProfilePhoto name={name} size="small" url={photos.get(row.user_id)} />
+                      <div className={styles.memberIdentity}>
+                        {role === "coach" && row.status === "active" ? <ProfilePhotoForm compact imageUrl={photos.get(row.user_id)} name={name} organizationId={organizationId} role="owner" targetUserId={row.user_id} /> : <ProfilePhoto name={name} size="small" url={photos.get(row.user_id)} />}
                         <span>
                         {role === "coach" ? (
                           <Link href={`/owner/coaches/${row.user_id}`}>{name}</Link>
@@ -112,7 +113,7 @@ export default async function OwnerTeamPage() {
                           <small className={styles.primaryBadge}>Primary owner</small>
                         )}
                         </span>
-                      </span>
+                      </div>
                       <small>{row.status}</small>
                     </li>
                     );

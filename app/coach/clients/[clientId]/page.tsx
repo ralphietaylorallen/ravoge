@@ -9,7 +9,7 @@ import { WorkoutGenerationStatus } from "@/components/workout-generation-status"
 import type { WorkoutReadiness } from "@/lib/workout-readiness";
 import { BaselineSummary, type BaselineRecord } from "@/components/baseline-summary";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
-import { ProfilePhoto } from "@/components/profile-photo";
+import { ProfilePhotoForm } from "@/components/profile-photo-editor";
 import { IntakeForm } from "@/components/intake-form";
 import { WorkoutForm } from "@/components/workout-form";
 import { requireRole } from "@/lib/auth";
@@ -78,7 +78,7 @@ export default async function CoachClientPage({ params, searchParams }: { params
   const contexts=[...(bookings??[]).map(booking=>({id:`booking:${booking.id}`,label:`Session · ${new Date(booking.starts_at).toLocaleString("en-US",{timeZone:booking.timezone})}`})),...assignedWorkouts.filter(workout=>["assigned","in_progress"].includes(workout.status)).map(workout=>({id:`workout:${workout.id}`,label:`${workout.title} · ${workout.scheduled_date}`}))];
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coachProfile?.full_name ?? "Coach"} role="coach">
     <Link className={styles.backLink} href="/coach">← My Clients</Link>
-    <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhoto name={clientName} url={clientImageUrl}/><div><p className={styles.eyebrow}>Client · {organization?.name}</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{latestIntake?String(latestIntake.primary_goal).replaceAll("_"," "):"Intake pending"}</p></div></div><Link className={styles.action} href={`${basePath}/book`}>Schedule session</Link></div>
+    <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhotoForm imageUrl={clientImageUrl} name={clientName} organizationId={membership.organization_id} role="coach" targetUserId={clientId} /><div><p className={styles.eyebrow}>Client · {organization?.name}</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{latestIntake?String(latestIntake.primary_goal).replaceAll("_"," "):"Intake pending"}</p></div></div><Link className={styles.action} href={`${basePath}/book`}>Schedule session</Link></div>
     <OperationsTabs active={tab} basePath={basePath} tabs={[{id:"workouts",label:"Workout Plan"},{id:"progress",label:"Progress"},{id:"intake",label:"Intake"},{id:"metrics",label:"Metrics"},{id:"notes",label:"Notes"}]}/>
     {notice&&noticeMessages[notice]&&<p className={styles.notice} role="status">{noticeMessages[notice]}</p>}
     {tab==="workouts"&&<>
