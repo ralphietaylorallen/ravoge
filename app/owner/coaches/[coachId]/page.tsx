@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
-import { ProfilePhoto } from "@/components/profile-photo";
+import { ProfilePhotoForm } from "@/components/profile-photo-editor";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
 
@@ -71,7 +71,7 @@ export default async function OwnerCoachDetailPage({ params }: { params: Promise
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
       <Link className={styles.backLink} href="/owner/team">← Back to team</Link>
       <div className={styles.detailHeader}>
-        <div className={styles.profileHero}><ProfilePhoto name={coachName} url={coachImageUrl} /><div><p className={styles.eyebrow}>Owner View · Coach</p><h2 className={styles.detailTitle}>{coachName}</h2><p className={styles.profileMeta}>{coach?.specialties?.length ? coach.specialties.join(" · ") : "Operational oversight · you remain signed in as Owner"}</p></div></div>
+        <div className={styles.profileHero}><ProfilePhotoForm imageUrl={coachImageUrl} name={coachName} organizationId={membership.organization_id} role="owner" targetUserId={coachId} /><div><p className={styles.eyebrow}>Owner View · Coach</p><h2 className={styles.detailTitle}>{coachName}</h2><p className={styles.profileMeta}>{coach?.specialties?.length ? coach.specialties.join(" · ") : "Operational oversight · you remain signed in as Owner"}</p></div></div>
         <span className={coachMembership.status === "active" ? styles.statusPill : styles.mutedPill}>{coachMembership.status}</span>
       </div>
       <section className={styles.profileOverview}>

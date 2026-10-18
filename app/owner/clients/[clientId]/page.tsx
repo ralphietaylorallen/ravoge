@@ -9,6 +9,7 @@ import { BaselineSummary, type BaselineRecord } from "@/components/baseline-summ
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { ProgressChart, type ProgressMetric } from "@/components/progress-chart";
 import { ProfilePhoto } from "@/components/profile-photo";
+import { ProfilePhotoForm } from "@/components/profile-photo-editor";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
 import { DEFAULT_ORGANIZATION_TIMEZONE, localWeekStartDate } from "@/lib/timezone";
@@ -172,7 +173,7 @@ export default async function OwnerClientDetailPage({ params, searchParams }: { 
   const formatDate = (value: string) => new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: timezone }).format(new Date(value));
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
     <Link className={styles.backLink} href="/owner/clients">← Clients</Link>
-    <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhoto name={clientName} url={clientImageUrl} /><div><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>Client · {organization?.name} · Joined {formatDate(clientMembership.created_at)}</p></div></div><span className={clientMembership.status === "active" ? styles.successPill : styles.mutedPill}>{clientMembership.status}</span></div>
+    <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhotoForm imageUrl={clientImageUrl} name={clientName} organizationId={membership.organization_id} role="owner" targetUserId={clientId} /><div><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>Client · {organization?.name} · Joined {formatDate(clientMembership.created_at)}</p></div></div><span className={clientMembership.status === "active" ? styles.successPill : styles.mutedPill}>{clientMembership.status}</span></div>
     <OperationsTabs active={tab} basePath={basePath} tabs={[{id:"overview",label:"Overview"},{id:"schedule",label:"Schedule"},{id:"intake",label:"Intake"},{id:"progress",label:"Progress"},{id:"workouts",label:"Workouts"},{id:"notes",label:"Notes"}]} />
     {tab === "overview" && <div className={styles.overviewCards}>
       <section className={styles.operationCard}><h3>Assigned Coach</h3>{activeAssignment ? <div className={styles.coachIdentity}><ProfilePhoto name={names.get(activeAssignment.coach_user_id) ?? "Coach"} url={coachPhotos.get(activeAssignment.coach_user_id)} size="small" /><strong>{names.get(activeAssignment.coach_user_id) ?? "Coach"}</strong></div> : <div className={styles.emptyAssignment}><span aria-hidden="true">♙</span><strong>No coach assigned yet</strong><p>Assign a coach to plan training and book the first session.</p></div>}<ClientCoachAssignmentForm clientId={clientId} clientName={clientName} coaches={coaches} currentCoachId={activeAssignment?.coach_user_id} />{activeAssignment && <Link className={styles.secondaryAction} href={`${basePath}?tab=schedule`}>Schedule session →</Link>}</section>

@@ -12,7 +12,8 @@
     "test:e2e:training-import": "playwright test tests/training-import.spec.ts --workers=1",
     "test:unit": "node --conditions=react-server --test tests/unit/*.test.ts",
     "test:db:local": "set SUPABASE_DB_TARGET=local&& node scripts/run-database-tests.mjs",
-    "test:db": "npm run test:db:account && npm run test:db:coach && npm run test:db:client && npm run test:db:gate4 && npm run test:db:multi-owner && npm run test:db:oversight && npm run test:db:profiles && npm run test:db:scheduling && npm run test:db:training-import && npm run test:db:auth-stabilization && npm run test:db:owner-ops && npm run test:db:pwa && npm run test:db:equipment-scan && npm run test:db:organization-enrollment && npm run test:db:operations && npm run test:db:beta",
+    "test:db": "npm run test:db:account && npm run test:db:coach && npm run test:db:client && npm run test:db:gate4 && npm run test:db:multi-owner && npm run test:db:oversight && npm run test:db:profiles && npm run test:db:scheduling && npm run test:db:training-import && npm run test:db:auth-stabilization && npm run test:db:owner-ops && npm run test:db:pwa && npm run test:db:equipment-scan && npm run test:db:organization-enrollment && npm run test:db:operations && npm run test:db:beta && npm run test:db:photos",
+    "test:db:photos": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/managed_profile_photos_rls.sql --agent no",
     "test:db:beta": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/beta_readiness_rls.sql --agent no",
     "test:db:operations": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/scheduling_assignment_intake_v1_rls.sql --agent no && npx --yes supabase@2.117.0 db query --linked --file supabase/tests/workout_execution_ui_rls.sql --agent no",
     "test:db:account": "npx --yes supabase@2.117.0 db query --linked --file supabase/tests/account_foundation_rls.sql --agent no",
@@ -36,14 +37,15 @@
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.116.0",
     "csv-parse": "7.0.2",
-    "next": "16.3.5",
+    "heic-to": "1.6.6",
+    "next": "16.3.8",
     "openai": "7.21.0",
     "qrcode.react": "4.2.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "read-excel-file": "9.3.10",
     "server-only": "0.0.1",
-    "sharp": "0.35.4"
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
@@ -52,7 +54,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "eslint": "9.39.5",
-    "eslint-config-next": "16.3.5",
+    "eslint-config-next": "16.3.8",
     "fflate": "0.8.3",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3"

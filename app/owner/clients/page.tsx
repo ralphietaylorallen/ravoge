@@ -2,7 +2,7 @@ import { ClientDirectory } from "@/components/client-directory";
 
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { requireRole } from "@/lib/auth";
-import { getProfileImageUrl } from "@/lib/profile-images";
+import { getProfileThumbnailUrl as getProfileImageUrl } from "@/lib/profile-images";
 
 type ClientMembership = {
   created_at: string;

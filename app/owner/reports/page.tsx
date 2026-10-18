@@ -3,7 +3,7 @@ import Link from "next/link";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
-import { getProfileImageUrl } from "@/lib/profile-images";
+import { getProfileThumbnailUrl as getProfileImageUrl } from "@/lib/profile-images";
 import { localDateInTimeZone, localDateStartIso, shiftLocalDate } from "@/lib/timezone";
 
 type Search = { end?: string; range?: string; sort?: string; start?: string };

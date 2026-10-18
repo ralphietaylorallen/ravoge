@@ -5,7 +5,7 @@ import { DashboardShell, dashboardStyles as styles } from "@/components/dashboar
 import { InviteForm } from "@/components/invite-form";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
-import { getProfileImageUrl } from "@/lib/profile-images";
+import { getProfileThumbnailUrl as getProfileImageUrl } from "@/lib/profile-images";
 import { MutationActionForm } from "@/components/mutation-action-form";
 import { ClaimClientForm } from "@/components/claim-client-form";
 

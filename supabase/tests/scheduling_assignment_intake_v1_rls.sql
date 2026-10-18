@@ -79,7 +79,9 @@ reset role; set local role authenticated;
 select set_config('request.jwt.claim.sub','c1000000-0000-4000-8000-000000000003',true);
 do $$ begin
   if not private.can_write_profile_asset('ca000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000003/avatar/c3000000-0000-4000-8000-000000000001.webp') then raise exception 'Coach cannot write own versioned photo'; end if;
-  if private.can_write_profile_asset('ca000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000005/avatar/c3000000-0000-4000-8000-000000000002.webp') then raise exception 'Coach can write Client photo'; end if;
+  if not private.can_write_profile_asset('ca000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000005/avatar/c3000000-0000-4000-8000-000000000002.webp') then raise exception 'Same-gym Coach cannot manage Client photo'; end if;
+  if private.can_write_profile_asset('ca000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000002/avatar/c3000000-0000-4000-8000-000000000002.webp') then raise exception 'Coach can write another Coach photo'; end if;
+  if private.can_write_profile_asset('cb000000-0000-4000-8000-000000000001/c2000000-0000-4000-8000-000000000002/avatar/c3000000-0000-4000-8000-000000000002.webp') then raise exception 'Coach can write cross-organization Client photo'; end if;
   perform public.update_own_profile('{"avatarPath":"ca000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000003/avatar/c3000000-0000-4000-8000-000000000001.webp"}'::jsonb);
   begin perform public.update_own_profile('{"avatarPath":"cb000000-0000-4000-8000-000000000001/c1000000-0000-4000-8000-000000000003/avatar/c3000000-0000-4000-8000-000000000003.webp"}'::jsonb); raise exception 'Coach attached cross-organization photo'; exception when others then if sqlerrm='Coach attached cross-organization photo' then raise; end if; end;
 end $$;

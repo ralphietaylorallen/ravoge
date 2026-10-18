@@ -4,7 +4,7 @@ import { BookingList, type BookingListItem } from "@/components/booking-list";
 import { CancelBookingForm } from "@/components/schedule-forms";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { requireRole } from "@/lib/auth";
-import { getProfileImageUrl } from "@/lib/profile-images";
+import { getProfileThumbnailUrl as getProfileImageUrl } from "@/lib/profile-images";
 
 export default async function ClientSchedulePage() {
   const { membership, supabase, userId } = await requireRole("client");
