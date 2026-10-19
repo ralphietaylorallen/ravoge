@@ -5,6 +5,10 @@ alter table public.training_library_reviews add column structure_version integer
 alter table public.training_library_items add column generation_excluded boolean not null default false;
 alter table public.training_library_reviews drop constraint training_library_reviews_primary_goal_check;
 alter table public.training_library_reviews add constraint training_library_reviews_primary_goal_check check(primary_goal in ('strength','muscle_gain','general_fitness','conditioning','fat_loss','athletic_performance','body_recomposition'));
+-- Short source blocks/finishers are legitimate references; never invent a
+-- 20-minute source duration merely to fit the former fixed-session constraint.
+alter table public.training_library_reviews drop constraint training_library_reviews_duration_minutes_check;
+alter table public.training_library_reviews add constraint training_library_reviews_duration_minutes_check check(duration_minutes between 1 and 180);
 alter table public.workout_exercises add column prescription_details jsonb check(prescription_details is null or jsonb_typeof(prescription_details)='object');
 
 -- One server validator is shared by publication, generation and approval.

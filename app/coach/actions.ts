@@ -331,7 +331,7 @@ export async function approvePrescriptionAction(
 
   if (title.length < 2 || title.length > 120 || instructions.length > 4000 ||
     !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate) || libraryIds.length < 1 || libraryIds.length > 30 ||
-    columns.some((column) => column.length !== libraryIds.length) || !Number.isInteger(duration) || duration < 20 || duration > 180 ||
+    columns.some((column) => column.length !== libraryIds.length) || !Number.isInteger(duration) || duration < (formData.get("quality") === "yes" ? 15 : 20) || duration > 180 ||
     efforts.some((effort) => effort !== "" && (!Number.isFinite(Number(effort)) || Number(effort) < 1 || Number(effort) > 10))) {
     return { message: "Review the workout details and exercise rows.", status: "error" };
   }

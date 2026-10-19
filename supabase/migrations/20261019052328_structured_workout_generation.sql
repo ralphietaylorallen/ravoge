@@ -16,7 +16,7 @@ begin
  select r.* into template from public.training_library_reviews r join public.training_library_items t on t.id=r.training_item_id
  where r.organization_id=org and r.status='published' and t.status='published' and not t.generation_excluded
    and r.revision=(select max(v.revision) from public.training_library_reviews v where v.training_item_id=t.id)
-   and r.primary_goal=i.primary_goal and r.duration_minutes<=i.session_duration_minutes and jsonb_array_length(r.exercises)>=3
+   and r.primary_goal=i.primary_goal and r.duration_minutes between 15 and i.session_duration_minutes and jsonb_array_length(r.exercises)>=3
    and not exists(select 1 from jsonb_array_elements(r.exercises) x where not private.generation_exercise_compatible((x->>'libraryExerciseId')::uuid,i.id))
  order by (r.duration_minutes=i.session_duration_minutes) desc,r.reviewed_at desc limit 1;
  if found then exercises:=template.exercises;
@@ -173,8 +173,8 @@ begin
  if is_assisted and seconds<least(15,(input->>'duration')::numeric*0.4)*60 then raise exception 'Draft duration is not plausible for these targets'; end if;
  update public.generated_prescriptions set original_recommendation=rows,final_prescription=rows,
    title=case when is_assisted then proposed_workout->>'title' else 'Coach-reviewed '||initcap(replace(input->>'goal','_',' ')) end,
-   rationale=case when is_assisted then proposed_workout->>'rationale' else 'Safe deterministic selection from compatible approved movements and reviewed gym examples. Coach must check effort, timing and source interpretation.' end,
-   estimated_duration_minutes=greatest(20,least((input->>'duration')::integer,ceil(seconds/60)::integer)),
+   rationale=case when is_assisted then proposed_workout->>'rationale' else format('Safe deterministic selection from compatible approved movements and reviewed gym examples. Calculated work/rest estimate: %s minutes; saved preference: %s minutes. This may be a shorter session. Coach must review timing, extend with compatible work if appropriate, and confirm source interpretation.',ceil(seconds/60),input->>'duration') end,
+   estimated_duration_minutes=greatest(15,least((input->>'duration')::integer,ceil(seconds/60)::integer)),
    engine_version=case when is_assisted then 'prescription-v0.4-openai' else 'prescription-v0.4-fallback' end,
    generation_context=generation_context||jsonb_build_object('generationMethod',case when is_assisted then 'openai' else 'deterministic_fallback' end,
      'rulesVersion','ravoge-quality-2026.2','trainingSnapshot',input,'estimatedWorkSeconds',seconds,
@@ -195,7 +195,7 @@ begin
    or not private.can_manage_client_domain(p.organization_id,p.client_user_id) then raise exception 'Active assigned Coach and draft required'; end if;
  select id into strict latest from public.client_intakes where organization_id=p.organization_id and client_user_id=p.client_user_id order by version desc limit 1;
  if latest<>p.intake_id or not exists(select 1 from public.intake_generation_safety_reviews where intake_id=latest)
-   or workout_duration_minutes is null or workout_duration_minutes not between 20 and 180
+   or workout_duration_minutes is null or workout_duration_minutes not between 15 and 180
    or char_length(trim(coalesce(workout_title,''))) not between 2 and 120 or workout_scheduled_date is null or char_length(coalesce(workout_instructions,''))>4000 then raise exception 'Review latest intake, title, date and duration'; end if;
  rows:=private.validate_quality_exercises(exercises,p.organization_id,latest,false);
  if private.quality_duration_seconds(rows)>workout_duration_minutes*60+180 then raise exception 'Review workload versus assigned duration'; end if;

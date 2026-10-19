@@ -33,12 +33,12 @@ test("three-client quality generation, Owner programming review and mobile worko
   await turf.getByLabel("Name", { exact: true }).fill("Quality 25-yard turf"); await turf.getByLabel("Usable length").fill("25"); await turf.getByRole("button").click(); await expect(turf.getByRole("status")).toContainText("Saved");
 
   const sources = [
-    { title: "Quality Circuit", goal: "fat_loss", format: "circuit", rows: [["Goblet Squat", "reps", "8"], ["Band Row", "reps", "8"], ["Dead Bug", "reps", "8"]], source: "Circuit A, 3 rounds: Goblet Squat 8, Band Row 8, Dead Bug 8. Rest 30s." },
-    { title: "Quality Strength", goal: "strength", format: "straight", rows: [["Back Squat", "reps", "5"], ["Bench Press", "reps", "5"], ["Romanian Deadlift", "reps", "5"]], source: "Back Squat 3 x 5\nBench Press 3 x 5\nRomanian Deadlift 3 x 5" },
-    { title: "Quality Stations", goal: "athletic_performance", format: "emom", rows: [["Rower Interval", "time", "1"], ["Sled Push", "distance", "1"], ["Medicine Ball Chest Pass", "reps", "5"]], source: "EMOM: Rower 30s; Sled Push 10m; Medicine Ball Chest Pass 5 reps. Six visits each in 60s slots." },
+    { title: "Quality Circuit", goal: "fat_loss", duration: 11, format: "circuit", rows: [["Goblet Squat", "reps", "8"], ["Band Row", "reps", "8"], ["Dead Bug", "reps", "8"]], source: "Circuit A, 3 rounds: Goblet Squat 8, Band Row 8, Dead Bug 8. Rest 30s." },
+    { title: "Quality Strength", goal: "strength", duration: 23, format: "straight", rows: [["Back Squat", "reps", "5"], ["Bench Press", "reps", "5"], ["Romanian Deadlift", "reps", "5"]], source: "Back Squat 3 x 5\nBench Press 3 x 5\nRomanian Deadlift 3 x 5\nRest 120 seconds between sets." },
+    { title: "Quality Stations", goal: "athletic_performance", duration: 18, format: "emom", rows: [["Rower Interval", "time", "1"], ["Sled Push", "distance", "1"], ["Medicine Ball Chest Pass", "reps", "5"]], source: "EMOM: Rower 30s; Sled Push 10m; Medicine Ball Chest Pass 5 reps. Six visits each in 60s slots." },
   ];
   await page.goto("/owner/training-library/import");
-  const csv = "Title,Description\n" + sources.map(s => `${s.title},"${s.source.replaceAll('"', '""')}"`).join("\n") + '\nUnresolved source,"EMOM unknown percentages, missing per-side targets"\n';
+  const csv = "Title,Duration,Goal,Description\n" + sources.map(s => `${s.title},${s.duration},${s.goal},"${s.source.replaceAll('"', '""')}"`).join("\n") + '\nUnresolved source,,,"EMOM unknown percentages, missing per-side targets"\n';
   await page.getByLabel("Workout history file").setInputFiles({ buffer: Buffer.from(csv), name: "quality-programming.csv", mimeType: "text/csv" });
   await page.getByRole("button", { name: "Parse and preview" }).click(); await page.getByRole("button", { name: "Save import", exact: true }).click(); await expect(page.getByRole("status").filter({ hasText: "saved as draft" })).toBeVisible();
   const api = await scoped(owner);
@@ -46,7 +46,7 @@ test("three-client quality generation, Owner programming review and mobile worko
   for (const source of sources) {
     await page.goto("/owner/training-library"); await page.getByRole("link", { name: source.title, exact: true }).click();
     await expect(page.getByRole("heading", { name: "Original imported row" })).toBeVisible();
-    await page.getByLabel("Intended goal").selectOption(source.goal); await page.getByLabel("Session duration (minutes)").fill(source.format === "emom" ? "25" : "40");
+    await page.getByLabel("Intended goal").selectOption(source.goal); await page.getByLabel("Session duration (minutes)").fill(String(source.duration));
     const existing = await page.getByRole("group", { name: /^Exercise \d+$/ }).count();
     for (let i = existing; i < 3; i++) await page.getByRole("button", { name: "Add reviewed exercise" }).click();
     for (const [i, [name, measurement, reps]] of source.rows.entries()) {
@@ -80,7 +80,7 @@ test("three-client quality generation, Owner programming review and mobile worko
     const { data: draft } = await coachApi.from("generated_prescriptions").select("original_recommendation,status,generation_context").eq("id", prescriptionId).single(); expect(draft?.status).toBe("draft");
     signatures.add(JSON.stringify(draft?.original_recommendation.map((e: { libraryExerciseId: string; protocol: { format: string } }) => [e.libraryExerciseId, e.protocol.format])));
     const ordinary = await scoped(account); expect((await ordinary.from("generated_prescriptions").select("id")).data).toEqual([]); expect((await ordinary.from("workout_assignments").select("id")).data).toEqual([]);
-    await coach.getByLabel("Workout duration (minutes)").fill("45"); await coach.getByLabel("Coach instructions", { exact: true }).fill("QA Coach reviewed technique, constraints, timing and load. Stop for pain.");
+    const durationField=coach.getByLabel("Workout duration (minutes)"); const estimated=Number(await durationField.inputValue()); expect(estimated).toBeGreaterThanOrEqual(15); expect(estimated).toBeLessThanOrEqual(45); await durationField.fill(String(Math.min(45,estimated+1))); await coach.getByLabel("Coach instructions", { exact: true }).fill("QA Coach reviewed technique, constraints, timing and load. Stop for pain.");
     await coach.getByRole("button", { name: "Approve & assign" }).click(); await expect(coach).toHaveURL(new RegExp(`/coach/clients/${account.id}\\?notice=prescription-assigned`));
     const { data: assignments } = await ordinary.from("workout_assignments").select("id"); expect(assignments).toHaveLength(1);
     const context = await browser.newContext(); const client = await context.newPage(); client.on("pageerror", e => errors.push(e.message)); await login(client, account);

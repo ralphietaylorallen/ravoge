@@ -84,7 +84,7 @@ export function PrescriptionReviewForm({
         <div className={styles.field}><label htmlFor="review-title">Workout name</label><input defaultValue={title} id="review-title" maxLength={120} name="title" required /></div>
         <div className={styles.field}><label htmlFor="review-date">Assign date</label><input defaultValue={scheduledDate} id="review-date" name="scheduledDate" required type="date" /></div>
       </div>
-      <div className={styles.field}><label htmlFor="review-duration">Workout duration (minutes)</label><input defaultValue={duration} id="review-duration" name="estimatedDurationMinutes" min={20} max={180} required type="number" /></div>
+      <div className={styles.field}><label htmlFor="review-duration">Workout duration (minutes)</label><input defaultValue={duration} id="review-duration" name="estimatedDurationMinutes" min={quality ? 15 : 20} max={180} required type="number" /></div>
       <div className={styles.field}><label htmlFor="review-instructions">Coach instructions</label><textarea id="review-instructions" maxLength={4000} name="instructions" rows={3} /></div>
 
       <div className={styles.exerciseHeader}><h3>Editable recommendation</h3><button className={styles.textAction} onClick={addExercise} type="button">+ Add exercise</button></div>
