@@ -21,12 +21,13 @@ writeFileSync(".temp/beta-qa-state.json", JSON.stringify({ organizationId: org, 
 function sql(query) {
   const file = ".temp/beta-qa.sql";
   writeFileSync(file, query);
-  try { return execSync(`${cli} db query --linked --file ${file} --agent no`, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], windowsHide: true }); }
-  catch { throw new Error("Isolated beta fixture database operation failed; SQL output suppressed to protect runtime credentials."); }
+  try { return execSync(`${cli} db query --linked --file ${file} --agent no`, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], windowsHide: true, timeout: 60_000 }); }
+  catch (error) { throw new Error(`Isolated beta fixture database operation ${error.signal ? "timed out or was interrupted" : "failed"}; SQL output suppressed to protect runtime credentials.`); }
   finally { rmSync(file, { force: true }); }
 }
 let server, created = false;
 try {
+  console.log("Preparing this run’s isolated Ravoge QA identities and organization.");
   sql(`begin;
     ${users.map(user => `insert into auth.users(id,instance_id,aud,role,email,encrypted_password,email_confirmed_at,confirmation_token,recovery_token,email_change,email_change_token_new,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
       values('${user.id}','00000000-0000-0000-0000-000000000000','authenticated','authenticated','${user.email}',crypt('${password}',gen_salt('bf')),now(),'','','','','{"provider":"email","providers":["email"]}',jsonb_build_object('full_name','${user.name}'),now(),now());
@@ -38,6 +39,7 @@ try {
     ${users.filter(user => ["invited_coach", "existing_client"].includes(user.role)).map(user => `select set_config('request.jwt.claim.sub','${user.id}',true); select public.register_unaffiliated_account_type('${user.role === "invited_coach" ? "coach" : "client"}');`).join("\n")}
     commit;`);
   created = true;
+  console.log("Isolated fixtures ready. Starting authenticated browser checks.");
   if (!env.PLAYWRIGHT_BASE_URL) {
     env.PLAYWRIGHT_BASE_URL = "http://localhost:3100";
     env.RAVOGE_ENROLLMENT_TOKEN_KEY = randomBytes(32).toString("hex");

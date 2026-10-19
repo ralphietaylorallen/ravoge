@@ -42,7 +42,21 @@ export function validateProtocol(raw: unknown): WorkoutProtocol {
 export function protocolTarget(sets: number, reps: number, p?: WorkoutProtocol | null) {
   if (!p) return `${sets} sets × ${reps} reps`;
   const target = p.measurement === "time" ? `${p.workSeconds}s work` : p.measurement === "distance" ? `${p.distance} ${p.distanceUnit}` : `${reps} reps`;
-  return `${p.format === "amrap" ? "Repeat within block" : `${sets} ${["rounds", "circuit", "superset", "stations"].includes(p.format) ? "rounds" : "sets"}`} · ${target}${p.perSide ? " each side" : ""}${p.percentageLoad ? ` · ${p.percentageLoad}% of Coach-confirmed 1RM` : ""}${p.targetRpe ? ` · RPE ${p.targetRpe}` : ""}`;
+  return `${p.format === "amrap" ? "Repeat within block" : `${sets} ${p.format === "emom" ? "visits" : ["rounds", "circuit", "superset", "stations"].includes(p.format) ? "rounds" : "sets"}`} · ${target}${p.perSide ? " each side" : ""}${p.percentageLoad ? ` · ${p.percentageLoad}% of Coach-confirmed 1RM` : ""}${p.targetRpe ? ` · RPE ${p.targetRpe}` : ""}`;
+}
+// A circuit/EMOM advances between movements each round, not through all sets
+// of one movement first. This affects guidance only; stored targets stay intact.
+export function orderedPlayerSets<T extends { id: string; prescription_details: WorkoutProtocol | null; workout_sets: { id: string; set_number: number }[] }>(exercises: T[]) {
+  const visited = new Set<string>();
+  return exercises.flatMap(exercise => {
+    if (visited.has(exercise.id)) return [];
+    const p = exercise.prescription_details;
+    const grouped = p?.group && ["superset", "circuit", "stations", "emom", "rounds"].includes(p.format);
+    const members = grouped ? exercises.filter(e => e.prescription_details?.block === p.block && e.prescription_details?.format === p.format && e.prescription_details?.group === p.group) : [exercise];
+    for (const member of members) visited.add(member.id);
+    const rounds = [...new Set(members.flatMap(e => e.workout_sets.map(s => s.set_number)))].sort((a, b) => a - b);
+    return rounds.flatMap(round => members.flatMap(e => e.workout_sets.filter(s => s.set_number === round).map(set => ({ exercise: e, set }))));
+  });
 }
 export function estimateWorkoutSeconds(rows: { sets: number; reps: number; restSeconds: number | null; protocol?: WorkoutProtocol | null }[]) {
   const groups = new Set<string>();

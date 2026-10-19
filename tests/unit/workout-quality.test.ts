@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { defaultProtocol, estimateWorkoutSeconds, protocolTarget, validateProtocol } from "../../lib/workout-protocol.ts";
+import { defaultProtocol, estimateWorkoutSeconds, orderedPlayerSets, protocolTarget, validateProtocol } from "../../lib/workout-protocol.ts";
 import { deidentifiedGenerationInput, generateAssistedWorkout, type GenerationInput } from "../../lib/workout-generation.ts";
 import { validateQualityWorkout } from "../../lib/workout-generation-quality.ts";
 
@@ -76,4 +76,12 @@ test("shared AMRAP duration is counted once and conflicting group formats fail",
   assert.equal(estimateWorkoutSeconds([1, 2, 3].map(() => ({ sets: 1, reps: 8, restSeconds: 0, protocol: p }))), 660);
   const output = proposal("strength"); output.exercises[0].protocol.group = "A"; output.exercises[1].protocol.group = "A"; output.exercises[1].protocol.format = "circuit";
   assert.throws(() => validateQualityWorkout(JSON.stringify(output), input()));
+});
+
+test("player guidance preserves straight sets and round-by-round grouped movement order", () => {
+  const exercise = (id: string, format: "straight" | "emom" | "circuit", group = "") => ({ id, prescription_details: { ...defaultProtocol(), format, group }, workout_sets: [2, 1].map(n => ({ id: `${id}${n}`, set_number: n })) });
+  for (const format of ["emom", "circuit"] as const) {
+    assert.deepEqual(orderedPlayerSets([exercise("warmup", "straight"), exercise("a", format, "A"), exercise("b", format, "A"), exercise("finish", "straight")]).map(s => s.set.id), ["warmup1", "warmup2", "a1", "b1", "a2", "b2", "finish1", "finish2"]);
+  }
+  assert.ok(protocolTarget(6, 1, { ...defaultProtocol("time"), format: "emom", group: "A", intervalSeconds: 60 }).startsWith("6 visits"));
 });

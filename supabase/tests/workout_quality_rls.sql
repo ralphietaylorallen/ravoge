@@ -83,8 +83,19 @@ do $$ begin
 end $$;
 
 select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000002',true);
+do $$ declare proposal jsonb; position integer; begin
+ select original_recommendation into proposal from public.generated_prescriptions where id=(select id from quality_ids where kind='draft-5');
+ select ordinality::integer-1 into strict position from jsonb_array_elements(proposal) with ordinality where value->'protocol'->>'measurement'='time';
+ proposal:=jsonb_set(proposal,array[position::text,'protocol','substitutionIds'],jsonb_build_array((select id::text from public.exercise_library where slug='goblet-squat' and organization_id is null)));
+ begin
+   perform public.approve_quality_prescription((select id from quality_ids where kind='draft-5'),'Invalid target substitution',null,current_date,40::smallint,proposal);
+   raise exception 'Incompatible measurement substitution was accepted';
+ exception when raise_exception then if sqlerrm not like 'Substitutions must preserve measurement%' then raise; end if; end;
+end $$;
+select pg_temp.assert_true(not exists(select 1 from public.workout_assignments),'Invalid substitution left a partial assignment');
 insert into quality_ids values('assigned',public.approve_quality_prescription((select id from quality_ids where kind='draft-5'),'Assigned timed stations',null,current_date,40::smallint,
- (select original_recommendation from public.generated_prescriptions where id=(select id from quality_ids where kind='draft-5'))));
+ (select jsonb_agg(case when x->'protocol'->>'measurement'='time' then jsonb_set(x,'{protocol,substitutionIds}',jsonb_build_array((select id::text from public.exercise_library where slug='ski-erg-interval' and organization_id is null))) else x end order by n)
+ from public.generated_prescriptions p cross join lateral jsonb_array_elements(p.original_recommendation) with ordinality q(x,n) where p.id=(select id from quality_ids where kind='draft-5'))));
 select pg_temp.assert_true((select count(*)=3 from public.workout_exercises where workout_assignment_id=(select id from quality_ids where kind='assigned') and prescription_details->>'format'='emom'),'Approval flattened station protocols');
 
 -- Foreign staff and unrelated Client cannot read/write resources or performance.
@@ -103,7 +114,7 @@ do $$ declare s record; n integer:=0; begin
  for s in select q.id,e.prescription_details from public.workout_sets q join public.workout_exercises e on e.id=q.workout_exercise_id where e.workout_assignment_id=(select id from quality_ids where kind='assigned') order by q.id loop
    perform public.record_quality_workout_set((select id from quality_ids where kind='assigned'),s.id,
      case n when 0 then 'modified' when 1 then 'missed' else 'complete' end,
-     jsonb_build_object('reps',5,'seconds',30,'distance',10,'load',null,'loadUnit','kg','rpe',6,'pain',n=0,'notes',case when n=0 then 'Stop and discuss discomfort' else '' end,'substitutionId',null));
+     jsonb_build_object('reps',5,'seconds',30,'distance',10,'load',null,'loadUnit','kg','rpe',6,'pain',n=0,'notes',case when n=0 then 'Stop and discuss discomfort' else '' end,'substitutionId',s.prescription_details->'substitutionIds'->>0));
    n:=n+1;
  end loop;
 end $$;

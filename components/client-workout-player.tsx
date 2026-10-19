@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { playerSessionAction, playerSetAction } from "@/app/client/workout-player-actions";
-import { protocolTarget, type WorkoutProtocol } from "@/lib/workout-protocol";
+import { orderedPlayerSets, protocolTarget, type WorkoutProtocol } from "@/lib/workout-protocol";
 import styles from "./workout-player.module.css";
 
 type PlayerSet = { id: string; set_number: number; actual_reps: number | null; actual_load: number | null; actual_load_unit: string | null; actual_work_seconds: number | null; actual_distance: number | null; actual_rpe: number | null; client_result: string | null; completed_at: string | null; pain_reported: boolean; failure_notes: string | null };
@@ -29,13 +29,13 @@ export function WorkoutTimer({ work, rest, workLabel = "Work" }: { work: number;
   </div>;
 }
 
-function PlayerSetForm({ set, exercise, workoutId, locked, role, substitutions }: { set: PlayerSet; exercise: PlayerExercise; workoutId: string; locked: boolean; role: "client" | "coach"; substitutions: { id: string; name: string }[] }) {
+function PlayerSetForm({ set, exercise, workoutId, locked, expanded, role, substitutions }: { set: PlayerSet; exercise: PlayerExercise; workoutId: string; locked: boolean; expanded: boolean; role: "client" | "coach"; substitutions: { id: string; name: string }[] }) {
   const [state, action, pending] = useActionState(playerSetAction.bind(null, role, workoutId, set.id), { status: "idle" as const });
   const router = useRouter();
   useEffect(() => { if (state.status === "success") router.refresh(); }, [state, router]);
   const p = exercise.prescription_details;
   const label = `Set ${set.set_number}`;
-  return <details className={styles.set} open={!set.completed_at}><summary>{label} · {set.client_result ?? (set.completed_at ? "recorded" : "not started")}{set.pain_reported ? " · pain reported" : ""}</summary>
+  return <details id={`player-set-${set.id}`} className={styles.set} open={expanded}><summary>{label} · {set.client_result ?? (set.completed_at ? "recorded" : "not started")}{set.pain_reported ? " · pain reported" : ""}</summary>
     <form action={action} aria-label={`${exercise.exercise_name} ${label}`} onReset={event => event.preventDefault()}>
       <div className={styles.fields}>
         {(!p || p.measurement === "reps") && <label>Actual repetitions<input name="reps" type="number" min={0} max={1000} defaultValue={set.actual_reps ?? exercise.reps} disabled={locked}/></label>}
@@ -61,9 +61,11 @@ export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, 
   const allSets = exercises.flatMap(e => e.workout_sets);
   const recorded = allSets.filter(s => s.completed_at).length;
   const locked = ["completed", "cancelled"].includes(status);
+  const next = orderedPlayerSets(exercises).find(({ set }) => !allSets.find(s => s.id === set.id)?.completed_at);
   return <section className={styles.player} aria-label="Ravoge workout player"><header className={styles.header}><span>RAVOGE · TRAIN WITH INTENT</span><p className={styles.title}>{title}</p><p>{goal ?? "Coach-approved training"} · {duration ? `About ${duration} minutes` : "Follow your Coach’s timing"}</p>
     <label>Workout progress<progress max={Math.max(1, allSets.length)} value={recorded}/></label><p>{recorded} / {allSets.length} sets recorded · Modified and missed work remain visible to your Coach.</p>
     <form action={action}><button className={styles.primary} name="intent" value="start" disabled={locked || pending}>{status === "assigned" ? "Start workout" : locked ? "Workout closed" : "Continue workout"}</button></form>
+    {!locked && next && <a className={styles.next} href={`#player-set-${next.set.id}`}>Next: {next.exercise.exercise_name} · {next.exercise.prescription_details?.group ? "Round / visit" : "Set"} {next.set.set_number}</a>}
   </header><h3>Exercises</h3>
     {exercises.map((exercise, index) => {
       const p = exercise.prescription_details;
@@ -77,7 +79,7 @@ export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, 
         <p>{exercise.exercise_library?.coach_cue}</p><p>Equipment: {exercise.exercise_library?.equipment_requirements.join(", ").replaceAll("_", " ") || "Bodyweight"}.</p>
         {exercise.notes && <p>{exercise.notes}</p>}<p>Rest: {exercise.rest_seconds ?? 0}s as prescribed.</p>
         <WorkoutTimer work={p?.format === "amrap" ? p.blockDurationSeconds ?? 0 : p?.format === "emom" ? p.workSeconds ?? p.intervalSeconds ?? 0 : p?.workSeconds ?? 0} rest={p?.format === "emom" ? p.workSeconds ? Math.max(0, (p.intervalSeconds ?? 0) - p.workSeconds) : 0 : exercise.rest_seconds ?? 0} workLabel={p?.format === "emom" && p.measurement !== "time" ? "Slot" : "Work"}/>
-        {[...exercise.workout_sets].sort((a, b) => a.set_number - b.set_number).map(set => <PlayerSetForm key={set.id} set={set} exercise={exercise} workoutId={workoutId} locked={locked} role={role} substitutions={options}/>)}
+        {[...exercise.workout_sets].sort((a, b) => a.set_number - b.set_number).map(set => <PlayerSetForm key={set.id} set={set} exercise={exercise} workoutId={workoutId} locked={locked} expanded={!locked && next?.set.id === set.id} role={role} substitutions={options}/>)}
         {index + 1 < exercises.length && <a className={styles.next} href={`#player-exercise-${index + 1}`}>Next exercise →</a>}
       </article>;
     })}

@@ -93,7 +93,8 @@ test("three-client quality generation, Owner programming review and mobile worko
     const { data: assignments } = await ordinary.from("workout_assignments").select("id"); expect(assignments).toHaveLength(1);
     const context = await browser.newContext(); const client = await context.newPage(); client.on("pageerror", e => errors.push(e.message)); await login(client, account);
     await client.goto(`/client/workouts/${assignments![0].id}`); const player = client.getByRole("region", { name: "Ravoge workout player" }); await expect(player).toBeVisible();
-    for (const [width, height] of [[390, 844], [768, 1024], [1024, 768]]) { await client.setViewportSize({ width, height }); expect(await client.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); await client.screenshot({ path: info.outputPath(`quality-${index}-${width}.png`), fullPage: true }); }
+    await expect(player.locator("details[open]")).toHaveCount(1);
+    for (const [width, height] of [[390, 844], [768, 1024], [1024, 768]]) { await client.setViewportSize({ width, height }); expect(await client.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); await client.screenshot({ path: info.outputPath(`quality-${index}-${width}.png`), fullPage: true }); await player.getByRole("heading", { name: "Exercises", exact: true }).scrollIntoViewIfNeeded(); await client.screenshot({ path: info.outputPath(`quality-${index}-${width}-viewport.png`) }); }
     const start = player.getByRole("button", { name: "Start workout", exact: true }); await start.focus(); await expect(start).toBeFocused(); await client.keyboard.press("Enter"); await expect(player.getByRole("status")).toContainText("Workout started");
     const rest = player.getByRole("button", { name: /^Start rest timer/ }).first();
     if (await rest.count()) { await rest.click(); await expect(player.getByRole("timer").first()).not.toHaveText("Rest · 0:00"); }
