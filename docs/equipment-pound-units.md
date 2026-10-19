@@ -86,6 +86,16 @@ operations flow (1) and private-photo checks (2). Local generation deliberately
 uses the safe fallback. Preview/production provider verification and deployment
 IDs belong in the release PR; these local results alone are not a live-release claim.
 
+Live verification of the first deployment also encountered rejected provider
+output. The existing two-attempt limit and fallback remain intact. A focused
+follow-up supplies the repair attempt with a fixed application-owned constraint
+hint (protocol, duration, grouping, numeric loads, etc.), rather than a generic
+retry instruction. Only fixed issue codes and attempt numbers are logged; no
+rejected output, client context or provider exception text is retained. All
+original validators still run on the repaired result; repeated failure still
+returns the truthful safe fallback. Three focused regression tests cover these
+boundaries, bringing the unit total to 50. No additional migration is needed.
+
 The focused browser checks also caught and repaired equipment-form native reset
 changing the displayed type after save, and the chart tooltip's multi-child
 `<title>` hydration mismatch. Tooltips now render a single string and deterministic
@@ -138,4 +148,5 @@ and unused-index information remain; no unrelated indexes were removed.
 - `tests/operations-ui.spec.ts`
 - `tests/unit/weight-units.test.ts`
 - `tests/unit/workout-generation.test.ts`
+- `tests/unit/workout-quality.test.ts`
 - `tests/workout-quality.spec.ts`

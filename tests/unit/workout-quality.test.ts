@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { defaultProtocol, estimateWorkoutSeconds, orderedPlayerSets, protocolTarget, validateProtocol } from "../../lib/workout-protocol.ts";
 import { deidentifiedGenerationInput, generateAssistedWorkout, type GenerationInput } from "../../lib/workout-generation.ts";
-import { validateQualityWorkout } from "../../lib/workout-generation-quality.ts";
+import { QualityValidationError, validateQualityWorkout } from "../../lib/workout-generation-quality.ts";
 
 const candidates = [
   ["squat", "reps", "dumbbells"], ["hinge", "reps", "dumbbells"], ["horizontal_pull", "reps", "bands"],
@@ -84,4 +84,34 @@ test("player guidance preserves straight sets and round-by-round grouped movemen
     assert.deepEqual(orderedPlayerSets([exercise("warmup", "straight"), exercise("a", format, "A"), exercise("b", format, "A"), exercise("finish", "straight")]).map(s => s.set.id), ["warmup1", "warmup2", "a1", "b1", "a2", "b2", "finish1", "finish2"]);
   }
   assert.ok(protocolTarget(6, 1, { ...defaultProtocol("time"), format: "emom", group: "A", intervalSeconds: 60 }).startsWith("6 visits"));
+});
+
+test("quality rejection diagnostics identify constraints without relaxing them", () => {
+  const numeric = proposal("strength"); numeric.exercises[0].notes = "Use 95 lb.";
+  const protocol = proposal("strength"); protocol.exercises[0].protocol.workSeconds = 30;
+  const duration = proposal("strength"); duration.exercises.forEach(r => { r.sets = 1; r.reps = 1; r.restSeconds = 0; });
+  for (const [output, issue] of [[numeric, "numeric_load"], [protocol, "protocol"], [duration, "duration"]] as const) {
+    assert.throws(() => validateQualityWorkout(JSON.stringify(output), input()), error => error instanceof QualityValidationError && error.message === "invalid_output" && error.issue === issue);
+  }
+});
+
+test("one bounded repair receives only a fixed validation hint, never rejected output", async t => {
+  const warnings: unknown[][] = []; t.mock.method(console, "warn", (...args: unknown[]) => warnings.push(args));
+  const short = proposal("strength"); short.exercises.forEach(r => { r.sets = 1; r.reps = 1; r.restSeconds = 0; r.notes = "REJECTED PROSE MUST NOT BE ECHOED"; });
+  let calls = 0;
+  const sdk = { responses: { create: async (request: Record<string, unknown>) => {
+    calls++; const body = JSON.stringify(request);
+    assert.ok(!body.includes("REJECTED PROSE")); assert.ok(!body.includes("private@example.test"));
+    if(calls === 2) { assert.ok(body.includes('\\"issue\\":\\"duration\\"')); assert.ok(body.includes("Do not just change the declared duration")); assert.ok(String(request.instructions).includes("duration constraint")); }
+    return {status:"completed",output_text:JSON.stringify(calls === 1 ? short : proposal("strength"))};
+  } } };
+  const result = await generateAssistedWorkout(input(), sdk as never);
+  assert.equal(calls,2); assert.ok(result.workout); assert.deepEqual(warnings,[["[Ravoge generation] rejected output",{issue:"duration",attempt:1}]]);
+});
+
+test("targeted repair never bypasses repeated invalid output or increases provider attempts", async t => {
+  t.mock.method(console,"warn",()=>{}); let calls=0;
+  const invalid=proposal("strength"); invalid.exercises[0].notes="Prescribe 95 lb.";
+  const sdk={responses:{create:async()=>{calls++;return {status:"completed",output_text:JSON.stringify(invalid)};}}};
+  assert.deepEqual(await generateAssistedWorkout(input(),sdk as never),{workout:null,reason:"invalid_output"}); assert.equal(calls,2);
 });
