@@ -1,4 +1,18 @@
+import { poundsToKilograms } from "./weight-units.ts";
 export type BodyCompositionGoals = Partial<Record<"weightKg" | "bodyFatPercentage" | "skeletalMuscleMassKg", number>>;
+
+// The public form is pounds-only; the versioned intake contract stays canonical.
+export function parsePoundBodyCompositionGoals(form: FormData): BodyCompositionGoals | null {
+  const canonical = new FormData();
+  canonical.set("goalBodyFatPercentage", String(form.get("goalBodyFatPercentage") ?? ""));
+  try {
+    for (const key of ["goalWeight", "goalSkeletalMuscleMass"]) {
+      const value = poundsToKilograms(String(form.get(`${key}Lb`) ?? ""));
+      canonical.set(`${key}Kg`, value === null ? "" : String(value));
+    }
+  } catch { return null; }
+  return parseBodyCompositionGoals(canonical);
+}
 
 export function parseBodyCompositionGoals(formData: FormData): BodyCompositionGoals | null {
   const goals: BodyCompositionGoals = {};

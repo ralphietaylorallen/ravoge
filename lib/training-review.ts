@@ -1,6 +1,6 @@
 export type LibraryExerciseOption = { id: string; name: string; equipment_requirements?: string[] };
 import type { WorkoutProtocol } from "./workout-protocol";
-export type ReviewedExercise = { libraryExerciseId: string; sourceText: string; sets: number | null; reps: number | null; load: number | null; restSeconds: number | null; notes: string; protocol?: WorkoutProtocol };
+export type ReviewedExercise = { libraryExerciseId: string; sourceText: string; sets: number | null; reps: number | null; load: number | null; loadUnit?: string | null; restSeconds: number | null; notes: string; protocol?: WorkoutProtocol };
 type SourceCell = { header?: string; raw?: unknown; display?: string };
 
 export function sourceFields(content: unknown): Array<{ header: string; value: string }> {

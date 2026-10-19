@@ -67,7 +67,7 @@ export function WorkoutForm({ clientId }: { clientId: string }) {
               <input id={`exercise-reps-${row.id}`} max={1000} min={1} name="exerciseReps" required type="number" />
             </div>
             <div className={styles.field}>
-              <label htmlFor={`exercise-load-${row.id}`}>Weight</label>
+              <label htmlFor={`exercise-load-${row.id}`}>Weight (lb)</label>
               <input id={`exercise-load-${row.id}`} max={100000} min={0} name="exerciseLoad" step="0.01" type="number" />
             </div>
             <div className={`${styles.field} ${styles.exerciseNotes}`}>

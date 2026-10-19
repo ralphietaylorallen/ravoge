@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { saveTrainingReview, type ReviewState } from "@/app/owner/training-library/actions";
 import type { LibraryExerciseOption, ReviewedExercise } from "@/lib/training-review";
+import { loadInPounds } from "@/lib/weight-units";
 import styles from "./dashboard.module.css";
 import { WorkoutProtocolFields } from "./workout-protocol-fields";
 import { defaultProtocol } from "@/lib/workout-protocol";
@@ -21,7 +22,7 @@ export function TrainingLibraryReview({ itemId, title, library, exercises, goal,
     {rows.map((row, index) => <fieldset className={styles.operationCard} key={row.key}><legend>Exercise {index + 1}</legend>
       <label className={styles.field}><span>Recognized exercise</span><select defaultValue={row.libraryExerciseId} name="libraryExerciseId" required><option value="" disabled>Choose the matching exercise</option>{library.map(ex => <option key={ex.id} value={ex.id}>{ex.name}{ex.equipment_requirements?.length ? ` · ${ex.equipment_requirements.join(", ").replaceAll("_", " ")}` : ""}</option>)}</select></label>
       <div className={styles.formColumns}><label className={styles.field}><span>Sets / rounds / visits</span><input aria-label="Sets" name="sets" type="number" min={1} max={100} defaultValue={row.sets ?? ""} required/></label>{row.protocol && row.protocol.measurement !== "reps" ? <input type="hidden" name="reps" value="1"/> : <label className={styles.field}><span>Reps per set</span><input name="reps" type="number" min={1} max={1000} defaultValue={row.reps ?? ""} required/></label>}</div>
-      <div className={styles.formColumns}><label className={styles.field}><span>Load, if specified</span><input name="load" type="number" min={0} max={100000} step="0.01" defaultValue={row.load ?? ""}/></label><label className={styles.field}><span>Rest seconds, if specified</span><input name="rest" type="number" min={0} max={1800} defaultValue={row.restSeconds ?? ""}/></label></div>
+      <div className={styles.formColumns}><label className={styles.field}><span>Load (lb), if specified</span><input name="load" type="number" min={0} max={100000} step="any" defaultValue={loadInPounds(row.load, row.loadUnit) ?? ""}/></label><label className={styles.field}><span>Rest seconds, if specified</span><input name="rest" type="number" min={0} max={1800} defaultValue={row.restSeconds ?? ""}/></label></div>
       <label className={styles.field}><span>Source evidence / reviewed interpretation</span><textarea name="sourceText" rows={2} maxLength={2000} defaultValue={row.sourceText} required/></label>
       <label className={styles.field}><span>Instructions from source</span><textarea name="notes" rows={2} maxLength={1000} defaultValue={row.notes}/></label>
       <WorkoutProtocolFields value={row.protocol} onMeasurementChange={measurement => setRows(current => current.map(ex => ex.key === row.key ? { ...ex, reps: measurement === "reps" ? null : 1, protocol: { ...(ex.protocol ?? defaultProtocol()), measurement } } : ex))}/>

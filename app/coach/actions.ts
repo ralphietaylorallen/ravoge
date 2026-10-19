@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
-import { parseBodyCompositionGoals } from "@/lib/intake-targets";
+import { parsePoundBodyCompositionGoals } from "@/lib/intake-targets";
+import { poundsToKilograms } from "@/lib/weight-units";
 import { generateAssistedWorkout, type GenerationInput } from "@/lib/workout-generation";
 import { protocolsFromForm } from "@/lib/workout-protocol";
 
@@ -108,7 +109,7 @@ export async function createWorkoutAction(
     });
   }
 
-  const { error } = await supabase.rpc("create_workout_assignment", {
+  const { error } = await supabase.rpc("create_workout_assignment_lb", {
     client_user_id: clientId,
     exercises,
     workout_instructions: instructions || null,
@@ -153,7 +154,7 @@ export async function saveClientIntakeAction(
   if (!UUID_PATTERN.test(clientId)) return { message: "That client is not available.", status: "error" };
 
   const primaryGoal = String(formData.get("primaryGoal") ?? "");
-  const bodyCompositionGoals = parseBodyCompositionGoals(formData);
+  const bodyCompositionGoals = parsePoundBodyCompositionGoals(formData);
   if (!bodyCompositionGoals) return { message: "Review the optional body-composition targets and ranges.", status: "error" };
   const secondaryGoal = String(formData.get("secondaryGoal") ?? "");
   const experienceLevel = String(formData.get("experienceLevel") ?? "");
@@ -222,7 +223,10 @@ export async function saveClientIntakeAction(
     "rowerPaceSecondsPer500m", "rowerAverageHeartRate", "rowerNotes", "versaDurationSeconds",
     "versaFeet", "versaCalories", "versaAverageHeartRate", "versaNotes",
   ] as const;
-  const baseline = Object.fromEntries(baselineKeys.map((key) => [key, text(key, 1000)]));
+  const canonicalText = (key: string) => key.endsWith("Kg") ? String(poundsToKilograms(text(key.replace(/Kg$/, "Lb"), 40)) ?? "") : text(key, 1000);
+  let baseline: Record<string, string>;
+  try { baseline = Object.fromEntries(baselineKeys.map(key => [key, canonicalText(key)])); }
+  catch { return { status: "error", message: "Enter finite measured weights in lb." }; }
   const requiredBaseline = ["squatVariation", "squatLoadKg", "squatReps", "squatOneRmKg", "squatOneRmMethod", "benchVariation", "benchLoadKg", "benchReps", "benchOneRmKg", "benchOneRmMethod", "pullupStrictReps", "pullupMode"];
   const hasRower = Boolean(baseline.rowerDistanceM && baseline.rowerTimeSeconds);
   const hasVersa = Boolean(baseline.versaDurationSeconds && baseline.versaFeet);
@@ -235,11 +239,12 @@ export async function saveClientIntakeAction(
   const inbodyStatus = text("inbodyStatus", 20);
   if (!new Set(["pending", "completed"]).has(inbodyStatus)) return { message: "Choose an InBody status.", status: "error" };
   const inbodyKeys = ["testDate", "weightKg", "inbodyScore", "skeletalMuscleMassKg", "bodyFatMassKg", "bodyFatPercentage", "bmi", "visceralFatLevel", "ecwTbw", "bmrKcal"] as const;
-  const inbody = inbodyStatus === "pending" ? { status: "pending" } : {
+  let inbody: Record<string, string>;
+  try { inbody = inbodyStatus === "pending" ? { status: "pending" } : {
     status: "completed",
-    ...Object.fromEntries(inbodyKeys.map((key) => [key, text(key === "testDate" ? "inbodyTestDate" : key, 40)])),
-  };
-  if (inbodyStatus === "completed" && ["testDate", "weightKg", "bodyFatPercentage", "skeletalMuscleMassKg"].some((key) => !(inbody as Record<string, string>)[key])) {
+    ...Object.fromEntries(inbodyKeys.map((key) => [key, canonicalText(key === "testDate" ? "inbodyTestDate" : key)])),
+  }; } catch { return { status: "error", message: "Enter finite InBody weights in lb." }; }
+  if (inbodyStatus === "completed" && ["testDate", "weightKg", "bodyFatPercentage", "skeletalMuscleMassKg"].some((key) => !inbody[key])) {
     return { message: "A completed InBody needs a test date, weight, body-fat percentage and skeletal muscle mass.", status: "error" };
   }
 
@@ -267,7 +272,7 @@ export async function generatePrescriptionAction(clientId: string, _state: Gener
   if (error || typeof data !== "string") {
     return { status: "error", message: "A safe draft could not be created. Complete intake and goals, confirm the safety review, and review actual gym equipment below. No workout was assigned." };
   }
-  const { data: input, error: inputError } = await supabase.rpc("get_quality_generation_input", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
+  const { data: input, error: inputError } = await supabase.rpc("get_pound_generation_input", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
   if (inputError || !input) {
     await supabase.rpc("discard_incomplete_quality_draft", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
     return { status: "error", message: inputError?.message.includes("Review the new pain check-in") ? "Today’s pain check-in needs a Coach decision. Review the readiness recommendation before creating a workout. No workout was assigned." : "Training inputs changed or could not be checked. Review the latest intake and try Create workout again. No workout was assigned." };
@@ -276,13 +281,13 @@ export async function generatePrescriptionAction(clientId: string, _state: Gener
   // have a safe deterministic path instead of an unbounded provider loop.
   const { count, error: countError } = await supabase.from("generated_prescriptions").select("id", { count: "exact", head: true }).eq("coach_user_id", userId).gte("generated_at", new Date(Date.now() - 60_000).toISOString()).abortSignal(AbortSignal.timeout(5000));
   const result = countError || (count ?? 4) > 3 ? { workout: null, reason: "unavailable" as const } : await generateAssistedWorkout(input as GenerationInput);
-  let { error: saveError } = await supabase.rpc("complete_quality_prescription", {
+  let { error: saveError } = await supabase.rpc("complete_pound_prescription", {
     target_prescription_id: data, expected_snapshot: input.snapshot,
     proposed_workout: result.workout,
     generation_details: result.workout ? { model: result.model } : { reason: result.reason },
   }).abortSignal(AbortSignal.timeout(5000));
   if (saveError && result.workout) {
-    const fallback = await supabase.rpc("complete_quality_prescription", { target_prescription_id: data, expected_snapshot: input.snapshot, proposed_workout: null, generation_details: { reason: "invalid_output" } }).abortSignal(AbortSignal.timeout(5000));
+    const fallback = await supabase.rpc("complete_pound_prescription", { target_prescription_id: data, expected_snapshot: input.snapshot, proposed_workout: null, generation_details: { reason: "invalid_output" } }).abortSignal(AbortSignal.timeout(5000));
     saveError = fallback.error;
   }
   if (saveError) {
@@ -344,6 +349,8 @@ export async function approvePrescriptionAction(
   const exercises = libraryIds.map((libraryExerciseId, index) => ({
     libraryExerciseId,
     load: loads[index] || null,
+    loadUnit: "lb",
+    referenceLoadLb: getStrings(formData, "referenceLoadLb")[index] || null,
     notes: [!protocols && efforts[index] ? `Target effort RPE ${efforts[index]}.` : "", notes[index]].filter(Boolean).join(" ") || null,
     reason: reasons[index] || null,
     reps: Number(reps[index]),
@@ -357,7 +364,7 @@ export async function approvePrescriptionAction(
     return { message: "One or more exercise values are invalid.", status: "error" };
   }
 
-  const { error } = await supabase.rpc(protocols ? "approve_quality_prescription" : "approve_reviewed_prescription", {
+  const { error } = await supabase.rpc("approve_pound_prescription", {
     exercises,
     target_prescription_id: prescriptionId,
     workout_instructions: instructions || null,

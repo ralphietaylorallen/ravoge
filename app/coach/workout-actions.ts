@@ -20,7 +20,7 @@ export async function recordSetAction(clientId: string, workoutId: string, setId
   const reason = String(form.get("reason") ?? "");
   const notes = String(form.get("notes") ?? "").trim();
   if (![clientId,workoutId,setId].every((id)=>UUID.test(id)) || !["complete","failed","not_completed"].includes(result) || (result === "failed" && !reasons.has(reason)) || notes.length>1000 || (reps!==null && (!Number.isInteger(reps)||reps<0||reps>1000)) || (load!==null && (!Number.isFinite(load)||load<0||load>100000))) return {status:"error",message:"Check the actual reps, weight, and result."};
-  const { data, error } = await supabase.rpc("record_coach_workout_set", {target_set_id:setId,result,performed_reps:reps,performed_load:load,reason:result==="failed"?reason:null,notes:notes||null});
+  const { data, error } = await supabase.rpc("record_coach_workout_set_lb", {target_set_id:setId,result,performed_reps:reps,performed_load:load,reason:result==="failed"?reason:null,notes:notes||null});
   if(error) return {status:"error",message:"Set could not be saved. Check the values and that this workout is still open."};
   refresh(clientId,workoutId);
   return {status:"success",message:data === "exceeded" ? "Saved · exceeded target" : "Set saved"};

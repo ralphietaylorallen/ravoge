@@ -172,11 +172,11 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   await coach.getByLabel("Session duration", { exact: true }).fill("45");
   await coach.getByLabel("Secondary goal").selectOption("body_recomposition");
   await coach.getByRole("button", { name: "Continue →", exact: true }).click();
-  for (const [id, value] of Object.entries({ squatLoadKg: "40", squatReps: "5", squatOneRmKg: "45", benchLoadKg: "25", benchReps: "5", benchOneRmKg: "30", pullupStrictReps: "0" })) await coach.locator(`#${id}`).fill(value);
+  for (const [id, value] of Object.entries({ squatLoadLb: "40", squatReps: "5", squatOneRmLb: "45", benchLoadLb: "25", benchReps: "5", benchOneRmLb: "30", pullupStrictReps: "0" })) await coach.locator(`#${id}`).fill(value);
   await coach.getByRole("button", { name: "Continue →", exact: true }).click(); await coach.locator("#rowerDistanceM").fill("500"); await coach.locator("#rowerTimeSeconds").fill("120");
   await coach.getByRole("button", { name: "Continue →", exact: true }).click();
   await coach.getByLabel("Assessment status").selectOption("completed"); await coach.locator("#inbodyTestDate").fill(new Date().toISOString().slice(0, 10));
-  for (const [id, value] of Object.entries({ weightKg: "85", bodyFatPercentage: "24", skeletalMuscleMassKg: "33", goalWeightKg: "80", goalBodyFatPercentage: "18", goalSkeletalMuscleMassKg: "35" })) await coach.locator(`#${id}`).fill(value);
+  for (const [id, value] of Object.entries({ weightLb: "85", bodyFatPercentage: "24", skeletalMuscleMassLb: "33", goalWeightLb: "80", goalBodyFatPercentage: "18", goalSkeletalMuscleMassLb: "35" })) await coach.locator(`#${id}`).fill(value);
   await coach.getByRole("button", { name: "Continue →", exact: true }).click();
   await coach.getByRole("button", { name: "Save versioned intake & baseline" }).click(); await expect(coach.getByRole("status").filter({ hasText: "Versioned intake and baseline saved" })).toBeVisible();
   await coach.goto(new URL(`/coach/clients/${actualClientId}`, coach.url()).href);

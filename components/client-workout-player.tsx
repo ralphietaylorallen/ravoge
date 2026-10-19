@@ -4,10 +4,11 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { playerSessionAction, playerSetAction } from "@/app/client/workout-player-actions";
 import { orderedPlayerSets, protocolTarget, type WorkoutProtocol } from "@/lib/workout-protocol";
+import { loadInPounds, loadLabel, poundsInText } from "@/lib/weight-units";
 import styles from "./workout-player.module.css";
 
 type PlayerSet = { id: string; set_number: number; actual_reps: number | null; actual_load: number | null; actual_load_unit: string | null; actual_work_seconds: number | null; actual_distance: number | null; actual_rpe: number | null; client_result: string | null; completed_at: string | null; pain_reported: boolean; failure_notes: string | null };
-export type PlayerExercise = { id: string; exercise_name: string; sets: number; reps: number; load: number | null; rest_seconds: number | null; notes: string | null; prescription_details: WorkoutProtocol | null; workout_sets: PlayerSet[]; exercise_library: { coach_cue: string | null; equipment_requirements: string[] } | null };
+export type PlayerExercise = { id: string; exercise_name: string; sets: number; reps: number; load: number | null; load_unit?: string | null; rest_seconds: number | null; notes: string | null; prescription_details: WorkoutProtocol | null; workout_sets: PlayerSet[]; exercise_library: { coach_cue: string | null; equipment_requirements: string[] } | null };
 
 export function WorkoutTimer({ work, rest, workLabel = "Work" }: { work: number; rest: number; workLabel?: string }) {
   const [timer, setTimer] = useState({ remaining: 0, phase: "Rest", running: false, end: 0 });
@@ -41,8 +42,8 @@ function PlayerSetForm({ set, exercise, workoutId, locked, expanded, role, subst
         {(!p || p.measurement === "reps") && <label>Actual repetitions<input name="reps" type="number" min={0} max={1000} defaultValue={set.actual_reps ?? exercise.reps} disabled={locked}/></label>}
         {p?.measurement === "time" && <label>Actual work seconds<input name="seconds" type="number" min={0} max={7200} defaultValue={set.actual_work_seconds ?? p.workSeconds ?? ""} disabled={locked}/></label>}
         {p?.measurement === "distance" && <label>Actual distance ({p.distanceUnit})<input name="distance" type="number" step="0.5" min={0} max={10000} defaultValue={set.actual_distance ?? p.distance ?? ""} disabled={locked}/></label>}
-        <label>Actual load (optional)<input name="load" type="number" step="0.01" min={0} max={100000} defaultValue={set.actual_load ?? exercise.load ?? ""} disabled={locked}/></label>
-        <label>Load unit<select name="loadUnit" defaultValue={set.actual_load_unit ?? "kg"} disabled={locked}><option value="kg">kg</option><option value="lb">lb</option></select></label>
+        <label>Actual load (lb, optional)<input name="load" type="number" step="any" min={0} max={100000} defaultValue={loadInPounds(set.actual_load, set.actual_load_unit) ?? loadInPounds(exercise.load, exercise.load_unit) ?? ""} disabled={locked}/></label>
+        <input name="loadUnit" type="hidden" value="lb" />
         <label>Actual effort (RPE, optional)<input name="rpe" type="number" min={1} max={10} step="0.5" defaultValue={set.actual_rpe ?? ""} disabled={locked}/></label>
         {substitutions.length > 0 && <label>Coach-approved substitution<select name="substitutionId" disabled={locked}><option value="">Original exercise</option>{substitutions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
       </div>
@@ -72,12 +73,12 @@ export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, 
       const options = substitutions.filter(s => p?.substitutionIds.includes(s.id));
       return <article id={`player-exercise-${index}`} key={exercise.id} className={styles.block}>
         <div className={styles.blockHeading}><span>{String(index + 1).padStart(2, "0")} · {(p?.block ?? "strength").replaceAll("_", " ")}</span><span>{p?.format ?? "straight"}{p?.group ? ` · ${p.group}` : ""}</span></div>
-        <h3>{exercise.exercise_name}</h3><p className={styles.target}>{protocolTarget(exercise.sets, exercise.reps, p)}{exercise.load !== null ? ` · Load ${exercise.load} (confirm unit with Coach)` : ""}</p>
+        <h3>{exercise.exercise_name}</h3><p className={styles.target}>{protocolTarget(exercise.sets, exercise.reps, p)}{exercise.load !== null ? ` · ${loadLabel(exercise.load, exercise.load_unit)}` : ""}</p>
         {p?.format === "emom" && <p>Begin this station every {p.intervalSeconds}s slot. Rest for the remainder; keep the shared group order.</p>}
         {p?.format === "amrap" && <p>{p.blockDurationSeconds}s for this entire group. Repeat its movements at controlled effort; no fixed number of rounds is prescribed.</p>}
         {["circuit", "superset", "stations", "rounds"].includes(p?.format ?? "") && <p>Complete the group in the Coach’s listed order, then repeat for the prescribed rounds.</p>}
         <p>{exercise.exercise_library?.coach_cue}</p><p>Equipment: {exercise.exercise_library?.equipment_requirements.join(", ").replaceAll("_", " ") || "Bodyweight"}.</p>
-        {exercise.notes && <p>{exercise.notes}</p>}<p>Rest: {exercise.rest_seconds ?? 0}s as prescribed.</p>
+        {exercise.notes && <p>{poundsInText(exercise.notes)}</p>}<p>Rest: {exercise.rest_seconds ?? 0}s as prescribed.</p>
         <WorkoutTimer work={p?.format === "amrap" ? p.blockDurationSeconds ?? 0 : p?.format === "emom" ? p.workSeconds ?? p.intervalSeconds ?? 0 : p?.workSeconds ?? 0} rest={p?.format === "emom" ? p.workSeconds ? Math.max(0, (p.intervalSeconds ?? 0) - p.workSeconds) : 0 : exercise.rest_seconds ?? 0} workLabel={p?.format === "emom" && p.measurement !== "time" ? "Slot" : "Work"}/>
         {[...exercise.workout_sets].sort((a, b) => a.set_number - b.set_number).map(set => <PlayerSetForm key={set.id} set={set} exercise={exercise} workoutId={workoutId} locked={locked} expanded={!locked && next?.set.id === set.id} role={role} substitutions={options}/>)}
         {index + 1 < exercises.length && <a className={styles.next} href={`#player-exercise-${index + 1}`}>Next exercise →</a>}

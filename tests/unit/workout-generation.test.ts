@@ -18,8 +18,8 @@ test("generation projection includes training context but excludes all identitie
   const projected = deidentifiedGenerationInput(input);
   const serialized = JSON.stringify(projected);
   for (const forbidden of ["PERSONAL NAME", "private@example.test", "private-intake", "private-exercise", "private-review", "private-snapshot"]) assert.ok(!serialized.includes(forbidden));
-  assert.deepEqual(projected.bodyComposition, input.bodyComposition);
-  assert.deepEqual(projected.optionalTargets, input.targets);
+  assert.deepEqual(projected.bodyComposition, { weightLb: 85 * 2.20462262185, bodyFatPercentage: 24, skeletalMuscleMassLb: 33 * 2.20462262185 });
+  assert.deepEqual(projected.optionalTargets, { weightLb: 80 * 2.20462262185, bodyFatPercentage: 18, skeletalMuscleMassLb: 35 * 2.20462262185 });
   assert.equal(projected.gymReferences.length, 1);
   assert.equal(projected.priorWorkouts.length, 1);
   assert.equal(projected.restrictions.hasPain, true);
