@@ -161,7 +161,10 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   await coach.goto(new URL(`/coach/clients/${actualClientId}`, coach.url()).href);
   const photo = coach.locator(`[data-profile-photo-editor="${actualClientId}"]`);
   const bytes = await sharp({ create: { width: 1400, height: 1000, channels: 3, background: "#97835d" } }).jpeg().toBuffer();
-  await photo.locator('input[type="file"]').first().setInputFiles({ buffer: bytes, name: "non-personal-qa.jpg", mimeType: "image/jpeg" });
+  const photoChooser = coach.waitForEvent("filechooser");
+  await photo.getByRole("button", { name: /^Change .*profile photo$/ }).click();
+  await (await photoChooser).setFiles({ buffer: bytes, name: "non-personal-qa.jpg", mimeType: "image/jpeg" });
+  await expect(photo.getByRole("img", { name: "Cropped profile photo preview" })).toBeVisible();
   await photo.getByRole("dialog").getByRole("button", { name: "Save photo", exact: true }).click();
   await expect(photo.getByRole("status")).toContainText("Profile photo updated"); await expect(photo.locator("button img")).toBeVisible();
   await coach.getByRole("link", { name: "Start intake now", exact: true }).click();
