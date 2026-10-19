@@ -1,4 +1,57 @@
 -- Additive structured target/performance data; legacy set logging remains intact.
+-- Retain the existing context algorithm, but do not let a preparation-only
+-- movement displace a compound main pattern merely because it sorts earlier.
+create or replace function private.workout_generation_context(org uuid,client_id uuid) returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+declare i public.client_intakes%rowtype; state public.client_states%rowtype; template public.training_library_reviews%rowtype;
+ exercises jsonb:='[]'; missing text[]; patterns text[]; p text; n integer; e record; sets integer; reps integer; rest integer; reasons jsonb:='[]'; needs_review boolean;
+begin
+ select * into i from public.client_intakes where organization_id=org and client_user_id=client_id order by version desc limit 1;
+ if not found then return jsonb_build_object('ready',false,'reasons',jsonb_build_array('Complete and save the Client intake and goals first.'),'compatibleExercises',0); end if;
+ select * into state from public.client_states where intake_id=i.id;
+ if not found then return jsonb_build_object('ready',false,'reasons',jsonb_build_array('The latest intake has no calculated state. Save the intake again.'),'compatibleExercises',0); end if;
+ needs_review:=not exists(select 1 from public.intake_generation_safety_reviews s where s.intake_id=i.id);
+ if needs_review then reasons:=reasons||jsonb_build_array('Review the latest intake, injuries, pain, limitations and exercise exclusions, then confirm the safety review.'); end if;
+ patterns:=private.generation_goal_patterns(i.primary_goal);
+ select r.* into template from public.training_library_reviews r join public.training_library_items t on t.id=r.training_item_id
+ where r.organization_id=org and r.status='published' and t.status='published' and not t.generation_excluded
+   and r.revision=(select max(v.revision) from public.training_library_reviews v where v.training_item_id=t.id)
+   and r.primary_goal=i.primary_goal and r.duration_minutes<=i.session_duration_minutes and jsonb_array_length(r.exercises)>=3
+   and not exists(select 1 from jsonb_array_elements(r.exercises) x where not private.generation_exercise_compatible((x->>'libraryExerciseId')::uuid,i.id))
+ order by (r.duration_minutes=i.session_duration_minutes) desc,r.reviewed_at desc limit 1;
+ if found then exercises:=template.exercises;
+ else
+   for p,n in select value,ordinality::integer from unnest(patterns) with ordinality requested(value,ordinality) loop
+     select l.*,r.id as review_id,x.value as approved into e from public.exercise_library l
+     left join lateral(select rv.id,rv.exercises from public.training_library_reviews rv join public.training_library_items ti on ti.id=rv.training_item_id
+       where rv.organization_id=org and rv.status='published' and ti.status='published' and not ti.generation_excluded and rv.primary_goal=i.primary_goal
+       and rv.duration_minutes<=i.session_duration_minutes and rv.revision=(select max(v.revision) from public.training_library_reviews v where v.training_item_id=rv.training_item_id)
+       and exists(select 1 from jsonb_array_elements(rv.exercises) z where z->>'libraryExerciseId'=l.id::text) order by rv.reviewed_at desc limit 1) r on true
+     left join lateral(select z.value from jsonb_array_elements(r.exercises) z(value) where z.value->>'libraryExerciseId'=l.id::text limit 1) x on true
+     where l.movement_pattern=p and private.generation_exercise_compatible(l.id,i.id)
+       and not(l.purposes && array['preparation','mobility'] and not(l.purposes && array['strength','hypertrophy','conditioning','athletic']))
+     order by (r.id is not null) desc,(l.primary_quality=i.primary_goal) desc,(l.organization_id is not null) desc,l.name limit 1;
+     if found then
+       sets:=case when i.primary_goal='strength' then case when n=1 then 4 else 3 end when i.primary_goal='muscle_gain' then 3 when p='conditioning' then 6 else 3 end;
+       reps:=case when i.primary_goal='strength' then case when n=1 then 6 else 8 end when i.primary_goal='muscle_gain' then 10 when p='conditioning' then 1 else 8 end;
+       rest:=case when i.primary_goal='strength' then case when n=1 then 150 else 90 end when i.primary_goal='muscle_gain' then 75 when p='conditioning' then 60 else 75 end;
+       if state.recovery_capacity<0.45 or state.current_readiness<0.45 then sets:=greatest(2,sets-1); end if;
+       exercises:=exercises||jsonb_build_array(case when e.approved is not null then e.approved||jsonb_build_object('sourceReviewId',e.review_id)
+         else jsonb_build_object('libraryExerciseId',e.id,'name',e.name,'sets',sets,'reps',reps,'load',null,'restSeconds',rest,
+         'notes',case when p='conditioning' then 'Use controlled, repeatable intervals.' else 'Begin conservatively and preserve clean technique.' end,
+         'reason',format('Global safe library: %s pattern, filtered for current intake and available equipment.',replace(p,'_',' '))) end);
+     end if;
+   end loop;
+ end if;
+ select coalesce(array_agg(distinct req),'{}') into missing from public.exercise_library l cross join lateral unnest(l.equipment_requirements) req
+ where l.is_active and (l.organization_id is null or l.organization_id=org) and l.movement_pattern=any(patterns) and not(req=any(private.available_training_resources(org)));
+ if jsonb_array_length(exercises)<3 then reasons:=reasons||jsonb_build_array(format('Only %s safe compatible movement blocks match the latest intake, goal, experience, restrictions and equipment; at least 3 are required. Review equipment and intake restrictions.',jsonb_array_length(exercises))); end if;
+ return jsonb_build_object('ready',jsonb_array_length(exercises)>=3 and not needs_review,'intakeId',i.id,'stateId',state.id,'primaryGoal',i.primary_goal,
+   'desiredDuration',i.session_duration_minutes,'needsSafetyReview',needs_review,'compatibleExercises',jsonb_array_length(exercises),'missingEquipment',missing,'reasons',reasons,'exercises',exercises,
+   'sourceType',case when template.id is not null then 'organization_workout' when exists(select 1 from jsonb_array_elements(exercises) x where x->>'sourceReviewId' is not null) then 'organization_exercises_with_fallback' else 'global_library' end,
+   'sourceReviewId',template.id,'sourceTitle',template.title,'sourceRevision',template.revision);
+end $$;
+
 alter table public.workout_sets add column actual_work_seconds integer check(actual_work_seconds between 0 and 7200),
  add column actual_distance numeric check(actual_distance between 0 and 10000),
  add column actual_rpe numeric check(actual_rpe between 1 and 10),
@@ -25,6 +78,14 @@ begin
  from public.organization_facilities where organization_id=p.organization_id and is_available and usable_length>0;
  select count(*) into published_count from public.training_library_items where organization_id=p.organization_id and status='published' and not generation_excluded;
  select * into profile from public.gym_programming_profiles where organization_id=p.organization_id order by version desc limit 1;
+ -- A legacy publication API may have changed a source without refreshing the
+ -- profile. Never let stale/unpublished sources influence a model via statistics.
+ if profile.id is not null and profile.sources is distinct from (
+   select coalesce(jsonb_agg(jsonb_build_object('id',r.id,'itemId',r.training_item_id,'revision',r.revision,'title',r.title) order by r.id),'[]')
+   from public.training_library_reviews r join public.training_library_items t on t.id=r.training_item_id
+   where r.organization_id=p.organization_id and r.status='published' and t.status='published' and not t.generation_excluded
+     and r.revision=(select max(v.revision) from public.training_library_reviews v where v.training_item_id=t.id)
+ ) then profile:=null; end if;
  select coalesce(jsonb_agg(jsonb_build_object('id',r.id,'title',r.title,'revision',r.revision,'goal',r.primary_goal,'duration',r.duration_minutes,
    'structureVersion',r.structure_version,'exercises',r.exercises) order by r.rank),'[]') into refs from (
    select review.*, row_number() over(order by (review.primary_goal=i.primary_goal) desc,abs(review.duration_minutes-i.session_duration_minutes),review.reviewed_at desc) as rank
@@ -90,6 +151,7 @@ begin
        'notes','Begin conservatively and preserve clean technique. Coach must review.', 'reason','Compatible general-library movement for the saved goal.') order by q.position),'[]') into fallback
      from (select distinct on (pattern.position) l.*,pattern.position from unnest(private.generation_goal_patterns(input->>'goal')) with ordinality pattern(name,position)
        join public.exercise_library l on l.movement_pattern=pattern.name where private.generation_exercise_compatible(l.id,p.intake_id)
+       and not(l.purposes && array['preparation','mobility'] and not(l.purposes && array['strength','hypertrophy','conditioning','athletic']))
        order by pattern.position,(l.primary_quality=input->>'goal') desc,l.name) q;
    end if;
    for x in select value from jsonb_array_elements(fallback) loop

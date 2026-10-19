@@ -23,6 +23,9 @@ export default async function TrainingLibraryPage({ searchParams }: { searchPara
     supabase.from("training_library_items").select("id", { count: "exact", head: true }).eq("organization_id", membership.organization_id).eq("status", "published").eq("generation_excluded", false),
     supabase.from("gym_programming_profiles").select("version,summary,statistics,preferences").eq("organization_id", membership.organization_id).order("version", { ascending: false }).limit(1).maybeSingle(),
   ]);
+  const { data: titles } = libraryItems?.length ? await supabase.from("training_library_reviews").select("training_item_id,title,revision").in("training_item_id", libraryItems.map(i => i.id)).eq("organization_id", membership.organization_id).order("revision", { ascending: false }) : { data: [] };
+  const reviewedTitles = new Map<string, string>();
+  for (const row of titles ?? []) if (!reviewedTitles.has(row.training_item_id)) reviewedTitles.set(row.training_item_id, row.title);
   return (
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
       <div className={styles.pageHeading}>
@@ -35,7 +38,7 @@ export default async function TrainingLibraryPage({ searchParams }: { searchPara
         <h3>Historical workout imports</h3>
         <p>Review the original source and confirm structured exercises before publishing. Only published, compatible gym programming can be used by the generator.</p>
         {libraryItems?.length ? (
-          <TrainingPublishingControls items={libraryItems}/>
+          <TrainingPublishingControls items={libraryItems.map(item => ({ ...item, title: reviewedTitles.get(item.id) ?? item.title }))}/>
         ) : <p className={styles.empty}>No workout history has been imported yet.</p>}
       </section>
       <nav aria-label="Training library pages" className={styles.accessActions}>

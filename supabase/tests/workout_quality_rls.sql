@@ -69,6 +69,10 @@ do $$ declare client uuid; intake uuid; p uuid; data jsonb; goal text; n integer
 end $$;
 select pg_temp.assert_true((select count(distinct original_recommendation)=3 from public.generated_prescriptions),'Three materially different intakes produced identical drafts');
 select pg_temp.assert_true((select bool_and(x->'protocol'->>'measurement' in ('time','distance','reps')) from public.generated_prescriptions p cross join lateral jsonb_array_elements(p.original_recommendation) x),'Structured targets lost');
+select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000001',true);
+select public.review_training_library_item('bb300000-0000-4000-8000-000000000001','Source pending re-review','review',null,null,'[]','Legacy unpublish operation');
+select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000002',true);
+select pg_temp.assert_true(public.get_quality_generation_input((select id from quality_ids where kind='draft-3'))->'gymProfile'='null'::jsonb,'Stale profile carried unpublished source statistics into generation');
 
 -- Clients cannot inspect draft/private generator inputs or publish/promote data.
 select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000003',true);
