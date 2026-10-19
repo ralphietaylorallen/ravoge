@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { execSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
 const project = "kqdnljafaiohlijbgfld";
 if (process.env.RAVOGE_BETA_QA !== "yes" || readFileSync("supabase/.temp/project-ref", "utf8").trim() !== project) throw new Error("Explicit isolated Ravoge beta test opt-in required");
 const cli = "npx --yes supabase@2.117.0";
@@ -30,6 +31,7 @@ try {
       values('${user.id}','00000000-0000-0000-0000-000000000000','authenticated','authenticated','${user.email}',crypt('${password}',gen_salt('bf')),now(),'','','','','{"provider":"email","providers":["email"]}',jsonb_build_object('full_name','${user.name}'),now(),now());
       insert into auth.identities(id,user_id,provider_id,identity_data,provider,created_at,updated_at) values(gen_random_uuid(),'${user.id}','${user.id}',jsonb_build_object('sub','${user.id}','email','${user.email}','email_verified',true),'email',now(),now());`).join("\n")}
     insert into public.organizations(id,name,timezone) values('${org}','Ravoge Beta Verification ${run}','UTC');
+    update public.organization_preworkout_questions set question_text='QA session question '||position where organization_id='${org}';
     ${users.filter(user => ["owner", "coach"].includes(user.role)).map(user => `insert into public.organization_memberships(organization_id,user_id,role) values('${org}','${user.id}','${user.role}');`).join("\n")}
     ${users.filter(user => ["invited_coach", "existing_client"].includes(user.role)).map(user => `select set_config('request.jwt.claim.sub','${user.id}',true); select public.register_unaffiliated_account_type('${user.role === "invited_coach" ? "coach" : "client"}');`).join("\n")}
     commit;`);
@@ -38,6 +40,7 @@ try {
     env.PLAYWRIGHT_BASE_URL = "http://localhost:3100";
     env.RAVOGE_ENROLLMENT_TOKEN_KEY = randomBytes(32).toString("hex");
     delete env.RESEND_API_KEY; delete env.RAVOGE_EMAIL_FROM;
+    delete env.OPENAI_API_KEY; // Automated local browser QA uses the tested fallback, never a paid call.
     server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--port", "3100"], { env, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
     server.stderr.on("data", chunk => process.stderr.write(chunk));
     for (let attempt = 0; attempt < 60; attempt++) { try { if ((await fetch(env.PLAYWRIGHT_BASE_URL)).ok) break; } catch {} await new Promise(resolve => setTimeout(resolve, 500)); }
@@ -46,6 +49,23 @@ try {
 } finally {
   server?.kill();
   if (created) {
+    // Remove only this run's synthetic images through ordinary authenticated
+    // Storage API calls before deleting the disposable gym/identities.
+    for (const email of [newClientEmail, newCoachEmail]) {
+      const scoped = createClient(env.NEXT_PUBLIC_SUPABASE_URL, key, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data, error } = await scoped.auth.signInWithPassword({ email, password });
+      if (!error && data.user) {
+        const folder = `${org}/${data.user.id}/avatar`;
+        const { data: profile } = await scoped.from("profiles").select("avatar_path").eq("id", data.user.id).single();
+        if (profile?.avatar_path) await scoped.rpc("set_managed_profile_photo", { target_user_id: data.user.id, target_organization_id: org, new_asset_path: null, expected_asset_path: profile.avatar_path });
+        const { data: objects } = await scoped.storage.from("profile-images").list(folder);
+        if (objects?.length) {
+          const removed = await scoped.storage.from("profile-images").remove(objects.map((object) => `${folder}/${object.name}`));
+          if (removed.error) throw new Error("Synthetic QA photo cleanup failed; scope retained in the ignored QA state file.");
+        }
+        await scoped.auth.signOut();
+      }
+    }
     // Only this run's newly created test data is eligible for cleanup. Existing
     // organizations, users, passwords and imports are never addressed.
     sql(`begin;

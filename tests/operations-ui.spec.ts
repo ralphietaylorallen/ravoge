@@ -42,7 +42,7 @@ test("Owner to Coach to Client operations, outcomes, intake, photos and responsi
   await page.locator('[aria-label="Choose a session date"] button').nth(1).click();
   await expect(page).toHaveURL(new RegExp(`date=${date}`));
   await page.screenshot({path:testInfo.outputPath("owner-booking-desktop.png"),fullPage:true});
-  await page.getByRole("button",{name:"Book for QA Client"}).click();
+  await page.getByRole("button",{name:"Book session for QA Client"}).click();
   await expect(page.getByRole("status")).toContainText("Session booked");
   await page.goto("/owner/schedule");await expect(page.getByText(/with QA Client/)).toBeVisible();
   const ownerContext=page.context();
@@ -54,7 +54,7 @@ test("Owner to Coach to Client operations, outcomes, intake, photos and responsi
   await expect(coach.getByRole("link",{name:/QA Pool Client.*Assigned to you/})).toBeVisible();
   await coach.goto("/coach/schedule");await expect(coach.getByText(/QA Client · 60 min/)).toBeVisible();
   await coach.goto(`/coach/clients/${clientId}`);
-  await coach.getByText("Create a workout",{exact:true}).click();
+  await coach.getByText("Manual workout builder",{exact:true}).click();
   await coach.getByLabel("Workout name").fill("QA Bench Session");await coach.getByLabel("Date",{exact:true}).fill(date);
   await coach.getByLabel("Name",{exact:true}).fill("Barbell Bench Press");await coach.getByLabel("Sets",{exact:true}).fill("4");await coach.getByLabel("Reps",{exact:true}).fill("8");await coach.getByLabel("Weight",{exact:true}).fill("60");
   await coach.getByRole("button",{name:"Save workout",exact:true}).click();await expect(coach.getByRole("status")).toContainText("Workout assigned");

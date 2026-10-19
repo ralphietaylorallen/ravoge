@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AuthEntryShell } from "@/components/auth-entry-shell";
 import { SignupForm } from "@/components/signup-form";
+import { InvitationRecovery } from "@/components/invitation-recovery";
 import type { AccountRole } from "@/lib/auth";
 import { getEnrollmentHandoff } from "@/lib/enrollment";
 import { getOrganizationEnrollmentContext } from "@/lib/invitations";
@@ -50,9 +51,9 @@ export async function RoleSignupShell({
           role={role}
         />
       ) : (
-        <div className={styles.formNotice} role="alert">
+        <><div className={styles.formNotice} role="alert">
           This enrollment is invalid, expired, disabled, or intended for another account type.
-        </div>
+        </div><InvitationRecovery /></>
       )}
 
       <p className={styles.intentNote}>

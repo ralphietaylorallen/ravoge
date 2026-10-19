@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { parseBodyCompositionGoals } from "@/lib/intake-targets";
+import { generateAssistedWorkout, type GenerationInput } from "@/lib/workout-generation";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const GOALS = new Set(["strength", "muscle_gain", "general_fitness", "conditioning", "fat_loss", "athletic_performance"]);
+const GOALS = new Set(["strength", "muscle_gain", "general_fitness", "conditioning", "fat_loss", "athletic_performance", "body_recomposition"]);
 const EXPERIENCE_LEVELS = new Set(["beginner", "intermediate", "advanced"]);
 const CONSISTENCY_LEVELS = new Set(["inconsistent", "building", "consistent"]);
 
@@ -150,6 +152,8 @@ export async function saveClientIntakeAction(
   if (!UUID_PATTERN.test(clientId)) return { message: "That client is not available.", status: "error" };
 
   const primaryGoal = String(formData.get("primaryGoal") ?? "");
+  const bodyCompositionGoals = parseBodyCompositionGoals(formData);
+  if (!bodyCompositionGoals) return { message: "Review the optional body-composition targets and ranges.", status: "error" };
   const secondaryGoal = String(formData.get("secondaryGoal") ?? "");
   const experienceLevel = String(formData.get("experienceLevel") ?? "");
   const recentConsistency = String(formData.get("recentConsistency") ?? "");
@@ -187,7 +191,7 @@ export async function saveClientIntakeAction(
     conditioningBaseline: conditioningBaseline ?? "",
     constraintTags: getStrings(formData, "constraintTags"),
     currentInjuries: text("currentInjuries"),
-    customFields: {},
+    customFields: { bodyCompositionGoals },
     experienceLevel,
     medicalCoachNotes: text("medicalCoachNotes"),
     mobilityBaseline: mobilityBaseline ?? "",
@@ -234,8 +238,8 @@ export async function saveClientIntakeAction(
     status: "completed",
     ...Object.fromEntries(inbodyKeys.map((key) => [key, text(key === "testDate" ? "inbodyTestDate" : key, 40)])),
   };
-  if (inbodyStatus === "completed" && inbodyKeys.some((key) => !(inbody as Record<string, string>)[key])) {
-    return { message: "A completed InBody needs a test date and every core measurement.", status: "error" };
+  if (inbodyStatus === "completed" && ["testDate", "weightKg", "bodyFatPercentage", "skeletalMuscleMassKg"].some((key) => !(inbody as Record<string, string>)[key])) {
+    return { message: "A completed InBody needs a test date, weight, body-fat percentage and skeletal muscle mass.", status: "error" };
   }
 
   const { error } = await supabase.rpc("save_client_intake_v1", {
@@ -250,15 +254,34 @@ export async function saveClientIntakeAction(
   return { message: "Versioned intake and baseline saved; client state recalculated.", status: "success" };
 }
 
-export async function generatePrescriptionAction(clientId: string) {
-  const { supabase } = await requireRole("coach");
-  if (!UUID_PATTERN.test(clientId)) redirect("/coach?notice=client-unavailable");
+export type GenerationActionState = { status: "idle" | "error"; message?: string };
+
+export async function generatePrescriptionAction(clientId: string, _state: GenerationActionState): Promise<GenerationActionState> {
+  void _state;
+  const { supabase, userId } = await requireRole("coach");
+  if (!UUID_PATTERN.test(clientId)) return { status: "error", message: "This Client is unavailable. Return to My Clients and choose an assigned Client." };
   const { data, error } = await supabase.rpc("generate_initial_prescription_v0", {
     target_client_user_id: clientId,
-  });
+  }).abortSignal(AbortSignal.timeout(5000));
   if (error || typeof data !== "string") {
-    redirect(`/coach/clients/${clientId}?notice=prescription-unavailable`);
+    return { status: "error", message: "A safe draft could not be created. Complete intake and goals, confirm the safety review, and review actual gym equipment below. No workout was assigned." };
   }
+  const { data: input, error: inputError } = await supabase.rpc("get_prescription_generation_input", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
+  if (inputError || !input) return { status: "error", message: "Training inputs changed or could not be checked. Review the latest intake and try Create workout again. No workout was assigned." };
+  // Paid calls are bounded per authenticated Coach; repeated submissions still
+  // have a safe deterministic path instead of an unbounded provider loop.
+  const { count, error: countError } = await supabase.from("generated_prescriptions").select("id", { count: "exact", head: true }).eq("coach_user_id", userId).gte("generated_at", new Date(Date.now() - 60_000).toISOString()).abortSignal(AbortSignal.timeout(5000));
+  const result = countError || (count ?? 4) > 3 ? { workout: null, reason: "unavailable" as const } : await generateAssistedWorkout(input as GenerationInput);
+  let { error: saveError } = await supabase.rpc("complete_assisted_prescription", {
+    target_prescription_id: data, expected_snapshot: input.snapshot,
+    proposed_workout: result.workout,
+    generation_details: result.workout ? { model: result.model } : { reason: result.reason },
+  }).abortSignal(AbortSignal.timeout(5000));
+  if (saveError && result.workout) {
+    const fallback = await supabase.rpc("complete_assisted_prescription", { target_prescription_id: data, expected_snapshot: input.snapshot, proposed_workout: null, generation_details: { reason: "invalid_output" } }).abortSignal(AbortSignal.timeout(5000));
+    saveError = fallback.error;
+  }
+  if (saveError) return { status: "error", message: "The training snapshot changed or validation failed. Review intake, restrictions and equipment, then create a fresh draft. Nothing was assigned." };
   redirect(`/coach/clients/${clientId}/prescriptions/${data}`);
 }
 
@@ -293,20 +316,23 @@ export async function approvePrescriptionAction(
   const reps = getStrings(formData, "exerciseReps");
   const loads = getStrings(formData, "exerciseLoad");
   const rests = getStrings(formData, "exerciseRest");
+  const efforts = getStrings(formData, "exerciseRpe");
+  const duration = Number(formData.get("estimatedDurationMinutes"));
   const notes = getStrings(formData, "exerciseNotes");
   const reasons = getStrings(formData, "exerciseReason");
-  const columns = [sets, reps, loads, rests, notes, reasons];
+  const columns = [sets, reps, loads, rests, efforts, notes, reasons];
 
   if (title.length < 2 || title.length > 120 || instructions.length > 4000 ||
     !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate) || libraryIds.length < 1 || libraryIds.length > 30 ||
-    columns.some((column) => column.length !== libraryIds.length)) {
+    columns.some((column) => column.length !== libraryIds.length) || !Number.isInteger(duration) || duration < 20 || duration > 180 ||
+    efforts.some((effort) => effort !== "" && (!Number.isFinite(Number(effort)) || Number(effort) < 1 || Number(effort) > 10))) {
     return { message: "Review the workout details and exercise rows.", status: "error" };
   }
 
   const exercises = libraryIds.map((libraryExerciseId, index) => ({
     libraryExerciseId,
     load: loads[index] || null,
-    notes: notes[index] || null,
+    notes: [efforts[index] ? `Target effort RPE ${efforts[index]}.` : "", notes[index]].filter(Boolean).join(" ") || null,
     reason: reasons[index] || null,
     reps: Number(reps[index]),
     restSeconds: rests[index] ? Number(rests[index]) : null,
@@ -318,12 +344,13 @@ export async function approvePrescriptionAction(
     return { message: "One or more exercise values are invalid.", status: "error" };
   }
 
-  const { error } = await supabase.rpc("approve_generated_prescription_v0", {
+  const { error } = await supabase.rpc("approve_reviewed_prescription", {
     exercises,
     target_prescription_id: prescriptionId,
     workout_instructions: instructions || null,
     workout_scheduled_date: scheduledDate,
     workout_title: title,
+    workout_duration_minutes: duration,
   });
   if (error) return { message: "The workout could not be assigned. Recheck equipment, constraints, and client access.", status: "error" };
 

@@ -27,10 +27,10 @@ export default async function ClientBookPage({ searchParams }: { searchParams: P
   const organizationTimezone = organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE;
   const today = localDateInTimeZone(new Date(), organizationTimezone);
   const date = validDate(params.date, today);
-  const allowed = settings?.permitted_durations ?? [30,45,60,90];
+  const allowed = settings?.permitted_durations ?? [60];
   const requestedDuration = Number(params.duration);
   const duration = allowed.includes(requestedDuration) ? requestedDuration : settings?.default_duration_minutes ?? 60;
-  const { data: slots } = coach && settings ? await supabase.rpc("get_client_booking_availability", { target_date: date, target_duration: duration }) : { data: [] };
+  const { data: slots, error: availabilityError } = coach ? await supabase.rpc("get_client_booking_calendar", { target_date: date, target_duration: duration }) : { data: [], error: null };
   const clientName = profile?.preferred_name || profile?.full_name || "Client";
   const coachName = coach?.preferred_name || coach?.full_name || "Coach";
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={clientName} role="client">
@@ -38,7 +38,7 @@ export default async function ClientBookPage({ searchParams }: { searchParams: P
     {coach ? <>
       <div className={styles.coachCard}><ProfilePhoto name={coachName} url={coachPhotoUrl} /><div><p className={styles.eyebrow}>Your Coach</p><h3>{coachName}</h3><p>{coach.bio || "Your assigned Ravoge Coach."}</p>{coach.specialties?.length ? <small>{coach.specialties.join(" · ")}</small> : null}</div></div>
       <RollingDateStrip basePath="/client/book" selectedDate={date} today={today} timezone={organizationTimezone} duration={duration} durations={allowed} extraParams={{ reschedule: params.reschedule }} />
-      <section className={styles.panel}><h2>{date} · {duration} minutes</h2>{slots?.length ? <BookingForm bookingId={params.reschedule} duration={duration} slots={slots} timezone={organizationTimezone} /> : <p className={styles.empty}>No valid times are available for this date. Try another day.</p>}</section>
+      <section className={styles.panel}><h2>{date} · {duration} minutes</h2>{availabilityError ? <p className={`${styles.notice} ${styles.error}`} role="alert">Availability could not be loaded. Refresh this page and try again.</p> : slots?.length ? <BookingForm bookingId={params.reschedule} duration={duration} slots={slots} timezone={organizationTimezone} /> : <p className={styles.empty}>No valid times are available for this date. Try another day.</p>}</section>
     </> : <p className={`${styles.notice} ${styles.error}`}>YOUR COACH HAS NOT BEEN ASSIGNED YET. {organization?.name ?? "Your gym"} will assign your Coach before booking becomes available.</p>}
     <Link className={styles.backLink} href="/client/schedule">← View your schedule</Link>
   </DashboardShell>;

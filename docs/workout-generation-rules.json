@@ -1,0 +1,28 @@
+{
+  "version": "ravoge-reviewed-2026.1",
+  "scope": "Conservative adult Coach-review drafts, not medical diagnosis, rehabilitation advice, or autonomous assignment.",
+  "evidenceReference": {
+    "title": "ACSM 2026 Position Stand: Resistance Training Prescription for Muscle Function, Hypertrophy, and Physical Performance in Healthy Adults",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41843416/",
+    "application": "Goal- and capacity-specific progressive resistance training; preserve exercise specificity, sequencing, volume and recovery context. The limits below are conservative Ravoge product safeguards, not a claim that ACSM prescribes these exact bounds for every person."
+  },
+  "applicationSafeguards": {
+    "exercises": [3, 8],
+    "setsPerExercise": [1, 4],
+    "repsPerSet": [5, 20],
+    "restSeconds": [30, 300],
+    "targetRpe": [5, 8],
+    "beginnerMaxSets": 3,
+    "beginnerMaxRpe": 7,
+    "maximumWorkingSets": 24,
+    "absoluteOrPercentageLoadsFromAI": false,
+    "duration": "20 minutes through the Client's saved preferred duration; Coach can edit before assignment.",
+    "safety": "An assigned Coach reviews the full local intake and translates free-text restrictions into structured movement constraints and exercise exclusions. The database filters approved exercise candidates and rechecks current safety at assignment."
+  },
+  "privacy": "Explicit projection sends goals, experience, frequency, duration, numerical measurements/targets, structured safety flags/tags, equipment enums, and anonymous exercise/reference aliases. No names, free-text notes, email, phone, birth dates, account/gym IDs, source titles or private photo paths are sent.",
+  "provider": "Existing OpenAI SDK and server-only OPENAI_API_KEY/OPENAI_BASE_URL configuration. OPENAI_WORKOUT_MODEL overrides the existing vision-model configuration or its current pinned default. Responses use store:false, tools:[], strict JSON schema, no conversation history and bounded timeouts. No live web search during generation.",
+  "fallback": "One initial provider attempt plus one safe retry/repair. Missing configuration, invalid output or provider failures retain/recompute the existing deterministic draft and clearly label fallback. Invalid current safety stops generation rather than bypassing checks.",
+  "gymProgramming": "Only compatible latest reviewed/published revisions are retrieved; unpublished, unresolved and complex raw imports remain unchanged and excluded. The current fixed-set approval/execution model is preserved; this release does not silently reinterpret EMOMs, percentages, timed stations, supersets or per-side source values.",
+  "review": "All recommendations remain private drafts. Coach can edit exercises/substitutions, sets, reps, load, RPE, rest, duration, notes and instructions. Only atomic approval creates the existing Client workout assignment.",
+  "costControl": "At most three new drafts per Coach per minute are eligible for a paid provider attempt; additional requests use deterministic fallback. Local browser QA removes the provider key from its child environment; unit tests inject a mocked SDK. One explicitly authorized production QA generation may call the provider with disposable, deidentified training data."
+}

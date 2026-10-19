@@ -203,6 +203,8 @@
 .slotGrid span { display: grid; min-height: 3rem; place-items: center; border: 1px solid #d3cabc; background: #fff; color: #5d4b33; font-weight: 650; }
 .slotGrid input:checked + span { border-color: #171918; background: #171918; color: #fff; }
 .slotGrid input:focus-visible + span { outline: 2px solid #a98755; outline-offset: 2px; }
+.slotGrid input:disabled + span { background: #f2f1ef; border-color: #dfdcd5; color: #77736c; cursor: not-allowed; }
+.slotGrid small { font-size: .7rem; font-weight: 500; }
 .bookingFilters { display: flex; align-items: end; gap: 0.75rem; margin-bottom: 1rem; padding: 1rem; border: 1px solid #ddd9d0; background: #fbfaf7; }
 .bookingFilters .field { flex: 1; }
 .rollingSchedule { margin: 1.25rem 0; }

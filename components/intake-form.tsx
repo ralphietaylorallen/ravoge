@@ -7,6 +7,7 @@ import { saveClientIntakeAction } from "@/app/coach/actions";
 import styles from "./dashboard.module.css";
 
 type IntakeDefaults = Partial<{
+  custom_fields: { bodyCompositionGoals?: { weightKg?: number; bodyFatPercentage?: number; skeletalMuscleMassKg?: number } };
   avoided_exercises: string[];
   birth_year: number;
   coach_notes: string;
@@ -35,9 +36,10 @@ type IntakeDefaults = Partial<{
 }>;
 
 const goals = [
-  ["strength", "Strength"], ["muscle_gain", "Muscle gain"],
+  ["strength", "Strength"], ["muscle_gain", "Gain muscle"],
   ["general_fitness", "General fitness"], ["conditioning", "Conditioning"],
-  ["fat_loss", "Fat loss"], ["athletic_performance", "Athletic performance"],
+  ["fat_loss", "Lose fat"], ["athletic_performance", "Athletic performance"],
+  ["body_recomposition", "Body recomposition"],
 ];
 const constraints = [
   ["knee_flexion", "Knee flexion"], ["hinge", "Hip hinge"],
@@ -170,7 +172,18 @@ export function IntakeForm({ clientId, defaults = {}, checkin }: { clientId: str
       <details className={styles.formSection} data-step={3} hidden={step!==3} open>
         <summary><span>04</span> InBody baseline</summary>
         <div className={styles.sectionFields}><div className={styles.field}><label htmlFor="inbodyStatus">Assessment status</label><select id="inbodyStatus" name="inbodyStatus" onChange={(event) => setInbodyStatus(event.target.value)} value={inbodyStatus}><option value="pending">Pending InBody — baseline incomplete</option><option value="completed">Completed InBody</option></select></div>
-          {inbodyStatus === "completed" && <><div className={styles.field}><label htmlFor="inbodyTestDate">Test date</label><input id="inbodyTestDate" name="inbodyTestDate" required type="date" /></div><div className={styles.threeColumns}>{[["weightKg","Weight (kg)"],["inbodyScore","InBody Score"],["skeletalMuscleMassKg","Skeletal muscle mass (kg)"],["bodyFatMassKg","Body fat mass (kg)"],["bodyFatPercentage","Body fat (%)"],["bmi","BMI"],["visceralFatLevel","Visceral fat level"],["ecwTbw","ECW/TBW"],["bmrKcal","BMR (kcal)"]].map(([key, label]) => <div className={styles.field} key={key}><label htmlFor={key}>{label}</label><input id={key} min={0} name={key} required step={key === "bmrKcal" ? "1" : "0.001"} type="number" /></div>)}</div></>}
+          {inbodyStatus === "completed" && <><div className={styles.field}><label htmlFor="inbodyTestDate">Test date</label><input id="inbodyTestDate" name="inbodyTestDate" required type="date" /></div><div className={styles.threeColumns}>{[["weightKg","Current weight (kg)"],["bodyFatPercentage","Current percent body fat (%)"],["skeletalMuscleMassKg","Current skeletal muscle mass (kg)"],["inbodyScore","InBody Score (optional)"],["bodyFatMassKg","Body fat mass (kg, optional)"],["bmi","BMI (optional)"],["visceralFatLevel","Visceral fat level (optional)"],["ecwTbw","ECW/TBW (optional)"],["bmrKcal","BMR (kcal, optional)"]].map(([key, label]) => <div className={styles.field} key={key}><label htmlFor={key}>{label}</label><input id={key} min={0} name={key} required={["weightKg", "bodyFatPercentage", "skeletalMuscleMassKg"].includes(key)} step={key === "bmrKcal" ? "1" : "0.001"} type="number" /></div>)}</div></>}
+        </div>
+      </details>
+
+      <details className={styles.formSection} data-step={3} hidden={step!==3} open>
+        <summary>Body-composition goals · optional</summary>
+        <div className={styles.sectionFields}><p className={styles.formHint}>Targets are optional. Skeletal muscle mass is a weight measurement, not a percentage. Current measurements above are saved as a new assessment; earlier measurements are preserved.</p>
+          <div className={styles.threeColumns}>
+            <div className={styles.field}><label htmlFor="goalWeightKg">Goal weight (kg)</label><input defaultValue={defaults.custom_fields?.bodyCompositionGoals?.weightKg} id="goalWeightKg" min={0.01} max={500} name="goalWeightKg" step="0.01" type="number" /></div>
+            <div className={styles.field}><label htmlFor="goalBodyFatPercentage">Goal body-fat percentage (%)</label><input defaultValue={defaults.custom_fields?.bodyCompositionGoals?.bodyFatPercentage} id="goalBodyFatPercentage" min={0} max={75} name="goalBodyFatPercentage" step="0.01" type="number" /></div>
+            <div className={styles.field}><label htmlFor="goalSkeletalMuscleMassKg">Goal skeletal muscle mass (kg)</label><input defaultValue={defaults.custom_fields?.bodyCompositionGoals?.skeletalMuscleMassKg} id="goalSkeletalMuscleMassKg" min={0.01} max={200} name="goalSkeletalMuscleMassKg" step="0.01" type="number" /></div>
+          </div>
         </div>
       </details>
 

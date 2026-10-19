@@ -31,6 +31,8 @@ for (const app of [
     await expect(page.getByText(/This gym invitation is invalid/i)).toBeVisible();
     await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
     expect(page.url()).not.toContain("invalid-invitation-token-value");
+    await expect(page.getByRole("link", { name: "Send another invitation" })).toHaveAttribute("href", /^mailto:/);
+    await expect(page.getByText(/Nothing is sent automatically/)).toBeVisible();
   });
 }
 
