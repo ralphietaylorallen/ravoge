@@ -5,6 +5,8 @@ import { completeWorkoutAction, setExerciseCompletionAction } from "@/app/client
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { PreworkoutCheckin } from "@/components/preworkout-checkin";
 import { requireRole } from "@/lib/auth";
+import { ClientWorkoutPlayer, type PlayerExercise } from "@/components/client-workout-player";
+import { TrainingReadinessForm } from "@/components/training-readiness";
 
 type ClientExercise = {
   completed_at: string | null;
@@ -25,7 +27,9 @@ type ClientWorkout = {
   scheduled_date: string;
   status: "assigned" | "in_progress" | "completed" | "cancelled";
   title: string;
-  workout_exercises: ClientExercise[];
+  objective: string | null;
+  estimated_duration_minutes: number | null;
+  workout_exercises: (ClientExercise & PlayerExercise)[];
 };
 
 const noticeMessages: Record<string, string> = {
@@ -50,14 +54,14 @@ export default async function ClientWorkoutPage({
     supabase.from("organizations").select("name").eq("id", membership.organization_id).single(),
     supabase
       .from("workout_assignments")
-      .select("id,coach_user_id,title,instructions,scheduled_date,status,completed_at,workout_exercises(id,exercise_name,sets,reps,load,notes,sort_order,completed_at)")
+      .select("id,coach_user_id,title,instructions,scheduled_date,status,completed_at,objective,estimated_duration_minutes,workout_exercises(id,exercise_name,sets,reps,load,notes,rest_seconds,sort_order,completed_at,prescription_details,exercise_library(coach_cue,equipment_requirements),workout_sets(id,set_number,actual_reps,actual_load,actual_load_unit,actual_work_seconds,actual_distance,actual_rpe,client_result,completed_at,pain_reported,failure_notes))")
       .eq("id", workoutId)
       .eq("organization_id", membership.organization_id)
       .eq("client_user_id", userId)
       .maybeSingle(),
   ]);
   if (!workoutRow) notFound();
-  const workout = workoutRow as ClientWorkout;
+  const workout = { ...workoutRow, workout_exercises: workoutRow.workout_exercises.map(e => ({ ...e, exercise_library: Array.isArray(e.exercise_library) ? e.exercise_library[0] ?? null : e.exercise_library })) } as ClientWorkout;
   const { data: coach } = await supabase
     .from("profiles")
     .select("full_name")
@@ -65,6 +69,9 @@ export default async function ClientWorkoutPage({
     .maybeSingle();
   const exercises = [...workout.workout_exercises].sort((a, b) => a.sort_order - b.sort_order);
   const allComplete = exercises.length > 0 && exercises.every((exercise) => exercise.completed_at);
+  const structured = exercises.some(e => e.prescription_details);
+  const substituteIds = [...new Set(exercises.flatMap(e => e.prescription_details?.substitutionIds ?? []))];
+  const { data: substitutions } = substituteIds.length ? await supabase.from("exercise_library").select("id,name").in("id", substituteIds).eq("is_active", true) : { data: [] };
   const [{ data: questions }, { count: previousCheckins }] = await Promise.all([
     supabase.from("organization_preworkout_questions").select("position,question_text,scale_min,scale_max").eq("organization_id", membership.organization_id).order("position"),
     supabase.from("preworkout_checkins").select("id", { count: "exact", head: true }).eq("organization_id", membership.organization_id).eq("client_user_id", userId).eq("workout_assignment_id", workoutId),
@@ -90,7 +97,8 @@ export default async function ClientWorkoutPage({
         <div><span>Instructions</span><strong>{workout.instructions ?? "No additional instructions."}</strong></div>
       </div>
 
-      <section className={`${styles.panel} ${styles.clientWorkoutPanel}`}>
+      {workout.status !== "completed" && workout.status !== "cancelled" && <TrainingReadinessForm role="client" clientId={userId} workoutId={workoutId}/>}
+      {structured ? <ClientWorkoutPlayer workoutId={workout.id} title={workout.title} goal={workout.objective} duration={workout.estimated_duration_minutes} status={workout.status} exercises={exercises} substitutions={substitutions ?? []}/> : <section className={`${styles.panel} ${styles.clientWorkoutPanel}`}>
         <h2>Exercises</h2>
         <ol className={styles.clientExerciseList}>
           {exercises.map((exercise, index) => {
@@ -121,7 +129,7 @@ export default async function ClientWorkoutPage({
             {workout.status === "completed" ? "Workout complete" : "Complete workout"}
           </button>
         </form>
-      </section>
+      </section>}
       <PreworkoutCheckin questions={questions ?? []} previousCount={previousCheckins ?? 0} workoutId={workoutId} />
     </DashboardShell>
   );

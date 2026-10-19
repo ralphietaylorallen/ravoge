@@ -46,7 +46,7 @@ insert into public.organization_equipment (organization_id, equipment_type, name
   ('c1000000-0000-0000-0000-000000000001', 'bench', 'Flat benches', 4, '61000000-0000-0000-0000-000000000001'),
   ('c1000000-0000-0000-0000-000000000001', 'dumbbells', 'Dumbbell set', 1, '61000000-0000-0000-0000-000000000001'),
   ('c1000000-0000-0000-0000-000000000001', 'bands', 'Resistance bands', 12, '61000000-0000-0000-0000-000000000001'),
-  ('c1000000-0000-0000-0000-000000000001', 'cardio_equipment', 'Air bikes', 4, '61000000-0000-0000-0000-000000000001');
+  ('c1000000-0000-0000-0000-000000000001', 'bike', 'Air bikes', 4, '61000000-0000-0000-0000-000000000001');
 do $$ begin
   if (select count(*) from public.organization_equipment) <> 7 then
     raise exception 'Owner cannot read intended equipment';

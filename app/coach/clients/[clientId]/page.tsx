@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import { OperationsTabs } from "@/components/operations-tabs";
 import { CoachCheckin } from "@/components/coach-checkin";
+import { TrainingReadinessForm } from "@/components/training-readiness";
+import { TrainingReadinessHistory } from "@/components/training-readiness-history";
 import { ProgressChart } from "@/components/progress-chart";
 import { localDateInTimeZone } from "@/lib/timezone";
 import { WorkoutGenerationStatus } from "@/components/workout-generation-status";
@@ -79,6 +81,7 @@ export default async function CoachClientPage({ params, searchParams }: { params
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coachProfile?.full_name ?? "Coach"} role="coach">
     <Link className={styles.backLink} href="/coach">← My Clients</Link>
     <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhotoForm imageUrl={clientImageUrl} name={clientName} organizationId={membership.organization_id} role="coach" targetUserId={clientId} /><div><p className={styles.eyebrow}>Client · {organization?.name}</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{latestIntake?String(latestIntake.primary_goal).replaceAll("_"," "):"Intake pending"}</p></div></div><div className={styles.bookingActions}><Link className={styles.action} href={`${basePath}?tab=intake`}>Start intake now</Link><Link className={styles.secondaryAction} href={`${basePath}/book?kind=intake`}>Schedule intake</Link><Link className={styles.secondaryAction} href={`${basePath}/book`}>Schedule session</Link></div></div>
+    <TrainingReadinessForm role="coach" clientId={clientId}/><TrainingReadinessHistory clientId={clientId}/>
     <OperationsTabs active={tab} basePath={basePath} tabs={[{id:"workouts",label:"Workout Plan"},{id:"progress",label:"Progress"},{id:"intake",label:"Intake"},{id:"metrics",label:"Metrics"},{id:"notes",label:"Notes"}]}/>
     {notice&&noticeMessages[notice]&&<p className={styles.notice} role="status">{noticeMessages[notice]}</p>}
     {tab==="workouts"&&<>

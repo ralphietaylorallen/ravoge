@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { parseBodyCompositionGoals } from "@/lib/intake-targets";
 import { generateAssistedWorkout, type GenerationInput } from "@/lib/workout-generation";
+import { protocolsFromForm } from "@/lib/workout-protocol";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const GOALS = new Set(["strength", "muscle_gain", "general_fitness", "conditioning", "fat_loss", "athletic_performance", "body_recomposition"]);
@@ -266,22 +267,28 @@ export async function generatePrescriptionAction(clientId: string, _state: Gener
   if (error || typeof data !== "string") {
     return { status: "error", message: "A safe draft could not be created. Complete intake and goals, confirm the safety review, and review actual gym equipment below. No workout was assigned." };
   }
-  const { data: input, error: inputError } = await supabase.rpc("get_prescription_generation_input", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
-  if (inputError || !input) return { status: "error", message: "Training inputs changed or could not be checked. Review the latest intake and try Create workout again. No workout was assigned." };
+  const { data: input, error: inputError } = await supabase.rpc("get_quality_generation_input", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
+  if (inputError || !input) {
+    await supabase.rpc("discard_incomplete_quality_draft", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
+    return { status: "error", message: inputError?.message.includes("Review the new pain check-in") ? "Today’s pain check-in needs a Coach decision. Review the readiness recommendation before creating a workout. No workout was assigned." : "Training inputs changed or could not be checked. Review the latest intake and try Create workout again. No workout was assigned." };
+  }
   // Paid calls are bounded per authenticated Coach; repeated submissions still
   // have a safe deterministic path instead of an unbounded provider loop.
   const { count, error: countError } = await supabase.from("generated_prescriptions").select("id", { count: "exact", head: true }).eq("coach_user_id", userId).gte("generated_at", new Date(Date.now() - 60_000).toISOString()).abortSignal(AbortSignal.timeout(5000));
   const result = countError || (count ?? 4) > 3 ? { workout: null, reason: "unavailable" as const } : await generateAssistedWorkout(input as GenerationInput);
-  let { error: saveError } = await supabase.rpc("complete_assisted_prescription", {
+  let { error: saveError } = await supabase.rpc("complete_quality_prescription", {
     target_prescription_id: data, expected_snapshot: input.snapshot,
     proposed_workout: result.workout,
     generation_details: result.workout ? { model: result.model } : { reason: result.reason },
   }).abortSignal(AbortSignal.timeout(5000));
   if (saveError && result.workout) {
-    const fallback = await supabase.rpc("complete_assisted_prescription", { target_prescription_id: data, expected_snapshot: input.snapshot, proposed_workout: null, generation_details: { reason: "invalid_output" } }).abortSignal(AbortSignal.timeout(5000));
+    const fallback = await supabase.rpc("complete_quality_prescription", { target_prescription_id: data, expected_snapshot: input.snapshot, proposed_workout: null, generation_details: { reason: "invalid_output" } }).abortSignal(AbortSignal.timeout(5000));
     saveError = fallback.error;
   }
-  if (saveError) return { status: "error", message: "The training snapshot changed or validation failed. Review intake, restrictions and equipment, then create a fresh draft. Nothing was assigned." };
+  if (saveError) {
+    await supabase.rpc("discard_incomplete_quality_draft", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
+    return { status: "error", message: "The training snapshot changed or validation failed. Review intake, restrictions and equipment, then create a fresh draft. Nothing was assigned." };
+  }
   redirect(`/coach/clients/${clientId}/prescriptions/${data}`);
 }
 
@@ -324,19 +331,25 @@ export async function approvePrescriptionAction(
 
   if (title.length < 2 || title.length > 120 || instructions.length > 4000 ||
     !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate) || libraryIds.length < 1 || libraryIds.length > 30 ||
-    columns.some((column) => column.length !== libraryIds.length) || !Number.isInteger(duration) || duration < 20 || duration > 180 ||
+    columns.some((column) => column.length !== libraryIds.length) || !Number.isInteger(duration) || duration < (formData.get("quality") === "yes" ? 15 : 20) || duration > 180 ||
     efforts.some((effort) => effort !== "" && (!Number.isFinite(Number(effort)) || Number(effort) < 1 || Number(effort) > 10))) {
     return { message: "Review the workout details and exercise rows.", status: "error" };
   }
 
+  let protocols: ReturnType<typeof protocolsFromForm> | undefined;
+  if (formData.get("quality") === "yes") {
+    try { protocols = protocolsFromForm(formData, libraryIds.length); }
+    catch { return { status: "error", message: "Review every block, format, measurement and timed/distance target before assignment." }; }
+  }
   const exercises = libraryIds.map((libraryExerciseId, index) => ({
     libraryExerciseId,
     load: loads[index] || null,
-    notes: [efforts[index] ? `Target effort RPE ${efforts[index]}.` : "", notes[index]].filter(Boolean).join(" ") || null,
+    notes: [!protocols && efforts[index] ? `Target effort RPE ${efforts[index]}.` : "", notes[index]].filter(Boolean).join(" ") || null,
     reason: reasons[index] || null,
     reps: Number(reps[index]),
     restSeconds: rests[index] ? Number(rests[index]) : null,
     sets: Number(sets[index]),
+    ...(protocols ? { protocol: protocols[index] } : {}),
   }));
   if (exercises.some((exercise) => !UUID_PATTERN.test(exercise.libraryExerciseId) ||
     !Number.isInteger(exercise.sets) || exercise.sets < 1 || exercise.sets > 100 ||
@@ -344,7 +357,7 @@ export async function approvePrescriptionAction(
     return { message: "One or more exercise values are invalid.", status: "error" };
   }
 
-  const { error } = await supabase.rpc("approve_reviewed_prescription", {
+  const { error } = await supabase.rpc(protocols ? "approve_quality_prescription" : "approve_reviewed_prescription", {
     exercises,
     target_prescription_id: prescriptionId,
     workout_instructions: instructions || null,

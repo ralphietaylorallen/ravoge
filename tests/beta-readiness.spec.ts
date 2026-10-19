@@ -63,7 +63,7 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   await page.goto("/owner/training-library");
   await page.getByRole("link", { name: "Complex EMOM", exact: true }).click();
   await expect(page.getByRole("button", { name: "Publish reviewed workout" })).toBeDisabled();
-  await expect(page.getByText(/must remain in Needs review/)).toBeVisible();
+  await expect(page.getByText(/stays in review until/)).toBeVisible();
   await page.getByRole("button", { name: "Save as Needs review" }).click(); await expect(page.getByRole("status")).toContainText("revision saved");
   await page.goto("/owner/training-library"); await page.getByRole("link", { name: "Beta Gym Strength", exact: true }).click();
   await page.getByLabel("Intended goal").selectOption("strength"); await page.getByLabel("Session duration (minutes)").fill("45");
@@ -184,7 +184,7 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   await expect(coach.getByRole("button", { name: "Create workout", exact: true })).toBeEnabled();
   await coach.getByRole("button", { name: "Create workout", exact: true }).click();
   await expect(coach).toHaveURL(/\/prescriptions\/[0-9a-f-]+$/, { timeout: 50_000 });
-  await expect(coach.getByText("Source: organization_workout.", { exact: true })).toBeVisible();
+  await expect(coach.getByText("Source: reviewed_organization_references.", { exact: true })).toBeVisible();
   await expect(coach.getByRole("region", { name: "Generation evidence" })).toBeVisible();
   const generatedTitle = await coach.getByLabel("Workout name", { exact: true }).inputValue();
   if (process.env.RAVOGE_LIVE_WORKOUT_QA !== "yes") await expect(coach.getByText("Ravoge used safe fallback generation for this workout.", { exact: true })).toBeVisible();

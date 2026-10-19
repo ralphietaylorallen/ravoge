@@ -133,6 +133,11 @@ insert into beta_ids values('intake2',public.upsert_client_intake('fa100000-0000
 select pg_temp.assert_true((public.get_workout_generation_readiness('fa100000-0000-4000-8000-000000000003')->>'needsSafetyReview')::boolean,'Old safety review unlocked a new intake');
 select public.confirm_intake_generation_safety((select id from beta_ids where kind='intake2'));
 select pg_temp.assert_true(not (public.get_workout_generation_readiness('fa100000-0000-4000-8000-000000000003')->'exercises' @? '$[*] ? (@.name == "Dumbbell RDL" || @.name == "Goblet Squat")'),'Injury or avoided-exercise filter failed');
+-- Library growth adds legitimate alternatives, so explicitly test a genuinely
+-- insufficient pool instead of assuming two exclusions leave fewer than three.
+insert into beta_ids values('insufficient-intake',public.upsert_client_intake('fa100000-0000-4000-8000-000000000003',
+ '{"trainingFrequencyGoal":3,"primaryGoal":"strength","trainingYears":1,"experienceLevel":"beginner","recentConsistency":"building","sessionDurationMinutes":30,"sleepQuality":3,"stressLevel":3,"recoveryPerception":3,"sorenessFatigue":3,"constraintTags":["hinge","knee_flexion","horizontal_push","axial_load","balance","conditioning"],"currentInjuries":"Coach reviewed movement restrictions","avoidedExercises":["Goblet Squat"],"customFields":{}}'));
+select public.confirm_intake_generation_safety((select id from beta_ids where kind='insufficient-intake'));
 select pg_temp.assert_true((public.get_workout_generation_readiness('fa100000-0000-4000-8000-000000000003')->>'ready')::boolean=false,'Unsafe insufficient exercise pool generated');
 
 -- Unpublishing a source excludes it immediately; raw data and prior revisions remain.
