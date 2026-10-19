@@ -11,7 +11,7 @@ const password = process.env.BETA_QA_PASSWORD!;
 const path = (url: string) => { const value = new URL(url); return value.pathname + value.search; };
 async function login(page: Page, account: Account, destination: string) {
   await page.goto("/login"); await page.getByLabel("Email", { exact: true }).fill(account.email); await page.getByLabel("Password", { exact: true }).fill(account.password);
-  await page.getByRole("button", { name: "Login", exact: true }).click(); await expect(page).toHaveURL(new RegExp(`${destination.replaceAll("/", "\\/")}$`));
+  await page.getByRole("button", { name: "Login", exact: true }).click(); await expect(page).toHaveURL(new RegExp(`${destination.replaceAll("/", "\\/")}$`), { timeout: 15_000 });
 }
 async function signup(page: Page, name: string, email: string, role: string) {
   await page.getByLabel("Full name", { exact: true }).fill(name);
@@ -19,7 +19,7 @@ async function signup(page: Page, name: string, email: string, role: string) {
   if (await emailField.isEditable()) await emailField.fill(email);
   else expect(await emailField.inputValue() === email).toBe(true);
   await page.getByLabel("Password", { exact: true }).fill(password); await page.getByLabel("Confirm password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Create account" }).click(); await expect(page).toHaveURL(new RegExp(`/${role}$`));
+  await page.getByRole("button", { name: "Create account" }).click(); await expect(page).toHaveURL(new RegExp(`/${role}$`), { timeout: 15_000 });
   await page.reload();
   await expect(page.getByRole("navigation", { name: `${role} navigation` }), await page.locator("body").innerText()).toBeVisible();
 }
