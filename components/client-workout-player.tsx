@@ -65,7 +65,7 @@ export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, 
   return <section className={styles.player} aria-label="Ravoge workout player"><header className={styles.header}><span>RAVOGE · TRAIN WITH INTENT</span><p className={styles.title}>{title}</p><p>{goal ?? "Coach-approved training"} · {duration ? `About ${duration} minutes` : "Follow your Coach’s timing"}</p>
     <label>Workout progress<progress max={Math.max(1, allSets.length)} value={recorded}/></label><p>{recorded} / {allSets.length} sets recorded · Modified and missed work remain visible to your Coach.</p>
     <form action={action}><button className={styles.primary} name="intent" value="start" disabled={locked || pending}>{status === "assigned" ? "Start workout" : locked ? "Workout closed" : "Continue workout"}</button></form>
-    {!locked && next && <a className={styles.next} href={`#player-set-${next.set.id}`}>Next: {next.exercise.exercise_name} · {next.exercise.prescription_details?.group ? "Round / visit" : "Set"} {next.set.set_number}</a>}
+    {!locked && next && <a className={styles.next} href={`#player-set-${next.set.id}`}>Next: {next.exercise.exercise_name} · {["superset", "circuit", "stations", "emom", "rounds"].includes(next.exercise.prescription_details?.format ?? "") ? "Round / visit" : "Set"} {next.set.set_number}</a>}
   </header><h3>Exercises</h3>
     {exercises.map((exercise, index) => {
       const p = exercise.prescription_details;
