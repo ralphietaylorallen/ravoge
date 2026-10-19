@@ -9,7 +9,7 @@ import styles from "./workout-player.module.css";
 type PlayerSet = { id: string; set_number: number; actual_reps: number | null; actual_load: number | null; actual_load_unit: string | null; actual_work_seconds: number | null; actual_distance: number | null; actual_rpe: number | null; client_result: string | null; completed_at: string | null; pain_reported: boolean; failure_notes: string | null };
 export type PlayerExercise = { id: string; exercise_name: string; sets: number; reps: number; load: number | null; rest_seconds: number | null; notes: string | null; prescription_details: WorkoutProtocol | null; workout_sets: PlayerSet[]; exercise_library: { coach_cue: string | null; equipment_requirements: string[] } | null };
 
-export function WorkoutTimer({ work, rest }: { work: number; rest: number }) {
+export function WorkoutTimer({ work, rest, workLabel = "Work" }: { work: number; rest: number; workLabel?: string }) {
   const [timer, setTimer] = useState({ remaining: 0, phase: "Rest", running: false, end: 0 });
   const { remaining, phase, running } = timer;
   useEffect(() => {
@@ -24,7 +24,7 @@ export function WorkoutTimer({ work, rest }: { work: number; rest: number }) {
   }, [running, rest]);
   function start(seconds: number, label: string) { setTimer({ remaining: seconds, phase: label, running: true, end: Date.now() + seconds * 1000 }); }
   return <div className={styles.timer}><span role="timer" aria-label={`${phase} timer`}>{phase} · {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</span>
-    <div className={styles.actions}>{work > 0 && <button type="button" onClick={() => start(work, "Work")}>Start interval timer</button>}{rest > 0 && <button type="button" onClick={() => start(rest, "Rest")}>Start rest timer ({rest}s)</button>}
+    <div className={styles.actions}>{work > 0 && <button type="button" onClick={() => start(work, workLabel)}>Start interval timer</button>}{rest > 0 && <button type="button" onClick={() => start(rest, "Rest")}>Start rest timer ({rest}s)</button>}
       <button type="button" disabled={!remaining} onClick={() => setTimer(v => ({ ...v, remaining: v.running ? Math.max(0, Math.ceil((v.end - Date.now()) / 1000)) : v.remaining, running: !v.running, end: v.running ? v.end : Date.now() + v.remaining * 1000 }))}>{running ? "Pause timer" : "Resume timer"}</button><button type="button" onClick={() => setTimer(v => ({ ...v, remaining: 0, running: false }))}>Reset timer</button></div>
   </div>;
 }
@@ -76,7 +76,7 @@ export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, 
         {["circuit", "superset", "stations", "rounds"].includes(p?.format ?? "") && <p>Complete the group in the Coach’s listed order, then repeat for the prescribed rounds.</p>}
         <p>{exercise.exercise_library?.coach_cue}</p><p>Equipment: {exercise.exercise_library?.equipment_requirements.join(", ").replaceAll("_", " ") || "Bodyweight"}.</p>
         {exercise.notes && <p>{exercise.notes}</p>}<p>Rest: {exercise.rest_seconds ?? 0}s as prescribed.</p>
-        <WorkoutTimer work={p?.format === "amrap" ? p.blockDurationSeconds ?? 0 : p?.format === "emom" ? p.intervalSeconds ?? 0 : p?.workSeconds ?? 0} rest={exercise.rest_seconds ?? 0}/>
+        <WorkoutTimer work={p?.format === "amrap" ? p.blockDurationSeconds ?? 0 : p?.format === "emom" ? p.workSeconds ?? p.intervalSeconds ?? 0 : p?.workSeconds ?? 0} rest={p?.format === "emom" ? p.workSeconds ? Math.max(0, (p.intervalSeconds ?? 0) - p.workSeconds) : 0 : exercise.rest_seconds ?? 0} workLabel={p?.format === "emom" && p.measurement !== "time" ? "Slot" : "Work"}/>
         {[...exercise.workout_sets].sort((a, b) => a.set_number - b.set_number).map(set => <PlayerSetForm key={set.id} set={set} exercise={exercise} workoutId={workoutId} locked={locked} role={role} substitutions={options}/>)}
         {index + 1 < exercises.length && <a className={styles.next} href={`#player-exercise-${index + 1}`}>Next exercise →</a>}
       </article>;

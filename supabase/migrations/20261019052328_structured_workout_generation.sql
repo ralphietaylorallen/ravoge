@@ -18,7 +18,7 @@ begin
  select coalesce(jsonb_agg(jsonb_build_object('id',e.id,'name',e.name,'canonicalName',case when e.organization_id is null then e.name else null end,
    'pattern',e.movement_pattern,'equipment',e.equipment_requirements,'difficulty',e.difficulty,'quality',e.primary_quality,
    'primaryMuscles',e.primary_muscles,'secondaryMuscles',e.secondary_muscles,'purposes',e.purposes,'measurement',e.measurement,
-   'laterality',e.laterality,'contraindications',e.contraindication_tags,'cue',e.coach_cue,'regression',e.regression_slug,'progression',e.progression_slug,
+   'laterality',e.laterality,'repMin',e.default_rep_min,'repMax',e.default_rep_max,'contraindications',e.contraindication_tags,'cue',e.coach_cue,'regression',e.regression_slug,'progression',e.progression_slug,
    'substitutions',e.substitution_slugs) order by e.id),'[]') into candidates
  from public.exercise_library e where private.generation_exercise_compatible(e.id,i.id);
  select coalesce(jsonb_agg(jsonb_build_object('type',feature_type,'length',usable_length,'unit',length_unit) order by id),'[]') into facilities

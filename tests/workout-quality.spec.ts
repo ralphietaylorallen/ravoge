@@ -90,7 +90,7 @@ test("three-client quality generation, Owner programming review and mobile worko
     const rest = player.getByRole("button", { name: /^Start rest timer/ }).first();
     if (await rest.count()) { await rest.click(); await expect(player.getByRole("timer").first()).not.toHaveText("Rest · 0:00"); }
     const workTimer = player.getByRole("button", { name: "Start interval timer", exact: true }).first();
-    if (await workTimer.count()) { await workTimer.click(); await expect(player.getByRole("timer").filter({ hasText: "Work" }).first()).toBeVisible(); }
+    if (await workTimer.count()) { await workTimer.click(); await expect(player.getByRole("timer").filter({ hasText: /Work|Slot/ }).first()).toBeVisible(); }
     let form = player.locator('form[aria-label]').filter({ has: client.getByRole("button", { name: "Complete set", exact: true }) }).first();
     const completeSet = form.getByRole("button", { name: "Complete set", exact: true }); await completeSet.click(); await expect(completeSet).not.toBeVisible();
     form = player.locator('form[aria-label]').filter({ has: client.getByRole("button", { name: "Modified", exact: true }) }).filter({ visible: true }).first();

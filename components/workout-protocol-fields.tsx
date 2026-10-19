@@ -4,8 +4,8 @@ import { useState } from "react";
 import { BLOCKS, FORMATS, defaultProtocol, type WorkoutProtocol } from "@/lib/workout-protocol";
 import styles from "./dashboard.module.css";
 
-export function WorkoutProtocolFields({ value, substitutions = false, library = [] }: {
-  value?: WorkoutProtocol | null; substitutions?: boolean; library?: { id: string; name: string }[];
+export function WorkoutProtocolFields({ value, substitutions = false, library = [], onMeasurementChange }: {
+  value?: WorkoutProtocol | null; substitutions?: boolean; library?: { id: string; name: string }[]; onMeasurementChange?: (measurement: WorkoutProtocol["measurement"]) => void;
 }) {
   const initial = value ?? defaultProtocol();
   const [measurement, setMeasurement] = useState(initial.measurement);
@@ -18,7 +18,7 @@ export function WorkoutProtocolFields({ value, substitutions = false, library = 
     <label className={styles.field}><span>Workout block</span><select name="protocol-block" defaultValue={initial.block}>{BLOCKS.map(v => <option key={v}>{v}</option>)}</select></label>
     <label className={styles.field}><span>Format</span><select name="protocol-format" value={format} onChange={e => setFormat(e.target.value as WorkoutProtocol["format"])}>{FORMATS.map(v => <option key={v}>{v}</option>)}</select></label>
     <label className={styles.field}><span>Group / circuit label</span><input name="protocol-group" maxLength={60} defaultValue={initial.group} placeholder="e.g. A or Finisher" /></label>
-    <label className={styles.field}><span>Target measurement</span><select name="protocol-measurement" value={measurement} onChange={e => setMeasurement(e.target.value as WorkoutProtocol["measurement"])}><option value="reps">Repetitions</option><option value="time">Time</option><option value="distance">Distance</option></select></label>
+    <label className={styles.field}><span>Target measurement</span><select name="protocol-measurement" value={measurement} onChange={e => { const m = e.target.value as WorkoutProtocol["measurement"]; setMeasurement(m); onMeasurementChange?.(m); }}><option value="reps">Repetitions</option><option value="time">Time</option><option value="distance">Distance</option></select></label>
     {number("workSeconds", "Work seconds", 5, 1200, measurement === "time")}
     {number("distance", "Distance per length / set", 1, 3000, measurement === "distance")}
     <label className={styles.field}><span>Distance unit</span><select name="protocol-distanceUnit" defaultValue={initial.distanceUnit}><option value="meters">Meters</option><option value="yards">Yards</option></select></label>

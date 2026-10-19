@@ -99,13 +99,13 @@ export function PrescriptionReviewForm({
               </select>
             </div>
             <div className={styles.field}><label htmlFor={`review-sets-${row.rowId}`}>Sets</label><input defaultValue={row.sets} id={`review-sets-${row.rowId}`} max={100} min={1} name="exerciseSets" required type="number" /></div>
-            <div className={styles.field}><label htmlFor={`review-reps-${row.rowId}`}>Reps</label><input defaultValue={row.reps} id={`review-reps-${row.rowId}`} max={1000} min={1} name="exerciseReps" required type="number" /></div>
+            {quality && row.protocol && row.protocol.measurement !== "reps" ? <input type="hidden" name="exerciseReps" value="1"/> : <div className={styles.field}><label htmlFor={`review-reps-${row.rowId}`}>Reps</label><input defaultValue={row.reps} id={`review-reps-${row.rowId}`} max={1000} min={1} name="exerciseReps" required type="number" /></div>}
             <div className={styles.field}><label htmlFor={`review-load-${row.rowId}`}>Load</label><input defaultValue={row.load ?? ""} id={`review-load-${row.rowId}`} max={100000} min={0} name="exerciseLoad" step="0.01" type="number" /></div>
             {quality ? <input type="hidden" name="exerciseRpe" value={row.targetRpe ?? ""}/> : <div className={styles.field}><label htmlFor={`review-rpe-${row.rowId}`}>Target effort (RPE)</label><input defaultValue={row.targetRpe ?? ""} id={`review-rpe-${row.rowId}`} min={1} max={10} step="0.5" name="exerciseRpe" type="number" /></div>}
             <div className={styles.field}><label htmlFor={`review-rest-${row.rowId}`}>Rest seconds</label><input defaultValue={row.restSeconds ?? ""} id={`review-rest-${row.rowId}`} max={1800} min={quality ? 0 : 10} name="exerciseRest" type="number" /></div>
             <div className={`${styles.field} ${styles.reviewNotes}`}><label htmlFor={`review-notes-${row.rowId}`}>Notes</label><input defaultValue={row.notes ?? ""} id={`review-notes-${row.rowId}`} maxLength={1000} name="exerciseNotes" /></div>
             <div className={`${styles.field} ${styles.reviewReason}`}><label htmlFor={`review-reason-${row.rowId}`}>Why Ravoge selected it</label><input defaultValue={row.reason} id={`review-reason-${row.rowId}`} maxLength={1000} name="exerciseReason" /></div>
-            {quality && <div className={styles.reviewProtocol}><WorkoutProtocolFields value={row.protocol} library={exerciseOptions} substitutions/></div>}
+            {quality && <div className={styles.reviewProtocol}><WorkoutProtocolFields value={row.protocol} library={exerciseOptions} substitutions onMeasurementChange={measurement => setRows(current => current.map(ex => ex.rowId === row.rowId ? { ...ex, reps: measurement === "reps" ? 8 : 1, protocol: { ...(ex.protocol ?? defaultProtocol()), measurement } } : ex))}/></div>}
             <button aria-label={`Remove exercise ${index + 1}`} className={styles.removeAction} disabled={rows.length === 1} onClick={() => removeExercise(row.rowId)} type="button">Remove</button>
           </fieldset>
         ))}

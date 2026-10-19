@@ -3,7 +3,7 @@
 alter table public.organization_equipment drop constraint organization_equipment_equipment_type_check;
 alter table public.organization_equipment add constraint organization_equipment_equipment_type_check check(equipment_type in (
  'barbell','plates','squat_rack','bench','dumbbells','kettlebells','cable_machine','selectorized_machine',
- 'cardio_equipment','sled','bands','medicine_balls','specialty_equipment','other','ski_erg','rower'));
+ 'cardio_equipment','sled','bands','medicine_balls','specialty_equipment','other','ski_erg','rower','bike'));
 
 create table public.organization_facilities (
  id uuid primary key default gen_random_uuid(),
@@ -137,6 +137,9 @@ update public.exercise_library set measurement='time' where organization_id is n
 update public.exercise_library set laterality='unilateral' where organization_id is null and slug='split-squat';
 -- A generic cardio item is not evidence that a rower exists.
 update public.exercise_library set equipment_requirements=array['rower'] where organization_id is null and slug='rower-conditioning';
+update public.exercise_library set equipment_requirements=array['bike'] where organization_id is null and slug='bike-conditioning';
+update public.exercise_library set contraindication_tags=contraindication_tags||array['vertical_push']
+where organization_id is null and not('vertical_push'=any(contraindication_tags)) and (movement_pattern='vertical_push' or 'overhead'=any(contraindication_tags) or slug='lat-pulldown');
 update public.exercise_library set
  primary_muscles=case slug
    when 'calf-raise' then array['calves'] when 'dumbbell-curl' then array['biceps','brachialis'] when 'cable-triceps-pressdown' then array['triceps']

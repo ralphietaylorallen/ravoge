@@ -28,7 +28,7 @@ export const QUALITY_RULES = [
   "Use the client's goal, experience, frequency, intake measurements/targets, recent assigned/completed work and logged outcomes. Do not infer capacity from body composition or prescribe absolute/percentage loads.",
   "Choose a purposeful sequence: appropriate warm-up/preparation, goal-specific main work, optional accessories/conditioning/finisher and cooldown. Not every workout needs every section.",
   "For strength prioritize relevant compound work early with more recovery and fewer reps. Hypertrophy uses manageable accessory volume. Beginners use simple formats, modest volume and RPE at most 7. Athletic goals may use low-volume power and conditioning only when compatible.",
-  "Use 3–12 movement rows, at most 28 total sets, at most 4 sets per row (3 for beginners), 1–20 reps, RPE 4–8 (7 beginner). Preserve recovery; never prescribe failure as a target.",
+  "Use 3–12 movement rows, at most 28 total sets, at most 4 sets per row (3 for beginners), 1–20 reps bounded by each exercise's repMax, RPE 4–8 (7 beginner). Use low-repetition power work, not fatiguing high-rep throws. Preserve recovery; never prescribe failure as a target.",
   "Use supplied published gym references as compatible stylistic/structural examples, adapted to this client, not copied unchanged. Draft/unpublished sources are never provided. If none, state general-library fallback honestly.",
   "Supported formats: straight, superset, circuit, stations, rounds, intervals, EMOM and AMRAP. Rows sharing a group must share format, block, set/round count and block duration. Use distinct group labels for distinct blocks.",
   "Reps are actual reps only for measurement=reps. For time/distance set reps=1 as a compatibility sentinel; prescribe actual workSeconds or distance. Unilateral work must say perSide=true. Never turn carries or ergs into arbitrary repetitions.",
@@ -47,7 +47,7 @@ export function projectQualityContext(input: GenerationInput) {
   } : undefined;
   return {
     approvedExerciseMetadata: input.candidates.map(c => ({ exerciseKey: aliases.get(c.id), canonicalName: c.canonicalName ?? undefined,
-      measurement: c.measurement ?? "reps", laterality: c.laterality, primaryMuscles: c.primaryMuscles, secondaryMuscles: c.secondaryMuscles, purposes: c.purposes })),
+      measurement: c.measurement ?? "reps", laterality: c.laterality, repMin: c.repMin, repMax: c.repMax, primaryMuscles: c.primaryMuscles, secondaryMuscles: c.secondaryMuscles, purposes: c.purposes })),
     availableFacilities: input.facilities?.map(f => ({ type: f.type, length: f.length, unit: f.unit })),
     gymProfile: input.gymProfile && input.references.length > 0 ? { version: input.gymProfile.version, preferences: input.gymProfile.preferences,
       formats: input.gymProfile.statistics.formats, emphasis: input.gymProfile.statistics.emphasis, sets: input.gymProfile.statistics.sets,
@@ -87,7 +87,7 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
     try { p = validateProtocol(raw.protocol); } catch { throw new Error("invalid_output"); }
     if (!e || !e.equipment.every(t => input.equipment.includes(t)) || !Number.isInteger(raw.sets) || Number(raw.sets) < 1 || Number(raw.sets) > (input.experience === "beginner" ? 3 : 4)
       || !Number.isInteger(raw.reps) || Number(raw.reps) < 1 || Number(raw.reps) > 20 || !Number.isInteger(raw.restSeconds) || Number(raw.restSeconds) < 0 || Number(raw.restSeconds) > 300
-      || (p.measurement !== "reps" && Number(raw.reps) !== 1) || (p.measurement === "reps" && e.measurement && e.measurement !== "reps")
+      || (p.measurement !== "reps" && Number(raw.reps) !== 1) || (p.measurement === "reps" && ((e.measurement && e.measurement !== "reps") || Number(raw.reps) > Math.min(20, e.repMax ?? 20)))
       || (p.measurement === "distance" && e.measurement !== "distance") || (p.format === "amrap" && Number(raw.sets) !== 1)
       || p.percentageLoad !== null || p.targetRpe === null || p.targetRpe < 4 || p.targetRpe > (input.experience === "beginner" ? 7 : 8) || p.substitutionIds.length
       || (e.laterality === "unilateral" && !p.perSide) || !text(raw.notes, 0, 500) || !text(raw.reason, 2, 500)) throw new Error("invalid_output");

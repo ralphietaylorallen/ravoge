@@ -36,7 +36,7 @@ export function EquipmentForm({ item, facility = false }: { item?: Resource; fac
         <div className={styles.field}>
           <label htmlFor={`${prefix}-type`}>{facility ? "Facility feature" : "Equipment type"}</label>
           <select id={`${prefix}-type`} name="equipmentType" required defaultValue={item?.equipment_type ?? item?.feature_type}>
-            {(facility ? [["turf", "Turf"], ["open_training_area", "Open training area"]] : [...equipmentTypes, ["ski_erg", "SkiErg"], ["rower", "Rower"]]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            {(facility ? [["turf", "Turf"], ["open_training_area", "Open training area"]] : [...equipmentTypes, ["ski_erg", "SkiErg"], ["rower", "Rower"], ["bike", "Bike"]]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
         <div className={styles.field}>

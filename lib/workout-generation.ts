@@ -7,7 +7,7 @@ import { QUALITY_RULES, projectQualityContext, qualitySchema, validateQualityWor
 export const PROGRAMMING_RULES_VERSION = "ravoge-reviewed-2026.1";
 export const FALLBACK_MESSAGE = "Ravoge used safe fallback generation for this workout.";
 
-type Candidate = { id: string; name: string; pattern: string; equipment: string[]; difficulty: string; quality: string; canonicalName?: string | null; measurement?: "reps" | "time" | "distance"; laterality?: string; primaryMuscles?: string[]; secondaryMuscles?: string[]; purposes?: string[] };
+type Candidate = { id: string; name: string; pattern: string; equipment: string[]; difficulty: string; quality: string; canonicalName?: string | null; measurement?: "reps" | "time" | "distance"; laterality?: string; primaryMuscles?: string[]; secondaryMuscles?: string[]; purposes?: string[]; repMin?: number; repMax?: number };
 type SourceExercise = { libraryExerciseId?: string; id?: string; sets: number; reps: number; restSeconds: number | null; load?: number | null; protocol?: WorkoutProtocol; performance?: { recorded: number; problematic: number; averageReps: number | null; averageLoad: number | null; averageRpe: number | null; averageWorkSeconds: number | null; averageDistance: number | null } };
 export type GenerationInput = {
   snapshot: string; intakeId: string; goal: string; secondaryGoal: string | null; experience: string;

@@ -61,7 +61,8 @@ begin
      or (x->>'restSeconds' is not null and ((x->>'restSeconds') !~ '^[0-9]+$' or (x->>'restSeconds')::integer not between 0 and 1800))
      or (x->>'load' is not null and ((x->>'load')::numeric not between 0 and 100000 or x->>'load' in ('NaN','Infinity','-Infinity')))
    then raise exception 'Missing or conflicting timed/distance/load prescription'; end if;
-   if generated and ((p->>'targetRpe') is null or (p->>'targetRpe')::numeric<4 or p->>'percentageLoad' is not null or x->>'load' is not null
+   if generated and ((p->>'measurement'='reps' and (x->>'reps')::integer>least(20,e.default_rep_max))
+     or (p->>'targetRpe') is null or (p->>'targetRpe')::numeric<4 or p->>'percentageLoad' is not null or x->>'load' is not null
      or (select experience_level='beginner' from public.client_intakes where id=intake) and ((x->>'sets')::integer>3 or (p->>'targetRpe')::numeric>7)) then raise exception 'Generated intensity exceeds review limits'; end if;
    if intake is not null and 'turf'=any(e.equipment_requirements) and not exists(
      select 1 from public.organization_facilities f where f.organization_id=org and f.feature_type='turf' and f.is_available

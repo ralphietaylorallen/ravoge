@@ -59,6 +59,8 @@ test("unsupported equipment, overlong turf lengths, wrong measurement and unsafe
   for (const output of invalid) assert.throws(() => validateQualityWorkout(JSON.stringify(output), base));
   const unavailable = input("conditioning"); unavailable.equipment = ["dumbbells", "bands"];
   assert.throws(() => validateQualityWorkout(JSON.stringify(proposal("conditioning")), unavailable));
+  const limited = input("strength"); limited.candidates = structuredClone(limited.candidates); limited.candidates[0].repMax = 6;
+  assert.throws(() => validateQualityWorkout(JSON.stringify(proposal("strength")), limited));
 });
 test("circuits, EMOM slots, AMRAP duration, rounds, time, distance and per-side instructions retain exact units", () => {
   for (const format of ["superset", "circuit", "stations", "rounds", "emom", "amrap"] as const) {
