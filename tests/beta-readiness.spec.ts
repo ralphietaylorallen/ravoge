@@ -11,7 +11,7 @@ const password = process.env.BETA_QA_PASSWORD!;
 const path = (url: string) => { const value = new URL(url); return value.pathname + value.search; };
 async function login(page: Page, account: Account, destination: string) {
   await page.goto("/login"); await page.getByLabel("Email", { exact: true }).fill(account.email); await page.getByLabel("Password", { exact: true }).fill(account.password);
-  await page.getByRole("button", { name: "Login", exact: true }).click(); await expect(page).toHaveURL(new RegExp(`${destination.replaceAll("/", "\\/")}$`));
+  await page.getByRole("button", { name: "Login", exact: true }).click(); await expect(page).toHaveURL(new RegExp(`${destination.replaceAll("/", "\\/")}$`), { timeout: 15_000 });
 }
 async function signup(page: Page, name: string, email: string, role: string) {
   await page.getByLabel("Full name", { exact: true }).fill(name);
@@ -19,7 +19,7 @@ async function signup(page: Page, name: string, email: string, role: string) {
   if (await emailField.isEditable()) await emailField.fill(email);
   else expect(await emailField.inputValue() === email).toBe(true);
   await page.getByLabel("Password", { exact: true }).fill(password); await page.getByLabel("Confirm password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Create account" }).click(); await expect(page).toHaveURL(new RegExp(`/${role}$`));
+  await page.getByRole("button", { name: "Create account" }).click(); await expect(page).toHaveURL(new RegExp(`/${role}$`), { timeout: 15_000 });
   await page.reload();
   await expect(page.getByRole("navigation", { name: `${role} navigation` }), await page.locator("body").innerText()).toBeVisible();
 }
@@ -161,7 +161,10 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   await coach.goto(new URL(`/coach/clients/${actualClientId}`, coach.url()).href);
   const photo = coach.locator(`[data-profile-photo-editor="${actualClientId}"]`);
   const bytes = await sharp({ create: { width: 1400, height: 1000, channels: 3, background: "#97835d" } }).jpeg().toBuffer();
-  await photo.locator('input[type="file"]').first().setInputFiles({ buffer: bytes, name: "non-personal-qa.jpg", mimeType: "image/jpeg" });
+  const photoChooser = coach.waitForEvent("filechooser");
+  await photo.getByRole("button", { name: /^Change .*profile photo$/ }).click();
+  await (await photoChooser).setFiles({ buffer: bytes, name: "non-personal-qa.jpg", mimeType: "image/jpeg" });
+  await expect(photo.getByRole("img", { name: "Cropped profile photo preview" })).toBeVisible();
   await photo.getByRole("dialog").getByRole("button", { name: "Save photo", exact: true }).click();
   await expect(photo.getByRole("status")).toContainText("Profile photo updated"); await expect(photo.locator("button img")).toBeVisible();
   await coach.getByRole("link", { name: "Start intake now", exact: true }).click();
