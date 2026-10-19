@@ -82,10 +82,10 @@ test("three-client quality generation, Owner programming review and mobile worko
     expect(error).toBeNull(); expect((await coachApi.rpc("confirm_intake_generation_safety", { target_intake_id: intake })).error).toBeNull();
     await coach.goto(`/coach/clients/${account.id}`); await coach.getByRole("button", { name: "Create workout", exact: true }).click(); await expect(coach).toHaveURL(/\/prescriptions\/[0-9a-f-]+$/, { timeout: 60_000 });
     await expect(coach.getByRole("region", { name: "Generation evidence" })).toContainText(sources[index].title); await expect(coach.getByRole("region", { name: "Generation evidence" })).toContainText("Gym-profile version:");
-    if (process.env.RAVOGE_LIVE_WORKOUT_QA === "yes") await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status")).toContainText("OpenAI-assisted");
-    else await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status")).toContainText("safe fallback");
     const prescriptionId = coach.url().split("/").at(-1)!;
     const { data: draft } = await coachApi.from("generated_prescriptions").select("original_recommendation,status,generation_context").eq("id", prescriptionId).single(); expect(draft?.status).toBe("draft");
+    if (process.env.RAVOGE_LIVE_WORKOUT_QA === "yes") await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status"), `Provider outcome: ${draft?.generation_context?.fallbackReason ?? "no fallback reason"}`).toContainText("OpenAI-assisted");
+    else await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status")).toContainText("safe fallback");
     signatures.add(JSON.stringify(draft?.original_recommendation.map((e: { libraryExerciseId: string; protocol: { format: string } }) => [e.libraryExerciseId, e.protocol.format])));
     const ordinary = await scoped(account); expect((await ordinary.from("generated_prescriptions").select("id")).data).toEqual([]); expect((await ordinary.from("workout_assignments").select("id")).data).toEqual([]);
     const durationField=coach.getByLabel("Workout duration (minutes)"); const estimated=Number(await durationField.inputValue()); expect(estimated).toBeGreaterThanOrEqual(15); expect(estimated).toBeLessThanOrEqual(45); await durationField.fill(String(Math.min(45,estimated+1))); await coach.getByLabel("Coach instructions", { exact: true }).fill("QA Coach reviewed technique, constraints, timing and load. Stop for pain.");

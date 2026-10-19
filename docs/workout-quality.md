@@ -89,11 +89,10 @@ New migrations, in order:
 5. `20261019061349_readiness_client_lookup_index.sql`
 6. `20261019062350_workout_substitution_units.sql`
 
-At this checkpoint the first five are applied exactly once to the verified
-existing Ravoge project. The sixth passed all 22 ordinary-role SQL/RLS suites
-in a bounded rollback-only transaction and is awaiting its final apply gate.
-The first five also passed the hosted full database suite; fresh CI passed all
-22 suites after a local database reset. Never reset the hosted database.
+All six were applied exactly once to the verified existing Ravoge project,
+after history/dry-run checks and bounded rollback verification. All 22 hosted
+ordinary-role SQL/RLS suites passed after application; fresh CI also passed all
+22 after a local database reset. Never reset the hosted database.
 Check production history before applying pending files exactly once. No hosted
 reset/reseed/truncation, production password changes, or automatic publication.
 
@@ -113,3 +112,76 @@ No real users, memberships, passwords, imported rows or publication statuses
 were changed. Email delivery remains
 unproven without Resend/sender configuration, and physical Safari install/camera
 testing is a manual device check, not something Chromium viewports prove.
+
+## Verification checkpoint (before production merge)
+
+- `npm run lint`, `npm run typecheck`, `npm run test:unit` (38 passed), and
+  `node scripts/with-ravoge-public-env.mjs build`: passed. The helper supplies
+  only the existing public configuration through child-process memory.
+- `CI=true node scripts/with-ravoge-public-env.mjs test:e2e`: 190 passed,
+  50 explicitly gated/platform-skipped, zero failures. Gated tests are verified
+  separately, not counted as passing here.
+- `npm run test:db`: all 22 hosted rollback-bounded SQL/RLS suites passed.
+  Do not run this older gate suite concurrently with browser fixtures: its
+  Coach-only-stage assertion assumes no other completed workout exists.
+- Local disposable three-client Owner publication → intake → deterministic
+  fallback → Coach review/assignment → Client player/results: passed, including
+  phone/iPad widths and one-current-set/round-aware guidance.
+- All CI application, fresh-database and secret checks passed for the app commit.
+  Real-provider preview three-client generation/review/assignment/player passed
+  (one test, three distinct OpenAI-assisted plans). An earlier preview attempt
+  correctly fell back and failed the real-provider assertion; fallback was not
+  accepted as proof of assisted generation. Post-merge production verification
+  remains a separate gate, recorded in the PR/release report rather than inferred.
+- No new exposed public table lacks RLS and no new RPC grants anonymous access.
+  Advisors' new readiness FK-index finding was fixed. Remaining notices include
+  two pre-existing [unindexed foreign keys](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys),
+  expected deny-all/private-table and explicitly guarded RPC notices, unused
+  indexes, and existing disabled [leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+  No Auth configuration was changed; advisor notices are not a security clearance.
+
+## Changed files in PR #27
+
+```text
+app/client/workout-player-actions.ts
+app/client/workouts/[workoutId]/page.tsx
+app/coach/actions.ts
+app/coach/clients/[clientId]/page.tsx
+app/coach/clients/[clientId]/prescriptions/[prescriptionId]/page.tsx
+app/coach/clients/[clientId]/workouts/[workoutId]/page.tsx
+app/coach/readiness-actions.ts
+app/owner/equipment/actions.ts
+app/owner/equipment/page.tsx
+app/owner/training-library/actions.ts
+app/owner/training-library/page.tsx
+components/client-workout-player.tsx
+components/dashboard.module.css
+components/equipment-form.tsx
+components/prescription-review-form.tsx
+components/programming-library-controls.tsx
+components/training-library-review.tsx
+components/training-readiness-history.tsx
+components/training-readiness.tsx
+components/workout-player.module.css
+components/workout-protocol-fields.tsx
+docs/workout-quality.md
+lib/training-review.ts
+lib/workout-generation-quality.ts
+lib/workout-generation.ts
+lib/workout-protocol.ts
+package.json
+scripts/verify-beta-ui.mjs
+scripts/verify-pending-quality-migrations.mjs
+supabase/migrations/20261019051718_workout_quality_foundation.sql
+supabase/migrations/20261019051942_structured_programming_quality.sql
+supabase/migrations/20261019052328_structured_workout_generation.sql
+supabase/migrations/20261019052736_workout_player_readiness.sql
+supabase/migrations/20261019061349_readiness_client_lookup_index.sql
+supabase/migrations/20261019062350_workout_substitution_units.sql
+supabase/tests/beta_readiness_rls.sql
+supabase/tests/gate4_intake_prescription_rls.sql
+supabase/tests/workout_quality_rls.sql
+tests/beta-readiness.spec.ts
+tests/unit/workout-quality.test.ts
+tests/workout-quality.spec.ts
+```
