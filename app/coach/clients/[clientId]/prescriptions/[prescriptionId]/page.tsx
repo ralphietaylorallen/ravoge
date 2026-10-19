@@ -5,6 +5,7 @@ import { DashboardShell, dashboardStyles as styles } from "@/components/dashboar
 import { PrescriptionReviewForm, type RecommendationExercise } from "@/components/prescription-review-form";
 import { requireRole } from "@/lib/auth";
 import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
+import { FALLBACK_MESSAGE, type GenerationInput } from "@/lib/workout-generation";
 
 export default async function PrescriptionReviewPage({ params }: { params: Promise<{ clientId: string; prescriptionId: string }> }) {
   const { clientId, prescriptionId } = await params;
@@ -14,15 +15,26 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("profiles").select("full_name").eq("id", clientId).single(),
     supabase.from("organizations").select("name,timezone").eq("id", membership.organization_id).single(),
-    supabase.from("generated_prescriptions").select("id,title,objective,estimated_duration_minutes,volume_intent,rationale,original_recommendation,status").eq("id", prescriptionId).eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("client_user_id", clientId).eq("status", "draft").maybeSingle(),
+    supabase.from("generated_prescriptions").select("id,title,objective,estimated_duration_minutes,volume_intent,rationale,original_recommendation,status,engine_version,generation_context").eq("id", prescriptionId).eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("client_user_id", clientId).eq("status", "draft").maybeSingle(),
     supabase.from("exercise_library").select("id,name,default_rep_min,default_set_min").eq("is_active", true).order("name"),
   ]);
   if (!client || !prescription) notFound();
   const recommendation = prescription.original_recommendation as RecommendationExercise[];
+  const snapshot = prescription.generation_context?.trainingSnapshot as GenerationInput | undefined;
   return <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={coach?.full_name ?? "Coach"} role="coach">
     <Link className={styles.backLink} href={`/coach/clients/${clientId}`}>← Back to {client.full_name}</Link>
     <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Ravoge recommendation</p><h2>Review first prescription</h2></div><p>Coach approval is required before this becomes visible to the client.</p></div>
     <section className={styles.rationalePanel}><div><span>Objective</span><strong>{prescription.objective}</strong></div><div><span>Duration</span><strong>{prescription.estimated_duration_minutes} minutes</strong></div><div><span>Volume intent</span><strong>{prescription.volume_intent}</strong></div><p>{prescription.rationale}</p></section>
-    <PrescriptionReviewForm clientId={clientId} exerciseOptions={library ?? []} exercises={recommendation} prescriptionId={prescriptionId} scheduledDate={localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={prescription.title} />
+    <section className={styles.operationCard} aria-label="Generation evidence">
+      <h3>Why this draft</h3>
+      <p>Source: {prescription.generation_context?.sourceType ?? "global_library"}.</p>
+      <p role="status">{prescription.engine_version === "prescription-v0.3-fallback" ? FALLBACK_MESSAGE : prescription.engine_version === "prescription-v0.3-openai" ? "OpenAI-assisted draft, validated against approved exercises and current gym equipment." : "Deterministic intake-based generation."}</p>
+      {snapshot && <><p>Goal: {snapshot.goal.replaceAll("_", " ")}{snapshot.secondaryGoal ? ` · ${snapshot.secondaryGoal.replaceAll("_", " ")}` : ""}. {snapshot.experience} experience · {snapshot.frequency} sessions/week · {snapshot.duration}-minute preference.</p>
+        <p>Equipment: {snapshot.equipment.join(", ").replaceAll("_", " ") || "Bodyweight only"}.</p>
+        <p>Restrictions honored: {snapshot.restrictions.tags.join(", ").replaceAll("_", " ") || "No structured movement exclusions"}. Exercise exclusions and experience were checked by the database. Free-text injuries and pain remain local to Ravoge; review them before assigning.</p>
+        {snapshot.references.length ? <p>Published gym references: {snapshot.references.map((reference) => `${reference.title} (revision ${reference.revision})`).join("; ")}. References influence style, not an unchanged copy.</p> : <p>Gym-personality references were unavailable. Approved general-library programming was used.</p>}
+        <p className={styles.formHint}>Rules: {prescription.generation_context?.rulesVersion}. Measurements and targets inform context, not a diagnosis, promised outcome or automatic load prescription. Choose appropriate load and substitutions after reviewing the Client.</p></>}
+    </section>
+    <PrescriptionReviewForm clientId={clientId} duration={prescription.estimated_duration_minutes} exerciseOptions={library ?? []} exercises={recommendation} prescriptionId={prescriptionId} scheduledDate={localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={prescription.title} />
   </DashboardShell>;
 }

@@ -1,0 +1,229 @@
+{
+  "status": "PRE-RELEASE VERIFICATION CHECKPOINT — NOT A PRODUCTION READINESS CLAIM",
+  "date": "2026-10-18",
+  "branch": "codex/ravoge-three-device-repair",
+  "baseCommit": "0c1d7560e072d8a467442fcdf3dd86bd504e9090",
+  "newCommit": null,
+  "pullRequest": null,
+  "newProductionDeployId": null,
+  "verifiedServices": {
+    "repository": "https://github.com/ralphietaylorallen/ravoge.git",
+    "supabase": {
+      "ref": "kqdnljafaiohlijbgfld",
+      "name": "Ravoge"
+    },
+    "netlify": {
+      "id": "c1bf03e6-2657-40fe-9584-f265ab9c2b94",
+      "name": "ravoge"
+    }
+  },
+  "preserved": [
+    "Existing Auth, memberships, organization isolation and route guards",
+    "Private profile-photo upload/crop/replace/remove system from merged PR #24",
+    "Manual workout builder, published-programming generator and approval/assignment permissions",
+    "All existing workout/import records and original raw import rows",
+    "Existing explicitly configured hours, Coach availability, closures and booking collision constraints",
+    "Existing Coming Soon artwork/design and Netlify configuration"
+  ],
+  "confirmedProblems": [
+    "The Pitt has no session settings, weekly gym hours or Coach availability. StaffBookingPage required settings and returned 404.",
+    "No calendar fallback for unconfigured gyms/Coaches; calendars exposed only open slots.",
+    "InBody required six extra measurements beyond the requested three primary measurements.",
+    "Body recomposition and optional versioned body-composition targets were missing.",
+    "Install handoff had no Continue without installing link for valid invitations."
+  ],
+  "localRepairs": [
+    "Virtual Mon–Sat 05:00–20:00 defaults, 60-minute appointments and final 19:00 start; existing explicit settings win.",
+    "Existing booking RPCs retain contracts. Add guarded calendar RPCs returning time/availability without other Client identity.",
+    "Use existing bookings.session_type for Intake; same collision, rescheduling and cancellation rules.",
+    "Remove missing-settings 404, show disabled Full slots, refresh after submission and show booking time confirmation.",
+    "Coach Client actions: Start intake now, Schedule intake, Schedule session. Immediate intake has no booking dependency.",
+    "Open intake from Coach schedule once an intake appointment starts.",
+    "Current weight/body-fat percentage/skeletal-muscle mass required for completed InBody; other measurements optional; append assessment history.",
+    "Optional body-composition targets saved and DB-validated in existing versioned intake.custom_fields; add body_recomposition goal.",
+    "Create workout points to existing intake generator; manual builder preserved as secondary action.",
+    "Invitation HTML/plain-text Get Ravoge CTA and requested subtitle; no false delivery status.",
+    "Explicit opaque-token continue link and accurate Safari Share → Add to Home Screen → Add instructions.",
+    "Thin server-only OpenAI enrichment with strict deidentified input/output, bounded repair and honest deterministic fallback; existing draft approval and Client visibility remain authoritative.",
+    "Invalid/expired invitation recovery action uses existing staff resend or a clearly labeled recipient email draft.",
+    "Reuse approved organization check-in questions for scheduled intake sessions; no duplicate Client full-intake system.",
+    "Scheduled intake reuses existing configured Client session questions; legacy Question 1–8 placeholders are not presented as a completed questionnaire. No production question wording was invented or approved."
+  ],
+  "migrations": [
+    {
+      "file": "supabase/migrations/20261018225002_three_device_scheduling_repair.sql",
+      "applied": true,
+      "tests": "Applied to verified Ravoge project after rollback-only review. Post-application npm run test:db passed all 21 suites."
+    },
+    {
+      "file": "supabase/migrations/20261018225529_three_device_intake_repair.sql",
+      "applied": true,
+      "tests": "Applied to verified Ravoge project after rollback-only review. Post-application npm run test:db passed all 21 suites."
+    },
+    {
+      "file": "supabase/migrations/20261018233001_assisted_workout_generation.sql",
+      "applied": true,
+      "tests": "Authenticated authorization, compatible candidates, conservative output bounds, stale-input rejection, private drafts, atomic approval and fallback provenance passed."
+    }
+  ],
+  "dataBackfillOrStatusChanges": "Three backward-compatible migrations applied. No production backfill, import publication or real account/password/status edits. Disposable QA gyms, accounts, bookings, assessments and synthetic photos are created only by explicit verification harnesses and removed afterward; SQL suites roll back.",
+  "verification": [
+    {
+      "command": "npm run lint",
+      "result": "PASS after fixing a render-purity lint error; final run exited 0."
+    },
+    {
+      "command": "npm run typecheck",
+      "result": "PASS"
+    },
+    {
+      "command": "npm run test:unit",
+      "result": "32 passed, 0 failed"
+    },
+    {
+      "command": "node scripts/with-ravoge-public-env.mjs build",
+      "result": "PASS (executes npm run build with only Ravoge public credentials in child-process memory)"
+    },
+    {
+      "command": "$env:CI='true'; node scripts/with-ravoge-public-env.mjs test:e2e",
+      "result": "190 passed, 46 explicitly gated/skipped, 0 failed (39.3 seconds). A six-worker run had seven five-second timing failures; four workers passed without weakening assertions or increasing those timeouts."
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS; Windows LF/CRLF conversion warnings only"
+    },
+    {
+      "command": "npm run test:db",
+      "result": "PASS: all 21 existing/new hosted SQL/RLS suites; ordinary authenticated contexts and transaction rollback."
+    },
+    {
+      "command": "Credential-value pattern scan across all changed/new files",
+      "result": "No candidate secret values found; CI gitleaks remains required."
+    },
+    {
+      "command": "$env:RAVOGE_RUN_DISPOSABLE_QA='yes'; node scripts/verify-operations-ui.mjs",
+      "result": "1 passed (55.9 seconds): existing configured schedules, manual workout creation/execution, intake, photos and responsive controls."
+    },
+    {
+      "command": "$env:RAVOGE_RUN_DISPOSABLE_QA='yes'; $env:RAVOGE_PHOTO_QA='yes'; $env:RAVOGE_PHOTO_HEIC_FIXTURE='.temp/libheif-example.heic'; node scripts/verify-operations-ui.mjs",
+      "result": "2 passed (42.7 seconds): ordinary authenticated private Storage, cross-role/gym denial, owner/assigned Coach upload and replacement, failed replacement preservation, HEIC/HEIF, EXIF stripping, dimensions and immediate thumbnails."
+    },
+    {
+      "command": "$env:RAVOGE_BETA_QA='yes'; node scripts/verify-beta-ui.mjs",
+      "result": "PASS: 1 complete authenticated scenario (1.5 minutes), current production build. Secure new/existing invitations, copy/resend, Client-only QR, Coach photo upload, Mon–Sat defaults, Full slots, concurrent booking race, cancellation reopening, Sunday closure, Client session answers, immediate intake/three InBody fields/targets, private fallback draft, Coach approval, Client visibility, six separate Coach sessions and logout/account switching. Layout assertions at 390/768/1024/1440px."
+    }
+  ],
+  "notProven": [
+    "Real invitation email delivery: RESEND_API_KEY and RAVOGE_EMAIL_FROM absent.",
+    "Verified ownership of signup email: existing Supabase Auth EmailAutoconfirm remains true.",
+    "Physical iPad/iPhone Safari Add to Home Screen and installed-app camera/photo-library handoff.",
+    "Production deployment and complete live workflow: must be verified after green PR checks and deployment."
+  ],
+  "blockers": [
+    "Invitation email delivery needs server-only RESEND_API_KEY and RAVOGE_EMAIL_FROM with a verified approved sender domain. No secret should be pasted into chat or Git.",
+    "Verified-email signup needs an approved production-capable Supabase Auth sender and a reviewed change to email-confirmation settings. Existing Auth settings were preserved."
+  ],
+  "remainingImplementationReview": [
+    "Local code/migration verification complete; require green PR checks and Netlify preview before safe merge.",
+    "Verify the existing Ravoge production deployment and one deidentified live OpenAI generation. Real invitation email delivery remains externally blocked."
+  ],
+  "liveURLsTestedThisCheckpoint": [],
+  "productionStatus": "Migrations applied; application release not yet committed or deployed at this checkpoint. This file records pre-release evidence, not future production results.",
+  "changedFiles": [
+    "app/client/book/page.tsx",
+    "app/client/preworkout-actions.ts",
+    "app/client/schedule/page.tsx",
+    "app/coach/actions.ts",
+    "app/coach/clients/[clientId]/book/page.tsx",
+    "app/coach/clients/[clientId]/page.tsx",
+    "app/coach/clients/[clientId]/prescriptions/[prescriptionId]/page.tsx",
+    "app/coach/schedule/page.tsx",
+    "app/login/page.tsx",
+    "app/owner/clients/[clientId]/book/page.tsx",
+    "app/owner/clients/[clientId]/page.tsx",
+    "app/owner/schedule/page.tsx",
+    "app/schedule/staff-actions.ts",
+    "components/booking-list.tsx",
+    "components/booking-time-slots.tsx",
+    "components/dashboard.module.css",
+    "components/generate-workout-form.tsx",
+    "components/install-access-page.tsx",
+    "components/intake-form.tsx",
+    "components/invitation-recovery.tsx",
+    "components/prescription-review-form.tsx",
+    "components/preworkout-checkin.tsx",
+    "components/pwa-install-button.tsx",
+    "components/role-signup-shell.tsx",
+    "components/schedule-forms.tsx",
+    "components/staff-booking-form.tsx",
+    "components/staff-booking-page.tsx",
+    "components/workout-generation-status.tsx",
+    "docs/three-device-repair-checkpoint.json",
+    "docs/workout-generation-rules.json",
+    "lib/intake-targets.ts",
+    "lib/invitation-email.ts",
+    "lib/workout-generation.ts",
+    "package.json",
+    "scripts/verify-beta-ui.mjs",
+    "supabase/migrations/20261018225002_three_device_scheduling_repair.sql",
+    "supabase/migrations/20261018225529_three_device_intake_repair.sql",
+    "supabase/migrations/20261018233001_assisted_workout_generation.sql",
+    "supabase/tests/assisted_workout_generation_rls.sql",
+    "supabase/tests/three_device_intake_rls.sql",
+    "supabase/tests/three_device_scheduling_rls.sql",
+    "tests/beta-readiness.spec.ts",
+    "tests/install-access.spec.ts",
+    "tests/operations-ui.spec.ts",
+    "tests/unit/intake-targets.test.ts",
+    "tests/unit/invitation-email.test.ts",
+    "tests/unit/workout-generation.test.ts"
+  ],
+  "preservationEvidence": {
+    "originalImportRows": 124,
+    "normalizedRawSourceDigest": "157f978e67f7e9e46ce87fe0c8c07ec5",
+    "result": "Unchanged before and after migrations and disposable QA. No original source values are included in this report."
+  },
+  "advisors": {
+    "security": [
+      {
+        "name": "rls_enabled_no_policy",
+        "level": "INFO",
+        "count": 1,
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
+      },
+      {
+        "name": "anon_security_definer_function_executable",
+        "level": "WARN",
+        "count": 5,
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable"
+      },
+      {
+        "name": "authenticated_security_definer_function_executable",
+        "level": "WARN",
+        "count": 64,
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable"
+      },
+      {
+        "name": "auth_leaked_password_protection",
+        "level": "WARN",
+        "count": 1,
+        "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+      }
+    ],
+    "performance": [
+      {
+        "name": "unindexed_foreign_keys",
+        "level": "INFO",
+        "count": 2,
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys"
+      },
+      {
+        "name": "unused_index",
+        "level": "INFO",
+        "count": 22,
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index"
+      }
+    ],
+    "review": "No public table lacks RLS; no new RPC is executable by anon. New authenticated definers are deliberately narrow and covered by cross-user/gym tests. Existing token-gated anonymous definers and deny-all private signup-intent table are intentional. Existing leaked-password protection configuration and low-priority index findings were reported, not silently changed."
+  }
+}

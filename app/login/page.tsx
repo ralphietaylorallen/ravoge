@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AuthEntryShell } from "@/components/auth-entry-shell";
 import { LoginForm } from "@/components/login-form";
+import { InvitationRecovery } from "@/components/invitation-recovery";
 import { getEnrollmentHandoff } from "@/lib/enrollment";
 import { getOrganizationEnrollmentContext } from "@/lib/invitations";
 
@@ -36,6 +37,7 @@ export default async function LoginPage({
           This invitation is invalid or has expired. You can still sign in normally.
         </p>
       ) : null}
+      {status === "invalid-invitation" && <InvitationRecovery />}
       <LoginForm
         invitationEmail={enrollment?.email ?? undefined}
         invitationToken={enrollment ? enrollmentToken : undefined}

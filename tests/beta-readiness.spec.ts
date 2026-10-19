@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+import sharp from "sharp";
 
 test.use({ trace: "off", actionTimeout: 25_000 });
 type Account = { email: string; password: string; name: string; id: string; role: string };
@@ -26,6 +28,7 @@ async function launchEnrollment(page: Page, url: string) {
   const href = await page.locator('link[rel="manifest"]').getAttribute("href");
   expect(Boolean(href?.startsWith("/api/enrollment/"))).toBe(true);
   const manifest = await (await page.request.get(href!)).json();
+  await expect(page.getByRole("link", { name: "Continue without installing" })).toHaveAttribute("href", manifest.start_url);
   // Netlify may canonicalize enrollment to a preview alias. Navigate as a real
   // same-origin link would, rather than jumping back to Playwright's baseURL.
   await page.goto(new URL(manifest.start_url, page.url()).href);
@@ -111,29 +114,90 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   expect(/^[0-9a-f-]{36}$/i.test(actualClientId)).toBe(true);
   await page.getByRole("button", { name: "Assign Coach", exact: true }).click();
   const dialog = page.getByRole("dialog"); await dialog.getByRole("radio", { name: /Beta New Coach/ }).check(); await dialog.getByRole("button", { name: "Confirm assignment" }).click(); await expect(dialog).not.toBeVisible();
-  await coach.goto(new URL(`/coach/clients/${actualClientId}?tab=intake`, coach.url()).href);
+  await coach.goto(new URL(`/coach/clients/${actualClientId}`, coach.url()).href);
+  // No gym hours, session settings or Coach windows exist in this new gym.
+  await coach.getByRole("link", { name: "Schedule intake", exact: true }).click();
+  await expect(coach.getByRole("heading", { name: "Schedule intake", exact: true })).toBeVisible();
+  const future = new Date(); future.setUTCDate(future.getUTCDate() + 1);
+  let offset = 1; if (future.getUTCDay() === 0) { future.setUTCDate(future.getUTCDate() + 1); offset++; }
+  const bookingDate = future.toISOString().slice(0, 10);
+  await coach.locator('[aria-label="Choose a session date"] button').nth(offset).click();
+  await expect(coach.locator('[aria-label="Choose a session date"] button').nth(offset)).toHaveAttribute("aria-pressed", "true");
+  await expect(coach.getByRole("radio")).toHaveCount(15);
+  await expect(coach.getByRole("radio", { name: "5:00 AM", exact: true })).toBeEnabled();
+  await expect(coach.getByRole("radio", { name: "7:00 PM", exact: true })).toBeEnabled();
+  await expect(coach.getByRole("radio", { name: "8:00 PM", exact: true })).toHaveCount(0);
+  await coach.getByRole("radio", { name: "5:00 AM", exact: true }).check();
+  await coach.getByRole("button", { name: "Book session for Beta New Client" }).click();
+  await expect(coach.getByRole("status")).toContainText("Intake booked");
+  await page.goto("/owner/schedule"); await expect(page.getByText(/with Beta New Client/)).toBeVisible(); await expect(page.getByText(/Intake · scheduled/)).toBeVisible();
+  await client.goto(new URL("/client/schedule", client.url()).href);
+  const sessionQuestions = client.locator("section").filter({ has: client.getByRole("heading", { name: "Your gym’s intake-session questions", exact: true }) });
+  for (let position = 1; position <= 8; position++) await sessionQuestions.getByRole("button", { name: `QA session question ${position}: 5`, exact: true }).click();
+  await sessionQuestions.getByRole("button", { name: "Save check-in", exact: true }).click();
+  await expect(sessionQuestions.getByText("Your responses were saved securely for this intake session.", { exact: true })).toBeVisible();
+  await client.reload(); await expect(sessionQuestions).toContainText("1 previous check-in saved for this session.");
+  await client.goto(new URL(`/client/book?date=${bookingDate}`, client.url()).href);
+  await expect(client.getByRole("radio")).toHaveCount(15);
+  await expect(client.getByRole("radio", { name: /5:00 AM.*Full/ })).toBeDisabled();
+  await expect(client.getByText("Full", { exact: true })).toHaveCount(1);
+  await responsive(client, "fallback-calendar", testInfo);
+  await coach.goto(new URL(`/coach/clients/${actualClientId}/book?date=${bookingDate}`, coach.url()).href);
+  await coach.getByRole("radio", { name: "6:00 AM", exact: true }).check(); await coach.getByRole("button", { name: "Book session for Beta New Client" }).click();
+  await expect(coach.getByRole("status")).toContainText("Session booked");
+  await client.reload(); await expect(client.getByText("Full", { exact: true })).toHaveCount(2);
+  // Race two ordinary authenticated requests. The database exclusion constraint
+  // must allow exactly one, independent of stale UI on two devices.
+  const ordinary = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+  const signedIn = await ordinary.auth.signInWithPassword({ email: newClientEmail, password }); expect(signedIn.error === null).toBe(true);
+  const raced = await Promise.all([1, 2].map(() => ordinary.rpc("create_client_booking", { target_starts_at: `${bookingDate}T07:00:00Z`, target_duration: 60, client_notes: null })));
+  expect(raced.filter((result) => !result.error && result.data)).toHaveLength(1); expect(raced.filter((result) => result.error)).toHaveLength(1);
+  const raceBooking = raced.find((result) => !result.error)!.data;
+  expect((await ordinary.rpc("cancel_client_booking", { target_booking_id: raceBooking, reason: "Disposable QA cancellation" })).error === null).toBe(true);
+  await client.reload(); await expect(client.getByRole("radio", { name: "7:00 AM", exact: true })).toBeEnabled();
+  const sunday = new Date(future); let sundayOffset = offset; while (sunday.getUTCDay() !== 0) { sunday.setUTCDate(sunday.getUTCDate() + 1); sundayOffset++; }
+  await coach.goto(new URL(`/coach/clients/${actualClientId}/book`, coach.url()).href); await coach.locator('[aria-label="Choose a session date"] button').nth(sundayOffset).click();
+  await expect(coach.getByRole("radio")).toHaveCount(0);
+  await coach.goto(new URL(`/coach/clients/${actualClientId}`, coach.url()).href);
+  const photo = coach.locator(`[data-profile-photo-editor="${actualClientId}"]`);
+  const bytes = await sharp({ create: { width: 1400, height: 1000, channels: 3, background: "#97835d" } }).jpeg().toBuffer();
+  await photo.locator('input[type="file"]').first().setInputFiles({ buffer: bytes, name: "non-personal-qa.jpg", mimeType: "image/jpeg" });
+  await photo.getByRole("dialog").getByRole("button", { name: "Save photo", exact: true }).click();
+  await expect(photo.getByRole("status")).toContainText("Profile photo updated"); await expect(photo.locator("button img")).toBeVisible();
+  await coach.getByRole("link", { name: "Start intake now", exact: true }).click();
   await expect(coach.getByRole("heading", { name: "Beta New Client", exact: true }), await coach.locator("body").innerText()).toBeVisible();
   await coach.getByLabel("Session duration", { exact: true }).fill("45");
+  await coach.getByLabel("Secondary goal").selectOption("body_recomposition");
   await coach.getByRole("button", { name: "Continue →", exact: true }).click();
   for (const [id, value] of Object.entries({ squatLoadKg: "40", squatReps: "5", squatOneRmKg: "45", benchLoadKg: "25", benchReps: "5", benchOneRmKg: "30", pullupStrictReps: "0" })) await coach.locator(`#${id}`).fill(value);
   await coach.getByRole("button", { name: "Continue →", exact: true }).click(); await coach.locator("#rowerDistanceM").fill("500"); await coach.locator("#rowerTimeSeconds").fill("120");
-  await coach.getByRole("button", { name: "Continue →", exact: true }).click(); await coach.getByRole("button", { name: "Continue →", exact: true }).click();
-  await coach.getByRole("button", { name: "Save versioned intake & baseline" }).click(); await expect(coach.getByRole("status")).toContainText("Versioned intake and baseline saved");
+  await coach.getByRole("button", { name: "Continue →", exact: true }).click();
+  await coach.getByLabel("Assessment status").selectOption("completed"); await coach.locator("#inbodyTestDate").fill(new Date().toISOString().slice(0, 10));
+  for (const [id, value] of Object.entries({ weightKg: "85", bodyFatPercentage: "24", skeletalMuscleMassKg: "33", goalWeightKg: "80", goalBodyFatPercentage: "18", goalSkeletalMuscleMassKg: "35" })) await coach.locator(`#${id}`).fill(value);
+  await coach.getByRole("button", { name: "Continue →", exact: true }).click();
+  await coach.getByRole("button", { name: "Save versioned intake & baseline" }).click(); await expect(coach.getByRole("status").filter({ hasText: "Versioned intake and baseline saved" })).toBeVisible();
   await coach.goto(new URL(`/coach/clients/${actualClientId}`, coach.url()).href);
   await coach.getByRole("checkbox", { name: /I reviewed the latest intake/ }).check(); await coach.getByRole("button", { name: "Confirm intake safety review" }).click();
-  await expect(coach.getByRole("button", { name: "Generate workout", exact: true })).toBeEnabled();
-  await coach.getByRole("button", { name: "Generate workout", exact: true }).click(); await expect(coach.getByText(/Source: organization_workout/)).toBeVisible();
+  await expect(coach.getByRole("button", { name: "Create workout", exact: true })).toBeEnabled();
+  await coach.getByRole("button", { name: "Create workout", exact: true }).click();
+  await expect(coach).toHaveURL(/\/prescriptions\/[0-9a-f-]+$/, { timeout: 50_000 });
+  await expect(coach.getByText("Source: organization_workout.", { exact: true })).toBeVisible();
+  await expect(coach.getByRole("region", { name: "Generation evidence" })).toBeVisible();
+  const generatedTitle = await coach.getByLabel("Workout name", { exact: true }).inputValue();
+  if (process.env.RAVOGE_LIVE_WORKOUT_QA !== "yes") await expect(coach.getByText("Ravoge used safe fallback generation for this workout.", { exact: true })).toBeVisible();
+  else await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status")).toHaveText("OpenAI-assisted draft, validated against approved exercises and current gym equipment.");
   await client.goto(new URL("/client", client.url()).href); await expect(client).toHaveURL(/\/client$/);
   await client.screenshot({ path: testInfo.outputPath("client-before-approval.png"), fullPage: true });
   await expect(client.getByRole("navigation", { name: "client navigation" }), await client.locator("body").innerText()).toBeVisible();
-  await expect(client.getByRole("link", { name: /Beta Gym Strength/ })).toHaveCount(0);
+  await expect(client.getByRole("link", { name: generatedTitle, exact: false })).toHaveCount(0);
   await responsive(coach, "prescription", testInfo);
   await coach.getByRole("button", { name: "Approve & assign" }).click(); await expect(coach.getByRole("status")).toContainText("now assigned");
   await client.reload(); await expect(client).toHaveURL(/\/client$/);
   await client.screenshot({ path: testInfo.outputPath("client-after-approval.png"), fullPage: true });
-  await expect(client.getByRole("link", { name: /Beta Gym Strength/ })).toBeVisible();
-  await client.getByRole("link", { name: /Beta Gym Strength/ }).click();
-  await expect(client.getByRole("heading", { name: "Beta Gym Strength", exact: true })).toBeVisible(); await expect(client.getByText("Goblet Squat", { exact: true })).toBeVisible(); await responsive(client, "client-workout", testInfo);
+  await expect(client.getByRole("link", { name: generatedTitle, exact: false })).toBeVisible();
+  await client.getByRole("link", { name: generatedTitle, exact: false }).click();
+  await expect(client.getByRole("heading", { name: generatedTitle, exact: true })).toBeVisible(); await expect(client.getByRole("heading", { name: "Exercises", exact: true })).toBeVisible(); await responsive(client, "client-workout", testInfo);
+  await ordinary.auth.signOut();
   // An existing Client uses the same gym QR without creating a second identity.
   const existingClientContext = await browser.newContext(); const existingClientPage = await existingClientContext.newPage();
   await launchEnrollment(existingClientPage, clientQr!);

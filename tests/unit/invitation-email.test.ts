@@ -18,6 +18,10 @@ test("invitation adapter skips missing configuration and reports provider result
       const body = JSON.parse(String(init?.body));
       assert.deepEqual(body.to, ["intended@example.test"]);
       assert.ok(body.html.includes("Test &lt;gym&gt;"));
+      assert.ok(body.html.includes(">Get Ravoge</a>"));
+      assert.ok(body.html.includes("Install Ravoge, create your password, and you’re connected."));
+      assert.ok(body.text.includes(input.invitationUrl));
+      assert.ok(body.text.includes(input.recipientEmail));
       assert.ok(!body.html.includes("unit-test-placeholder"));
       return new Response(JSON.stringify({ id: "unit-test-message" }), { status: 200 });
     };

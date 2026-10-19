@@ -6,13 +6,22 @@ import { requireRole } from "@/lib/auth";
 
 export type CheckinState = { status: "idle" | "error" | "success"; message?: string };
 
-export async function submitPreworkoutCheckinAction(workoutId: string, _state: CheckinState, formData: FormData): Promise<CheckinState> {
+async function saveCheckin(contextId: string, kind: "workout" | "booking", formData: FormData): Promise<CheckinState> {
   const { supabase } = await requireRole("client");
-  if (!/^[0-9a-f-]{36}$/i.test(workoutId)) return { status: "error", message: "Workout is unavailable." };
+  if (!/^[0-9a-f-]{36}$/i.test(contextId)) return { status: "error", message: "This session or workout is unavailable." };
   const answers = Array.from({ length: 8 }, (_, index) => ({ position: index + 1, answer: Number(formData.get(`answer-${index + 1}`)) }));
-  if (answers.some(({ answer }) => !Number.isFinite(answer) || answer < 1 || answer > 10)) return { status: "error", message: "Answer each question from 1 to 10." };
-  const { error } = await supabase.rpc("submit_preworkout_checkin", { target_booking_id: null, target_workout_assignment_id: workoutId, submitted_answers: answers });
+  if (answers.some(({ position, answer }) => !Number.isFinite(answer) || !String(formData.get(`answer-${position}`) ?? "").trim())) return { status: "error", message: "Answer every question within its shown range." };
+  const { error } = await supabase.rpc("submit_preworkout_checkin", { target_booking_id: kind === "booking" ? contextId : null, target_workout_assignment_id: kind === "workout" ? contextId : null, submitted_answers: answers });
   if (error) return { status: "error", message: "Check-in was not saved. Confirm the workout and answer ranges." };
-  revalidatePath(`/client/workouts/${workoutId}`);
-  return { status: "success", message: "Pre-workout check-in saved to this workout history." };
+  revalidatePath("/client/schedule");
+  if (kind === "workout") revalidatePath(`/client/workouts/${contextId}`);
+  return { status: "success", message: kind === "booking" ? "Your responses were saved securely for this intake session." : "Pre-workout check-in saved to this workout history." };
+}
+
+export async function submitPreworkoutCheckinAction(workoutId: string, _state: CheckinState, formData: FormData): Promise<CheckinState> {
+  return saveCheckin(workoutId, "workout", formData);
+}
+
+export async function submitIntakeSessionCheckinAction(bookingId: string, _state: CheckinState, formData: FormData): Promise<CheckinState> {
+  return saveCheckin(bookingId, "booking", formData);
 }

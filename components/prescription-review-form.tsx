@@ -15,6 +15,7 @@ export type RecommendationExercise = {
   reps: number;
   restSeconds: number | null;
   sets: number;
+  targetRpe?: number;
 };
 
 type ExerciseOption = {
@@ -33,6 +34,7 @@ export function PrescriptionReviewForm({
   prescriptionId,
   scheduledDate,
   title,
+  duration,
 }: {
   clientId: string;
   exercises: RecommendationExercise[];
@@ -40,6 +42,7 @@ export function PrescriptionReviewForm({
   prescriptionId: string;
   scheduledDate: string;
   title: string;
+  duration: number;
 }) {
   const approve = approvePrescriptionAction.bind(null, clientId, prescriptionId);
   const [state, action, pending] = useActionState(approve, { status: "idle" as const });
@@ -74,6 +77,7 @@ export function PrescriptionReviewForm({
         <div className={styles.field}><label htmlFor="review-title">Workout name</label><input defaultValue={title} id="review-title" maxLength={120} name="title" required /></div>
         <div className={styles.field}><label htmlFor="review-date">Assign date</label><input defaultValue={scheduledDate} id="review-date" name="scheduledDate" required type="date" /></div>
       </div>
+      <div className={styles.field}><label htmlFor="review-duration">Workout duration (minutes)</label><input defaultValue={duration} id="review-duration" name="estimatedDurationMinutes" min={20} max={180} required type="number" /></div>
       <div className={styles.field}><label htmlFor="review-instructions">Coach instructions</label><textarea id="review-instructions" maxLength={4000} name="instructions" rows={3} /></div>
 
       <div className={styles.exerciseHeader}><h3>Editable recommendation</h3><button className={styles.textAction} onClick={addExercise} type="button">+ Add exercise</button></div>
@@ -90,6 +94,7 @@ export function PrescriptionReviewForm({
             <div className={styles.field}><label htmlFor={`review-sets-${row.rowId}`}>Sets</label><input defaultValue={row.sets} id={`review-sets-${row.rowId}`} max={100} min={1} name="exerciseSets" required type="number" /></div>
             <div className={styles.field}><label htmlFor={`review-reps-${row.rowId}`}>Reps</label><input defaultValue={row.reps} id={`review-reps-${row.rowId}`} max={1000} min={1} name="exerciseReps" required type="number" /></div>
             <div className={styles.field}><label htmlFor={`review-load-${row.rowId}`}>Load</label><input defaultValue={row.load ?? ""} id={`review-load-${row.rowId}`} max={100000} min={0} name="exerciseLoad" step="0.01" type="number" /></div>
+            <div className={styles.field}><label htmlFor={`review-rpe-${row.rowId}`}>Target effort (RPE)</label><input defaultValue={row.targetRpe ?? ""} id={`review-rpe-${row.rowId}`} min={1} max={10} step="0.5" name="exerciseRpe" type="number" /></div>
             <div className={styles.field}><label htmlFor={`review-rest-${row.rowId}`}>Rest seconds</label><input defaultValue={row.restSeconds ?? ""} id={`review-rest-${row.rowId}`} max={1800} min={10} name="exerciseRest" type="number" /></div>
             <div className={`${styles.field} ${styles.reviewNotes}`}><label htmlFor={`review-notes-${row.rowId}`}>Notes</label><input defaultValue={row.notes ?? ""} id={`review-notes-${row.rowId}`} maxLength={1000} name="exerciseNotes" /></div>
             <div className={`${styles.field} ${styles.reviewReason}`}><label htmlFor={`review-reason-${row.rowId}`}>Why Ravoge selected it</label><input defaultValue={row.reason} id={`review-reason-${row.rowId}`} maxLength={1000} name="exerciseReason" /></div>

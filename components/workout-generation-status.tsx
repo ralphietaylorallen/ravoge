@@ -1,4 +1,6 @@
-import { confirmGenerationSafetyAction, generatePrescriptionAction } from "@/app/coach/actions";
+import Link from "next/link";
+import { confirmGenerationSafetyAction } from "@/app/coach/actions";
+import { GenerateWorkoutForm } from "@/components/generate-workout-form";
 import type { WorkoutReadiness } from "@/lib/workout-readiness";
 import styles from "./dashboard.module.css";
 
@@ -13,7 +15,9 @@ export function WorkoutGenerationStatus({ clientId, readiness }: { clientId: str
         <p className={styles.formHint}>If a restriction cannot be represented safely, update intake or use the manual builder after your review. This confirmation does not remove any exercise filters.</p>
         <button className={styles.secondaryAction}>Confirm intake safety review</button>
       </form>}
-      <form action={generatePrescriptionAction.bind(null, clientId)}><button className={styles.action} disabled={!readiness.ready}>Generate workout</button></form>
+      {!readiness.ready && <div className={styles.bookingActions}><Link href={`/coach/clients/${clientId}?tab=intake`}>{readiness.intakeId ? "Add goals / review restrictions" : "Complete intake"}</Link><details><summary>Review equipment</summary><p className={styles.formHint}>Ask your Owner to review Equipment and select only what is actually available. {readiness.missingEquipment?.length ? `Potentially missing: ${readiness.missingEquipment.join(", ").replaceAll("_", " ")}.` : "Then refresh this page to check compatibility again."}</p></details></div>}
+      <GenerateWorkoutForm clientId={clientId} ready={readiness.ready} />
+      <p className={styles.formHint}>Generate a draft from the saved intake, restrictions, actual equipment and published gym programming. Review, approve and assign it before the Client can see it.</p>
     </> : <p>Workout readiness could not be checked. Refresh or save the intake again before generating.</p>}
   </section>;
 }

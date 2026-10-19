@@ -1,6 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+import { BookingTimeSlots, type BookingSlot } from "@/components/booking-time-slots";
 
 import {
   addAvailabilityAction,
@@ -27,7 +30,8 @@ type Settings = { buffer_after_minutes: number; buffer_before_minutes: number; c
 
 export function OrganizationScheduleForm({ address, hours, settings, timezone }: { address?: string | null; hours: Hours[]; settings: Settings; timezone: string }) {
   const [state, action, pending] = useActionState(saveOrganizationScheduleAction, initial);
-  const byDay = new Map(hours.map((row) => [row.day_of_week, row]));
+  const effectiveHours = hours.length ? hours : days.map((_, day_of_week) => ({ day_of_week, is_closed: day_of_week === 0, opens_at: "05:00", closes_at: "20:00" }));
+  const byDay = new Map(effectiveHours.map((row) => [row.day_of_week, row]));
   return <form action={action} className={styles.scheduleForm}>
     <div className={styles.formColumns}><div className={styles.field}><label htmlFor="timezone">Organization timezone</label><input defaultValue={timezone} id="timezone" name="timezone" required /></div><div className={styles.field}><label htmlFor="gym-address">Gym address <span>Optional</span></label><input defaultValue={address ?? ""} id="gym-address" maxLength={500} name="address" /></div></div>
     <div className={styles.hoursGrid}>{days.map((day, index) => { const row = byDay.get(index); return <fieldset className={styles.hourRow} key={day}><legend>{day}</legend><label><input defaultChecked={row?.is_closed ?? true} name={`day-${index}-closed`} type="checkbox" /> Closed</label><label>Open<input defaultValue={row?.opens_at?.slice(0, 5) ?? "08:00"} name={`day-${index}-open`} type="time" /></label><label>Close<input defaultValue={row?.closes_at?.slice(0, 5) ?? "18:00"} name={`day-${index}-close`} type="time" /></label></fieldset>; })}</div>
@@ -54,11 +58,12 @@ export function AvailabilityExceptionForm({ timezone }: { timezone: string }) {
   return <form action={action} className={styles.form}><p className={styles.formHint}>Times are interpreted in {timezone}. Nonexistent DST times are rejected.</p><div className={styles.threeColumns}><div className={styles.field}><label htmlFor="exception-kind">Type</label><select id="exception-kind" name="kind"><option value="unavailable">Unavailable</option><option value="personal_block">Personal block</option><option value="vacation">Vacation / time off</option><option value="available_override">One-off availability</option></select></div><div className={styles.field}><label htmlFor="exception-start">Start</label><input id="exception-start" name="startsAt" required type="datetime-local" /></div><div className={styles.field}><label htmlFor="exception-end">End</label><input id="exception-end" name="endsAt" required type="datetime-local" /></div></div><div className={styles.field}><label htmlFor="exception-label">Label <span>Optional</span></label><input id="exception-label" maxLength={160} name="label" /></div><button className={styles.secondaryAction} disabled={pending} type="submit">Add exception</button><Result state={state} /></form>;
 }
 
-type Slot = { ends_at: string; starts_at: string };
-export function BookingForm({ bookingId, duration, slots, timezone }: { bookingId?: string; duration: number; slots: Slot[]; timezone: string }) {
+export function BookingForm({ bookingId, duration, slots, timezone }: { bookingId?: string; duration: number; slots: BookingSlot[]; timezone: string }) {
   const boundAction = bookingId ? rescheduleSessionAction.bind(null, bookingId) : bookSessionAction;
   const [state, action, pending] = useActionState(boundAction, initial);
-  return <form action={action} className={styles.form}><input name="duration" type="hidden" value={duration} /><fieldset className={styles.choiceField}><legend>Available times</legend><div className={styles.slotGrid}>{slots.map((slot, index) => <label key={slot.starts_at}><input defaultChecked={index === 0} name="startsAt" required type="radio" value={slot.starts_at} /><span>{new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: timezone }).format(new Date(slot.starts_at))}</span></label>)}</div></fieldset>{!bookingId && <div className={styles.field}><label htmlFor="booking-notes">Session note <span>Optional · no health details</span></label><textarea id="booking-notes" maxLength={1000} name="notes" rows={3} /></div>}<button className={styles.action} disabled={pending || slots.length === 0} type="submit">{pending ? "Confirming…" : bookingId ? "Confirm reschedule" : "Confirm session"}</button><Result state={state} /></form>;
+  const router = useRouter();
+  useEffect(() => { if (state.status !== "idle") router.refresh(); }, [router, state]);
+  return <form action={action} className={styles.form}><input name="duration" type="hidden" value={duration} /><BookingTimeSlots slots={slots} timezone={timezone} />{!bookingId && <div className={styles.field}><label htmlFor="booking-notes">Session note <span>Optional · no health details</span></label><textarea id="booking-notes" maxLength={1000} name="notes" rows={3} /></div>}<button className={styles.action} disabled={pending || !slots.some((slot) => slot.available) || state.status === "success"} type="submit">{pending ? "Confirming…" : bookingId ? "Confirm reschedule" : "Confirm session"}</button><Result state={state} /></form>;
 }
 
 export function CancelBookingForm({ bookingId }: { bookingId: string }) {
