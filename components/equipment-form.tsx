@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 
-import { addEquipmentAction, saveEquipmentChecklistAction } from "@/app/owner/actions";
+import { saveEquipmentChecklistAction } from "@/app/owner/actions";
+import { saveResourceAction } from "@/app/owner/equipment/actions";
 
 import styles from "./dashboard.module.css";
 
@@ -25,32 +26,36 @@ export function EquipmentChecklist({ existing }: { existing: string[] }) {
   </form>;
 }
 
-export function EquipmentForm() {
-  const [state, action, pending] = useActionState(addEquipmentAction, { status: "idle" as const });
+type Resource = { id: string; name: string; quantity?: number | null; equipment_type?: string; feature_type?: string; notes: string | null; is_available: boolean; usable_length?: number | null; length_unit?: string };
+export function EquipmentForm({ item, facility = false }: { item?: Resource; facility?: boolean }) {
+  const [state, action, pending] = useActionState(saveResourceAction.bind(null, item?.id ?? null, facility ? "facility" : "equipment"), { status: "idle" as const });
+  const prefix = `resource-${item?.id ?? (facility ? "facility" : "new")}`;
   return (
     <form action={action} className={styles.form}>
       <div className={styles.formColumns}>
         <div className={styles.field}>
-          <label htmlFor="equipment-type">Equipment type</label>
-          <select id="equipment-type" name="equipmentType" required>
-            {equipmentTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          <label htmlFor={`${prefix}-type`}>{facility ? "Facility feature" : "Equipment type"}</label>
+          <select id={`${prefix}-type`} name="equipmentType" required defaultValue={item?.equipment_type ?? item?.feature_type}>
+            {(facility ? [["turf", "Turf"], ["open_training_area", "Open training area"]] : [...equipmentTypes, ["ski_erg", "SkiErg"], ["rower", "Rower"]]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
         <div className={styles.field}>
-          <label htmlFor="equipment-quantity">Quantity</label>
-          <input id="equipment-quantity" max={10000} min={1} name="quantity" type="number" />
+          <label htmlFor={`${prefix}-quantity`}>{facility ? "Usable length" : "Quantity (optional)"}</label>
+          <input id={`${prefix}-quantity`} max={facility ? 1000 : 10000} min={facility ? 0.1 : 1} step={facility ? "0.1" : "1"} name={facility ? "length" : "quantity"} defaultValue={facility ? item?.usable_length ?? "" : item?.quantity ?? ""} type="number" />
         </div>
       </div>
       <div className={styles.field}>
-        <label htmlFor="equipment-name">Name</label>
-        <input id="equipment-name" maxLength={120} name="name" placeholder="e.g. Rogue squat racks" required />
+        <label htmlFor={`${prefix}-name`}>Name</label>
+        <input id={`${prefix}-name`} maxLength={120} name="name" placeholder={facility ? "e.g. 25-yard turf" : "e.g. Rogue squat racks"} defaultValue={item?.name} required />
       </div>
       <div className={styles.field}>
-        <label htmlFor="equipment-notes">Notes</label>
-        <textarea id="equipment-notes" maxLength={1000} name="notes" rows={3} />
+        <label htmlFor={`${prefix}-notes`}>Notes</label>
+        <textarea id={`${prefix}-notes`} maxLength={1000} name="notes" defaultValue={item?.notes ?? ""} rows={3} />
       </div>
+      {facility && <label className={styles.field}><span>Length unit</span><select name="lengthUnit" defaultValue={item?.length_unit ?? "yards"}><option value="yards">Yards</option><option value="meters">Meters</option></select></label>}
+      <label className={styles.checkboxLabel}><input type="checkbox" name="available" value="yes" defaultChecked={item?.is_available ?? true} />Available for training</label>
       <button className={styles.action} disabled={pending} type="submit">
-        {pending ? "Adding…" : "Add equipment"}
+        {pending ? "Saving…" : item ? "Save changes" : facility ? "Add facility feature" : "Add equipment"}
       </button>
       {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
     </form>

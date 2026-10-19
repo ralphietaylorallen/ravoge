@@ -119,6 +119,9 @@
 .reviewForm { padding: clamp(1rem, 2.5vw, 2rem); border: 1px solid #d7d2c8; background: #fbfaf7; }
 .reviewRow { display: grid; grid-template-columns: minmax(12rem, 1.6fr) repeat(4, minmax(4.5rem, 0.5fr)); gap: 0.75rem; margin: 0; padding: 1rem; border: 1px solid #e0dcd3; background: #fff; }
 .reviewNotes, .reviewReason { grid-column: span 2; }
+.reviewProtocol { grid-column: 1 / -1; min-width: 0; }
+.equipmentList > li { flex-wrap: wrap; }
+.equipmentList > li > details { flex-basis: 100%; min-width: 0; }
 .reviewFooter { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding-top: 0.5rem; }
 .reviewFooter p { max-width: 36rem; margin: 0; color: #777a75; font-size: 0.76rem; line-height: 1.55; }
 .rationalePanel { display: grid; grid-template-columns: 1.5fr 0.6fr 0.6fr; gap: 1px; margin-bottom: 1rem; border: 1px solid #d8d4ca; background: #d8d4ca; }

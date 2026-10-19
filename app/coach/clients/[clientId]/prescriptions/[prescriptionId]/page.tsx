@@ -28,13 +28,14 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
     <section className={styles.operationCard} aria-label="Generation evidence">
       <h3>Why this draft</h3>
       <p>Source: {prescription.generation_context?.sourceType ?? "global_library"}.</p>
-      <p role="status">{prescription.engine_version === "prescription-v0.3-fallback" ? FALLBACK_MESSAGE : prescription.engine_version === "prescription-v0.3-openai" ? "OpenAI-assisted draft, validated against approved exercises and current gym equipment." : "Deterministic intake-based generation."}</p>
+      <p role="status">{prescription.engine_version.endsWith("-fallback") ? FALLBACK_MESSAGE : prescription.engine_version.endsWith("-openai") ? "OpenAI-assisted draft, validated against approved exercises and current gym equipment." : "Deterministic intake-based generation."}</p>
       {snapshot && <><p>Goal: {snapshot.goal.replaceAll("_", " ")}{snapshot.secondaryGoal ? ` · ${snapshot.secondaryGoal.replaceAll("_", " ")}` : ""}. {snapshot.experience} experience · {snapshot.frequency} sessions/week · {snapshot.duration}-minute preference.</p>
         <p>Equipment: {snapshot.equipment.join(", ").replaceAll("_", " ") || "Bodyweight only"}.</p>
         <p>Restrictions honored: {snapshot.restrictions.tags.join(", ").replaceAll("_", " ") || "No structured movement exclusions"}. Exercise exclusions and experience were checked by the database. Free-text injuries and pain remain local to Ravoge; review them before assigning.</p>
+        <p>Gym-profile version: {snapshot.gymProfile?.version ?? "No published profile"}. Published sources in gym: {snapshot.publishedCount ?? snapshot.references.length}. Available facilities: {snapshot.facilities?.map(f => `${f.type} · ${f.length} ${f.unit}`).join(", ") || "None confirmed"}.</p>
         {snapshot.references.length ? <p>Published gym references: {snapshot.references.map((reference) => `${reference.title} (revision ${reference.revision})`).join("; ")}. References influence style, not an unchanged copy.</p> : <p>Gym-personality references were unavailable. Approved general-library programming was used.</p>}
         <p className={styles.formHint}>Rules: {prescription.generation_context?.rulesVersion}. Measurements and targets inform context, not a diagnosis, promised outcome or automatic load prescription. Choose appropriate load and substitutions after reviewing the Client.</p></>}
     </section>
-    <PrescriptionReviewForm clientId={clientId} duration={prescription.estimated_duration_minutes} exerciseOptions={library ?? []} exercises={recommendation} prescriptionId={prescriptionId} scheduledDate={localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={prescription.title} />
+    <PrescriptionReviewForm quality={prescription.engine_version.startsWith("prescription-v0.4-")} clientId={clientId} duration={prescription.estimated_duration_minutes} exerciseOptions={library ?? []} exercises={recommendation} prescriptionId={prescriptionId} scheduledDate={localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={prescription.title} />
   </DashboardShell>;
 }

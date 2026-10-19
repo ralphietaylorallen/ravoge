@@ -11,6 +11,7 @@ if (!key?.startsWith("sb_publishable_")) throw new Error("Ravoge publishable key
 const org = randomUUID(), run = randomUUID(), prefix = `qa-beta-${run}`;
 const password = randomBytes(24).toString("hex");
 const roles = ["owner", "invited_coach", "existing_client", "coach", "coach", "coach", "coach"];
+if (process.env.RAVOGE_QUALITY_QA === "yes") roles.push("client", "client", "client");
 const users = roles.map((role, index) => ({ role, id: randomUUID(), email: `${prefix}-${index}@example.test`, password, name: `Beta QA ${role} ${index}` }));
 const newCoachEmail = `${prefix}-new-coach@example.test`, newClientEmail = `${prefix}-new-client@example.test`;
 const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: `https://${project}.supabase.co`, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
@@ -32,7 +33,8 @@ try {
       insert into auth.identities(id,user_id,provider_id,identity_data,provider,created_at,updated_at) values(gen_random_uuid(),'${user.id}','${user.id}',jsonb_build_object('sub','${user.id}','email','${user.email}','email_verified',true),'email',now(),now());`).join("\n")}
     insert into public.organizations(id,name,timezone) values('${org}','Ravoge Beta Verification ${run}','UTC');
     update public.organization_preworkout_questions set question_text='QA session question '||position where organization_id='${org}';
-    ${users.filter(user => ["owner", "coach"].includes(user.role)).map(user => `insert into public.organization_memberships(organization_id,user_id,role) values('${org}','${user.id}','${user.role}');`).join("\n")}
+    ${users.filter(user => ["owner", "coach", "client"].includes(user.role)).map(user => `insert into public.organization_memberships(organization_id,user_id,role) values('${org}','${user.id}','${user.role}');`).join("\n")}
+    ${users.filter(user => user.role === "client").map(user => `insert into public.coach_client_assignments(organization_id,coach_user_id,client_user_id) values('${org}','${users[3].id}','${user.id}');`).join("\n")}
     ${users.filter(user => ["invited_coach", "existing_client"].includes(user.role)).map(user => `select set_config('request.jwt.claim.sub','${user.id}',true); select public.register_unaffiliated_account_type('${user.role === "invited_coach" ? "coach" : "client"}');`).join("\n")}
     commit;`);
   created = true;
@@ -45,7 +47,7 @@ try {
     server.stderr.on("data", chunk => process.stderr.write(chunk));
     for (let attempt = 0; attempt < 60; attempt++) { try { if ((await fetch(env.PLAYWRIGHT_BASE_URL)).ok) break; } catch {} await new Promise(resolve => setTimeout(resolve, 500)); }
   }
-  execSync("npx playwright test tests/beta-readiness.spec.ts --project=desktop --workers=1", { env, stdio: "inherit", windowsHide: true });
+  execSync(`npx playwright test ${env.RAVOGE_QUALITY_QA === "yes" ? "tests/workout-quality.spec.ts" : "tests/beta-readiness.spec.ts"} --project=desktop --workers=1`, { env, stdio: "inherit", windowsHide: true });
 } finally {
   server?.kill();
   if (created) {

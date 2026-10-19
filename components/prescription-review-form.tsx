@@ -5,6 +5,8 @@ import { useActionState, useState } from "react";
 import { approvePrescriptionAction } from "@/app/coach/actions";
 
 import styles from "./dashboard.module.css";
+import { defaultProtocol, type WorkoutProtocol } from "@/lib/workout-protocol";
+import { WorkoutProtocolFields } from "./workout-protocol-fields";
 
 export type RecommendationExercise = {
   libraryExerciseId: string;
@@ -16,6 +18,7 @@ export type RecommendationExercise = {
   restSeconds: number | null;
   sets: number;
   targetRpe?: number;
+  protocol?: WorkoutProtocol;
 };
 
 type ExerciseOption = {
@@ -35,6 +38,7 @@ export function PrescriptionReviewForm({
   scheduledDate,
   title,
   duration,
+  quality = false,
 }: {
   clientId: string;
   exercises: RecommendationExercise[];
@@ -43,6 +47,7 @@ export function PrescriptionReviewForm({
   scheduledDate: string;
   title: string;
   duration: number;
+  quality?: boolean;
 }) {
   const approve = approvePrescriptionAction.bind(null, clientId, prescriptionId);
   const [state, action, pending] = useActionState(approve, { status: "idle" as const });
@@ -62,6 +67,7 @@ export function PrescriptionReviewForm({
       restSeconds: 75,
       rowId: nextId,
       sets: firstOption.default_set_min,
+      ...(quality ? { protocol: defaultProtocol() } : {}),
     }]);
     setNextId((current) => current + 1);
   }
@@ -73,6 +79,7 @@ export function PrescriptionReviewForm({
 
   return (
     <form action={action} className={styles.reviewForm}>
+      {quality && <input type="hidden" name="quality" value="yes"/>}
       <div className={styles.formColumns}>
         <div className={styles.field}><label htmlFor="review-title">Workout name</label><input defaultValue={title} id="review-title" maxLength={120} name="title" required /></div>
         <div className={styles.field}><label htmlFor="review-date">Assign date</label><input defaultValue={scheduledDate} id="review-date" name="scheduledDate" required type="date" /></div>
@@ -94,10 +101,11 @@ export function PrescriptionReviewForm({
             <div className={styles.field}><label htmlFor={`review-sets-${row.rowId}`}>Sets</label><input defaultValue={row.sets} id={`review-sets-${row.rowId}`} max={100} min={1} name="exerciseSets" required type="number" /></div>
             <div className={styles.field}><label htmlFor={`review-reps-${row.rowId}`}>Reps</label><input defaultValue={row.reps} id={`review-reps-${row.rowId}`} max={1000} min={1} name="exerciseReps" required type="number" /></div>
             <div className={styles.field}><label htmlFor={`review-load-${row.rowId}`}>Load</label><input defaultValue={row.load ?? ""} id={`review-load-${row.rowId}`} max={100000} min={0} name="exerciseLoad" step="0.01" type="number" /></div>
-            <div className={styles.field}><label htmlFor={`review-rpe-${row.rowId}`}>Target effort (RPE)</label><input defaultValue={row.targetRpe ?? ""} id={`review-rpe-${row.rowId}`} min={1} max={10} step="0.5" name="exerciseRpe" type="number" /></div>
-            <div className={styles.field}><label htmlFor={`review-rest-${row.rowId}`}>Rest seconds</label><input defaultValue={row.restSeconds ?? ""} id={`review-rest-${row.rowId}`} max={1800} min={10} name="exerciseRest" type="number" /></div>
+            {quality ? <input type="hidden" name="exerciseRpe" value={row.targetRpe ?? ""}/> : <div className={styles.field}><label htmlFor={`review-rpe-${row.rowId}`}>Target effort (RPE)</label><input defaultValue={row.targetRpe ?? ""} id={`review-rpe-${row.rowId}`} min={1} max={10} step="0.5" name="exerciseRpe" type="number" /></div>}
+            <div className={styles.field}><label htmlFor={`review-rest-${row.rowId}`}>Rest seconds</label><input defaultValue={row.restSeconds ?? ""} id={`review-rest-${row.rowId}`} max={1800} min={quality ? 0 : 10} name="exerciseRest" type="number" /></div>
             <div className={`${styles.field} ${styles.reviewNotes}`}><label htmlFor={`review-notes-${row.rowId}`}>Notes</label><input defaultValue={row.notes ?? ""} id={`review-notes-${row.rowId}`} maxLength={1000} name="exerciseNotes" /></div>
             <div className={`${styles.field} ${styles.reviewReason}`}><label htmlFor={`review-reason-${row.rowId}`}>Why Ravoge selected it</label><input defaultValue={row.reason} id={`review-reason-${row.rowId}`} maxLength={1000} name="exerciseReason" /></div>
+            {quality && <div className={styles.reviewProtocol}><WorkoutProtocolFields value={row.protocol} library={exerciseOptions} substitutions/></div>}
             <button aria-label={`Remove exercise ${index + 1}`} className={styles.removeAction} disabled={rows.length === 1} onClick={() => removeExercise(row.rowId)} type="button">Remove</button>
           </fieldset>
         ))}
