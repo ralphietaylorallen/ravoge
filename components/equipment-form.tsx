@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { saveEquipmentChecklistAction } from "@/app/owner/actions";
 import { saveResourceAction } from "@/app/owner/equipment/actions";
@@ -26,16 +26,18 @@ export function EquipmentChecklist({ existing }: { existing: string[] }) {
   </form>;
 }
 
-type Resource = { id: string; name: string; quantity?: number | null; equipment_type?: string; feature_type?: string; notes: string | null; is_available: boolean; usable_length?: number | null; length_unit?: string };
+type Resource = { id: string; name: string; quantity?: number | null; equipment_type?: string; feature_type?: string; notes: string | null; is_available: boolean; usable_length?: number | null; length_unit?: string; min_weight_lb?: number | null; max_weight_lb?: number | null; weight_sizes_lb?: number[] | null; paired_sizes_confirmed?: boolean };
 export function EquipmentForm({ item, facility = false }: { item?: Resource; facility?: boolean }) {
   const [state, action, pending] = useActionState(saveResourceAction.bind(null, item?.id ?? null, facility ? "facility" : "equipment"), { status: "idle" as const });
   const prefix = `resource-${item?.id ?? (facility ? "facility" : "new")}`;
+  const [equipmentType, setEquipmentType] = useState(item?.equipment_type ?? item?.feature_type ?? (facility ? "turf" : "barbell"));
+  const weighted = !facility && ["barbell", "plates", "dumbbells", "kettlebells", "medicine_balls", "cable_machine", "selectorized_machine", "sled"].includes(equipmentType);
   return (
-    <form action={action} className={styles.form}>
+    <form action={action} className={styles.form} onReset={event => event.preventDefault()}>
       <div className={styles.formColumns}>
         <div className={styles.field}>
           <label htmlFor={`${prefix}-type`}>{facility ? "Facility feature" : "Equipment type"}</label>
-          <select id={`${prefix}-type`} name="equipmentType" required defaultValue={item?.equipment_type ?? item?.feature_type}>
+          <select id={`${prefix}-type`} name="equipmentType" required value={equipmentType} onChange={event => setEquipmentType(event.target.value)}>
             {(facility ? [["turf", "Turf"], ["open_training_area", "Open training area"]] : [...equipmentTypes, ["ski_erg", "SkiErg"], ["rower", "Rower"], ["bike", "Bike"]]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
@@ -44,6 +46,15 @@ export function EquipmentForm({ item, facility = false }: { item?: Resource; fac
           <input id={`${prefix}-quantity`} max={facility ? 1000 : 10000} min={facility ? 0.1 : 1} step={facility ? "0.1" : "1"} name={facility ? "length" : "quantity"} defaultValue={facility ? item?.usable_length ?? "" : item?.quantity ?? ""} type="number" />
         </div>
       </div>
+      {weighted && <fieldset className={styles.formSection}><legend>Available weights (lb)</legend>
+        <p className={styles.formHint}>{equipmentType === "barbell" ? "Range describes individual unloaded bars, not the total loaded barbell." : equipmentType === "plates" ? "Range and sizes describe individual plates, not pairs or total barbell load." : "Describe the weight of one item or the machine’s selectable load."} Leave unknown values blank. No quantities are inferred.</p>
+        <div className={styles.formColumns}>
+          <label className={styles.field}><span>Minimum weight (lb)</span><input name="minWeightLb" type="number" min="0.001" max="100000" step="0.001" defaultValue={item?.min_weight_lb ?? ""} /></label>
+          <label className={styles.field}><span>Maximum weight (lb)</span><input name="maxWeightLb" type="number" min="0.001" max="100000" step="0.001" defaultValue={item?.max_weight_lb ?? ""} /></label>
+        </div>
+        <label className={styles.field}><span>{equipmentType === "barbell" ? "Exact unloaded bar weights (lb)" : equipmentType === "plates" ? "Exact individual plate sizes (lb)" : "Exact available sizes (lb, optional)"}</span><input name="weightSizesLb" defaultValue={item?.weight_sizes_lb?.join(", ") ?? ""} placeholder={equipmentType === "plates" ? "2.5, 5, 10, 25, 35, 45" : "e.g. 35, 45"} /></label>
+        {equipmentType === "plates" && <label className={styles.checkboxLabel}><input name="pairsConfirmed" type="checkbox" value="yes" defaultChecked={item?.paired_sizes_confirmed ?? false} />I confirm at least one matching pair of every listed size (one pair per size is used for loading checks).</label>}
+      </fieldset>}
       <div className={styles.field}>
         <label htmlFor={`${prefix}-name`}>Name</label>
         <input id={`${prefix}-name`} maxLength={120} name="name" placeholder={facility ? "e.g. 25-yard turf" : "e.g. Rogue squat racks"} defaultValue={item?.name} required />

@@ -1,3 +1,4 @@
+import { loadLabel, poundsInText } from "@/lib/weight-units";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -13,6 +14,7 @@ type ClientExercise = {
   exercise_name: string;
   id: string;
   load: number | null;
+  load_unit: string | null;
   notes: string | null;
   reps: number;
   sets: number;
@@ -54,7 +56,7 @@ export default async function ClientWorkoutPage({
     supabase.from("organizations").select("name").eq("id", membership.organization_id).single(),
     supabase
       .from("workout_assignments")
-      .select("id,coach_user_id,title,instructions,scheduled_date,status,completed_at,objective,estimated_duration_minutes,workout_exercises(id,exercise_name,sets,reps,load,notes,rest_seconds,sort_order,completed_at,prescription_details,exercise_library(coach_cue,equipment_requirements),workout_sets(id,set_number,actual_reps,actual_load,actual_load_unit,actual_work_seconds,actual_distance,actual_rpe,client_result,completed_at,pain_reported,failure_notes))")
+      .select("id,coach_user_id,title,instructions,scheduled_date,status,completed_at,objective,estimated_duration_minutes,workout_exercises(id,exercise_name,sets,reps,load,load_unit,notes,rest_seconds,sort_order,completed_at,prescription_details,exercise_library(coach_cue,equipment_requirements),workout_sets(id,set_number,actual_reps,actual_load,actual_load_unit,actual_work_seconds,actual_distance,actual_rpe,client_result,completed_at,pain_reported,failure_notes))")
       .eq("id", workoutId)
       .eq("organization_id", membership.organization_id)
       .eq("client_user_id", userId)
@@ -111,9 +113,9 @@ export default async function ClientWorkoutPage({
                   <strong>{exercise.exercise_name}</strong>
                   <span>
                     {exercise.sets} sets × {exercise.reps} reps
-                    {exercise.load !== null ? ` · ${exercise.load} weight` : ""}
+                    {exercise.load !== null ? ` · ${loadLabel(exercise.load, exercise.load_unit)}` : ""}
                   </span>
-                  {exercise.notes && <p>{exercise.notes}</p>}
+                  {exercise.notes && <p>{poundsInText(exercise.notes)}</p>}
                 </div>
                 <form action={action}>
                   <button className={styles.completionAction} type="submit">

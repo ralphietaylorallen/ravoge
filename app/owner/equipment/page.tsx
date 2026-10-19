@@ -13,6 +13,10 @@ type EquipmentRow = {
   name: string;
   notes: string | null;
   quantity: number | null;
+  min_weight_lb: number | null;
+  max_weight_lb: number | null;
+  weight_sizes_lb: number[] | null;
+  paired_sizes_confirmed: boolean;
 };
 
 export default async function OwnerEquipmentPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
@@ -21,7 +25,7 @@ export default async function OwnerEquipmentPage({ searchParams }: { searchParam
   const [{ data: profile }, { data: organization }, { data: equipment }] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("organizations").select("name").eq("id", membership.organization_id).single(),
-    supabase.from("organization_equipment").select("id,equipment_type,name,quantity,is_available,notes").eq("organization_id", membership.organization_id).order("name"),
+    supabase.from("organization_equipment").select("id,equipment_type,name,quantity,is_available,notes,min_weight_lb,max_weight_lb,weight_sizes_lb,paired_sizes_confirmed").eq("organization_id", membership.organization_id).order("name"),
   ]);
   const { data: members } = await supabase.from("organization_memberships").select("user_id").eq("organization_id", membership.organization_id).eq("role", "client").eq("status", "active");
   const { data: facilities } = await supabase.from("organization_facilities").select("id,name,feature_type,usable_length,length_unit,is_available,notes").eq("organization_id", membership.organization_id).order("name");
@@ -61,6 +65,8 @@ export default async function OwnerEquipmentPage({ searchParams }: { searchParam
                     <strong>{item.name}</strong>
                     <span>{item.equipment_type.replaceAll("_", " ")}{item.quantity ? ` · ${item.quantity}` : ""}</span>
                     {item.notes && <p>{item.notes}</p>}
+                    {(item.min_weight_lb !== null || item.max_weight_lb !== null) && <p>Individual weight: {item.min_weight_lb ?? "Unknown"}–{item.max_weight_lb ?? "Unknown"} lb</p>}
+                    {item.weight_sizes_lb?.length ? <p>Exact sizes: {item.weight_sizes_lb.join(", ")} lb{item.paired_sizes_confirmed ? " · matched pairs confirmed" : ""}</p> : null}
                   </div>
                   <MutationActionForm action={setEquipmentAvailabilityAction.bind(null, item.id, !item.is_available)} className={styles.secondaryAction} label={item.is_available ? "Available" : "Unavailable"} pendingLabel="Updating…" />
                   <details><summary>Edit inventory</summary><EquipmentForm item={item}/></details>

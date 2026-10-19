@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import styles from "./dashboard.module.css";
+const chartDate = (value: string) => new Date(value).toLocaleDateString("en-US", { timeZone: "UTC" });
 
 export type ProgressMetric = {
   label: string;
@@ -58,13 +59,13 @@ export function ProgressChart({ metrics }: { metrics: ProgressMetric[] }) {
         <path d={plot.path} />
         {plot.coordinates.map((point) => (
           <circle key={`${point.date}-${point.value}`} cx={point.x} cy={point.y} r="1.7">
-            <title>{new Date(point.date).toLocaleDateString("en-US")}: {point.value} {metric.unit}</title>
+            <title>{`${chartDate(point.date)}: ${metric.unit === "lb" ? point.value.toFixed(1) : point.value} ${metric.unit}`}</title>
           </circle>
         ))}
       </svg>
       <div className={styles.chartDates}>
-        <span>{new Date(metric.points[0].date).toLocaleDateString("en-US")}</span>
-        <span>{new Date(metric.points.at(-1)!.date).toLocaleDateString("en-US")}</span>
+        <span>{chartDate(metric.points[0].date)}</span>
+        <span>{chartDate(metric.points.at(-1)!.date)}</span>
       </div>
     </div>
   );

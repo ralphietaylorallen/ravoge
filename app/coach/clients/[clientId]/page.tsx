@@ -1,3 +1,4 @@
+import { kilogramsToPounds } from "@/lib/weight-units";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -17,7 +18,7 @@ import { WorkoutForm } from "@/components/workout-form";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
 
-type WorkoutExercise = { exercise_name: string; id: string; load: number | null; reps: number; sets: number; sort_order: number };
+type WorkoutExercise = { exercise_name: string; id: string; load: number | null; load_unit: string | null; reps: number; sets: number; sort_order: number };
 type WorkoutAssignment = { id: string; scheduled_date: string; status: string; title: string; workout_exercises: WorkoutExercise[] };
 type ClientState = { confidence: { overall?: string }; constraint_tags: string[]; current_readiness: number; movement_tolerance: number; recovery_capacity: number; training_experience: number; volume_tolerance: number };
 type IntakeRow = Record<string, unknown> & { primary_goal: string; version: number };
@@ -47,7 +48,7 @@ export default async function CoachClientPage({ params, searchParams }: { params
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("profiles").select("full_name,preferred_name,bio,avatar_path,account_status").eq("id", clientId).single(),
     supabase.from("organizations").select("name,timezone").eq("id", membership.organization_id).single(),
-    supabase.from("workout_assignments").select("id,title,scheduled_date,status,workout_exercises(id,exercise_name,sets,reps,load,sort_order)").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("client_user_id", clientId).order("scheduled_date", { ascending: false }),
+    supabase.from("workout_assignments").select("id,title,scheduled_date,status,workout_exercises(id,exercise_name,sets,reps,load,load_unit,sort_order)").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("client_user_id", clientId).order("scheduled_date", { ascending: false }),
     supabase.from("client_intakes").select("*").eq("organization_id", membership.organization_id).eq("client_user_id", clientId).order("version", { ascending: false }),
     supabase.from("client_states").select("training_experience,recovery_capacity,current_readiness,movement_tolerance,volume_tolerance,constraint_tags,confidence").eq("organization_id", membership.organization_id).eq("client_user_id", clientId).order("calculated_at", { ascending: false }).limit(1),
     supabase.from("generated_prescriptions").select("id,title,status,generated_at").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("client_user_id", clientId).order("generated_at", { ascending: false }),
@@ -94,7 +95,7 @@ export default async function CoachClientPage({ params, searchParams }: { params
       </section><details className={styles.operationCard}><summary>Manual workout builder</summary><WorkoutForm clientId={clientId}/></details>
     </>}
     {tab==="intake"&&<><div className={styles.sectionHeading}><div><h3>Intake evaluation</h3><p className={styles.profileMeta}>{latestIntake?`New assessment · previous version ${latestIntake.version}`:"Build the Client’s first baseline"}</p></div></div><IntakeForm clientId={clientId} defaults={(latestIntake??{}) as never} checkin={<CoachCheckin clientId={clientId} contexts={contexts} questions={questions??[]}/>}/><details className={styles.operationCard}><summary>Previous assessments</summary><BaselineSummary records={baselineRecords}/></details></>}
-    {tab==="progress"&&<><ProgressChart metrics={[{label:"Weight",unit:"kg",points:(inbodyRows??[]).filter(row=>row.weight_kg!==null).map(row=>({date:row.measured_at,value:Number(row.weight_kg)}))},{label:"Body fat",unit:"%",points:(inbodyRows??[]).filter(row=>row.body_fat_percentage!==null).map(row=>({date:row.measured_at,value:Number(row.body_fat_percentage)}))}]}/><BaselineSummary records={baselineRecords}/></>}
+    {tab==="progress"&&<><ProgressChart metrics={[{label:"Weight",unit:"lb",points:(inbodyRows??[]).filter(row=>row.weight_kg!==null).map(row=>({date:row.measured_at,value:kilogramsToPounds(row.weight_kg)!}))},{label:"Body fat",unit:"%",points:(inbodyRows??[]).filter(row=>row.body_fat_percentage!==null).map(row=>({date:row.measured_at,value:Number(row.body_fat_percentage)}))}]}/><BaselineSummary records={baselineRecords}/></>}
     {tab==="metrics"&&<><section className={styles.operationCard}><h3>Latest assessment state</h3>{latestState?<div className={styles.stateGrid}><article><span>Training level</span><strong>{level(latestState.training_experience)}</strong></article><article><span>Recovery</span><strong>{level(latestState.recovery_capacity)}</strong></article><article><span>Readiness</span><strong>{level(latestState.current_readiness)}</strong></article><article><span>Movement tolerance</span><strong>{level(latestState.movement_tolerance)}</strong></article><article><span>Volume tolerance</span><strong>{level(latestState.volume_tolerance)}</strong></article><article><span>Confidence</span><strong>{latestState.confidence.overall??"Low"}</strong></article></div>:<p className={styles.empty}>Complete the intake to establish the Client’s state.</p>}</section><BaselineSummary records={baselineRecords}/></>}
     {tab==="notes"&&<section className={styles.operationCard}><h3>Coach notes</h3><p className={styles.empty}>{String(latestIntake?.coach_notes||"No intake notes recorded.")}</p><h3>About the Client</h3><p className={styles.empty}>{clientProfile.bio||"No About section yet."}</p><p className={styles.formHint}>Session notes are recorded within each workout.</p></section>}
   </DashboardShell>;

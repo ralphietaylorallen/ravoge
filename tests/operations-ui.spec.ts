@@ -56,7 +56,7 @@ test("Owner to Coach to Client operations, outcomes, intake, photos and responsi
   await coach.goto(`/coach/clients/${clientId}`);
   await coach.getByText("Manual workout builder",{exact:true}).click();
   await coach.getByLabel("Workout name").fill("QA Bench Session");await coach.getByLabel("Date",{exact:true}).fill(date);
-  await coach.getByLabel("Name",{exact:true}).fill("Barbell Bench Press");await coach.getByLabel("Sets",{exact:true}).fill("4");await coach.getByLabel("Reps",{exact:true}).fill("8");await coach.getByLabel("Weight",{exact:true}).fill("60");
+  await coach.getByLabel("Name",{exact:true}).fill("Barbell Bench Press");await coach.getByLabel("Sets",{exact:true}).fill("4");await coach.getByLabel("Reps",{exact:true}).fill("8");await coach.getByLabel("Weight (lb)",{exact:true}).fill("60");
   await coach.getByRole("button",{name:"Save workout",exact:true}).click();await expect(coach.getByRole("status")).toContainText("Workout assigned");
   await coach.getByRole("link",{name:/QA Bench Session/}).click();
   await expect(coach).toHaveURL(/\/workouts\/[0-9a-f-]+$/);
@@ -70,10 +70,10 @@ test("Owner to Coach to Client operations, outcomes, intake, photos and responsi
   for(let i=1;i<=8;i++)await coach.getByRole("button",{name:`Question ${i}: 6`,exact:true}).click();
   await coach.getByRole("button",{name:"Save check-in",exact:true}).click();await expect(coach.locator('p[role="status"]')).toContainText("All eight responses saved");
   await coach.getByRole("button",{name:"Continue →",exact:true}).click();
-  for(const [id,value] of Object.entries({squatLoadKg:"80",squatReps:"3",squatOneRmKg:"88",benchLoadKg:"60",benchReps:"3",benchOneRmKg:"66",pullupStrictReps:"4"}))await coach.locator(`#${id}`).fill(value);
+  for(const [id,value] of Object.entries({squatLoadLb:"80",squatReps:"3",squatOneRmLb:"88",benchLoadLb:"60",benchReps:"3",benchOneRmLb:"66",pullupStrictReps:"4"}))await coach.locator(`#${id}`).fill(value);
   await coach.getByRole("button",{name:"Continue →",exact:true}).click();await coach.locator("#rowerDistanceM").fill("2000");await coach.locator("#rowerTimeSeconds").fill("495");
   await coach.getByRole("button",{name:"Continue →",exact:true}).click();await coach.getByLabel("Assessment status").selectOption("completed");await coach.locator("#inbodyTestDate").fill(date);
-  for(const [id,value]of Object.entries({weightKg:"75",inbodyScore:"80",skeletalMuscleMassKg:"35",bodyFatMassKg:"15",bodyFatPercentage:"20",bmi:"23",visceralFatLevel:"5",ecwTbw:"0.38",bmrKcal:"1700"}))await coach.locator(`#${id}`).fill(value);
+  for(const [id,value]of Object.entries({weightLb:"75",inbodyScore:"80",skeletalMuscleMassLb:"35",bodyFatMassLb:"15",bodyFatPercentage:"20",bmi:"23",visceralFatLevel:"5",ecwTbw:"0.38",bmrKcal:"1700"}))await coach.locator(`#${id}`).fill(value);
   await coach.screenshot({path:testInfo.outputPath("inbody-ipad.png"),fullPage:true});
   await coach.getByRole("button",{name:"Continue →",exact:true}).click();await coach.getByRole("button",{name:"Save versioned intake & baseline"}).click();await expect(coach.getByRole("status")).toContainText("Versioned intake and baseline saved");
   const clientContext=await browser.newContext({viewport:{width:390,height:844}});const client=await clientContext.newPage();await login(client,"CLIENT");await client.goto("/client/schedule");await expect(client.getByText(/Training with QA Coach/)).toBeVisible();

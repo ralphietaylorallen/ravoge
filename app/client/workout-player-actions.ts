@@ -18,7 +18,7 @@ export async function playerSetAction(role: "client" | "coach", workoutId: strin
   if (![workoutId, setId].every(v => /^[0-9a-f-]{36}$/i.test(v))) return { status: "error", message: "Set unavailable." };
   const value = (key: string) => String(form.get(key) ?? "").trim() ? Number(form.get(key)) : null;
   const { error } = await supabase.rpc("record_quality_workout_set", { target_workout_id: workoutId, target_set_id: setId, result: String(form.get("result") ?? ""), performance: {
-    reps: value("reps"), load: value("load"), loadUnit: String(form.get("loadUnit") ?? "kg"), seconds: value("seconds"), distance: value("distance"), rpe: value("rpe"),
+    reps: value("reps"), load: value("load"), loadUnit: "lb", seconds: value("seconds"), distance: value("distance"), rpe: value("rpe"),
     pain: form.get("pain") === "yes", notes: String(form.get("notes") ?? "").trim(), substitutionId: String(form.get("substitutionId") ?? "") || null,
   } });
   if (error) return { status: "error", message: "Set not saved. Check actual values, approved substitution and that the workout is still open." };

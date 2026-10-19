@@ -1,3 +1,4 @@
+import { canonicalPounds } from "@/lib/weight-units";
 import styles from "./dashboard.module.css";
 
 export type BaselineRecord = {
@@ -30,13 +31,13 @@ export function BaselineSummary({ records }: { records: BaselineRecord[] }) {
   const latest = records[0];
   return <>
     <div className={styles.stateGrid}>
-      <article><span>Squat · {latest.squat_variation.replaceAll("_", " ")}</span><strong>{latest.squat_one_rm_kg} kg {latest.squat_one_rm_method}</strong></article>
-      <article><span>Bench · {latest.bench_variation}</span><strong>{latest.bench_one_rm_kg} kg {latest.bench_one_rm_method}</strong></article>
+      <article><span>Squat · {latest.squat_variation.replaceAll("_", " ")}</span><strong>{canonicalPounds(latest.squat_one_rm_kg)} lb {latest.squat_one_rm_method}</strong></article>
+      <article><span>Bench · {latest.bench_variation}</span><strong>{canonicalPounds(latest.bench_one_rm_kg)} lb {latest.bench_one_rm_method}</strong></article>
       <article><span>Pull-Ups · {latest.pullup_mode}</span><strong>{latest.pullup_strict_reps} strict</strong></article>
       <article><span>Conditioning</span><strong>{latest.rower_distance_m && latest.rower_time_seconds ? `Rower ${latest.rower_distance_m} m · ${duration(latest.rower_time_seconds)}` : latest.versa_duration_seconds && latest.versa_feet ? `Versa ${latest.versa_feet} ft · ${duration(latest.versa_duration_seconds)}` : "Pending"}</strong></article>
       <article><span>InBody</span><strong>{latest.inbody_status === "pending" ? "Pending · baseline incomplete" : `Score ${latest.inbody_score ?? "—"} · Body fat ${latest.body_fat_percentage ?? "—"}%`}</strong></article>
       <article><span>Intake date</span><strong>{new Date(latest.completed_at).toLocaleDateString("en-US")}</strong></article>
     </div>
-    {records.length > 1 && <details className={styles.formSection}><summary>Compare prior baselines ({records.length - 1})</summary><div className={styles.tableScroll} tabIndex={0}><table className={styles.previewTable}><thead><tr><th>Version</th><th>Date</th><th>Squat 1RM</th><th>Bench 1RM</th><th>Pull-Ups</th><th>InBody</th></tr></thead><tbody>{records.map((record) => <tr key={record.intake_id}><td>{record.version}</td><td>{new Date(record.completed_at).toLocaleDateString("en-US")}</td><td>{record.squat_one_rm_kg} kg</td><td>{record.bench_one_rm_kg} kg</td><td>{record.pullup_strict_reps}</td><td>{record.inbody_status}</td></tr>)}</tbody></table></div></details>}
+    {records.length > 1 && <details className={styles.formSection}><summary>Compare prior baselines ({records.length - 1})</summary><div className={styles.tableScroll} tabIndex={0}><table className={styles.previewTable}><thead><tr><th>Version</th><th>Date</th><th>Squat 1RM</th><th>Bench 1RM</th><th>Pull-Ups</th><th>InBody</th></tr></thead><tbody>{records.map((record) => <tr key={record.intake_id}><td>{record.version}</td><td>{new Date(record.completed_at).toLocaleDateString("en-US")}</td><td>{canonicalPounds(record.squat_one_rm_kg)} lb</td><td>{canonicalPounds(record.bench_one_rm_kg)} lb</td><td>{record.pullup_strict_reps}</td><td>{record.inbody_status}</td></tr>)}</tbody></table></div></details>}
   </>;
 }

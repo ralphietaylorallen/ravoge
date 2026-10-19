@@ -2,9 +2,10 @@
 
 import { useActionState, useState } from "react";
 import { recordSetAction, saveSessionAction, type ExecutionState } from "@/app/coach/workout-actions";
+import { loadInPounds, loadLabel } from "@/lib/weight-units";
 import styles from "./dashboard.module.css";
 
-export type ExecutionSet = {id:string;set_number:number;prescribed_reps:number;prescribed_load:number|null;actual_reps:number|null;actual_load:number|null;execution_result:string|null;failure_reason:string|null;failure_notes:string|null};
+export type ExecutionSet = {id:string;set_number:number;prescribed_reps:number;prescribed_load:number|null;prescribed_load_unit?:string|null;actual_load_unit?:string|null;actual_reps:number|null;actual_load:number|null;execution_result:string|null;failure_reason:string|null;failure_notes:string|null};
 export type ExecutionExercise = {id:string;exercise_name:string;notes:string|null;rest_seconds:number|null;workout_sets:ExecutionSet[]};
 const failureReasons=[["failed_reps","Could not complete reps"],["too_heavy","Weight too heavy"],["form_breakdown","Form breakdown"],["pain_discomfort","Pain / discomfort"],["fatigue","Fatigue"],["coach_stopped","Stopped by coach"],["other","Other"]];
 
@@ -15,8 +16,8 @@ function SetRow({set,clientId,workoutId,locked}:{set:ExecutionSet;clientId:strin
   // Preserve the just-recorded values when React resets a successful action form.
   return <form action={action} aria-label={label} className={styles.setRow} onReset={(event)=>event.preventDefault()}>
     <strong className={styles.setNumber}>{set.set_number}</strong>
-    <span className={styles.setTarget}>{set.prescribed_load ?? "BW"}<small>× {set.prescribed_reps} reps</small></span>
-    <label className={styles.field}><span>Actual weight</span><input aria-label={`${label} actual weight`} defaultValue={set.actual_load ?? set.prescribed_load ?? 0} disabled={locked} max={100000} min={0} name="actualLoad" required={result!=="not_completed"} step="0.01" type="number" /></label>
+    <span className={styles.setTarget}>{set.prescribed_load === null ? "BW" : loadLabel(set.prescribed_load, set.prescribed_load_unit)}<small>× {set.prescribed_reps} reps</small></span>
+    <label className={styles.field}><span>Actual weight (lb)</span><input aria-label={`${label} actual weight (lb)`} defaultValue={loadInPounds(set.actual_load, set.actual_load_unit) ?? loadInPounds(set.prescribed_load, set.prescribed_load_unit) ?? ""} disabled={locked} max={100000} min={0} name="actualLoad" required={result!=="not_completed"} step="any" type="number" /></label>
     <label className={styles.field}><span>Actual reps</span><input aria-label={`${label} actual reps`} defaultValue={set.actual_reps ?? set.prescribed_reps} disabled={locked} max={1000} min={0} name="actualReps" required={result!=="not_completed"} type="number" /></label>
     <label className={styles.field}><span>Result</span><select aria-label={`${label} result`} disabled={locked} name="result" onChange={(event)=>setResult(event.target.value)} required value={result}><option disabled value="">Not started</option><option value="complete">Complete / did more</option><option value="failed">Failed</option><option value="not_completed">Not completed</option></select></label>
     <button className={styles.secondaryAction} disabled={pending||locked||!result} type="submit">{pending?"Saving…":"Save set"}</button>
