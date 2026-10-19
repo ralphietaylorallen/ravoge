@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
 type Account = { id: string; role: string; email: string; password: string; name: string };
@@ -12,6 +12,14 @@ async function scoped(account: Account) {
   const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
   const { error } = await client.auth.signInWithPassword({ email: account.email, password: account.password });
   expect(error, "Disposable ordinary-user login failed").toBeNull(); return client;
+}
+async function nextOpenSet(player: Locator) {
+  const visible = player.locator('form[aria-label]').filter({ visible: true }).first();
+  const label = await visible.getAttribute("aria-label");
+  const article = await visible.locator("xpath=ancestor::article").getAttribute("id");
+  // Bind the exact set before saving. A successful save closes it; a live
+  // `first visible form` locator would then point at a different, unsaved set.
+  return player.locator(`#${article}`).getByRole("form", { name: label!, exact: true, includeHidden: true });
 }
 test("three-client quality generation, Owner programming review and mobile workout player", async ({ page, browser }, info) => {
   test.skip(process.env.RAVOGE_QUALITY_QA !== "yes" || info.project.name !== "desktop", "Explicit disposable Ravoge quality fixtures required");
@@ -91,12 +99,12 @@ test("three-client quality generation, Owner programming review and mobile worko
     if (await rest.count()) { await rest.click(); await expect(player.getByRole("timer").first()).not.toHaveText("Rest · 0:00"); }
     const workTimer = player.getByRole("button", { name: "Start interval timer", exact: true }).first();
     if (await workTimer.count()) { await workTimer.click(); await expect(player.getByRole("timer").filter({ hasText: /Work|Slot/ }).first()).toBeVisible(); }
-    let form = player.locator('form[aria-label]').filter({ has: client.getByRole("button", { name: "Complete set", exact: true }) }).first();
+    let form = await nextOpenSet(player);
     const completeSet = form.getByRole("button", { name: "Complete set", exact: true }); await completeSet.click(); await expect(completeSet).not.toBeVisible();
-    form = player.locator('form[aria-label]').filter({ has: client.getByRole("button", { name: "Modified", exact: true }) }).filter({ visible: true }).first();
+    form = await nextOpenSet(player);
     await form.getByLabel(/Pain or problem/).check(); await form.getByRole("textbox").fill("QA discomfort reported; stop and discuss with Coach."); const modified = form.getByRole("button", { name: "Modified", exact: true }); await modified.click(); await expect(modified).not.toBeVisible();
     while (await player.getByRole("button", { name: "Missed", exact: true }).count()) {
-      const next = player.getByRole("button", { name: "Missed", exact: true }).first(); await next.click(); await expect(next).not.toBeVisible();
+      const next = (await nextOpenSet(player)).getByRole("button", { name: "Missed", exact: true }); await next.click(); await expect(next).not.toBeVisible();
     }
     await player.getByLabel("How difficult was today’s workout?").selectOption("3"); await player.getByLabel("Short feedback (optional)").fill("Disposable QA workout completed with honest modified/missed results."); await player.getByRole("button", { name: "Complete workout", exact: true }).click(); await expect(player.getByRole("status")).toContainText("Workout recorded");
     expect((await ordinary.from("workout_assignments").select("status").eq("id", assignments![0].id).single()).data?.status).toBe("completed");
