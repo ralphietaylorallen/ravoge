@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { analyzeTrainingIntent, generateIntelligentWorkout, planningProjection, retrieveGymKnowledge, validateTrainingAnalysis, type TrainingAnalysis } from "../../lib/workout-intelligence.ts";
-import { generationSaveIssue, validateQualityWorkout } from "../../lib/workout-generation-quality.ts";
+import { generationSaveIssue, projectQualityContext, qualitySchemaFor, validateQualityWorkout } from "../../lib/workout-generation-quality.ts";
 import { defaultProtocol } from "../../lib/workout-protocol.ts";
 import { generateAssistedWorkout } from "../../lib/workout-generation.ts";
 import type { GenerationInput } from "../../lib/workout-generation.ts";
@@ -86,6 +86,17 @@ test("source claims and planned intensity cannot bypass existing review validati
   const intense=output(input);intense.exercises[0].protocol.targetRpe=8;assert.throws(()=>validateQualityWorkout(JSON.stringify(intense),input));
   assert.equal(generationSaveIssue("Invalid training analysis"),"Invalid training analysis");
   assert.equal(generationSaveIssue("private@example.test invalid raw workout"),"other_database_validation");
+});
+
+test("provider schema enforces the same planned intensity and beginner limits as validation; source group aliases cannot collide",()=>{
+  const input=context();input.experience="beginner";input.intelligence={analysis:{...analysis(),intensityCeiling:6},method:"openai",cacheHit:false};
+  const schema=qualitySchemaFor(input);
+  assert.equal(schema.properties.exercises.items.properties.protocol.properties.targetRpe.maximum,6);
+  assert.equal(schema.properties.exercises.items.properties.sets.maximum,3);
+  input.references.forEach(r=>r.exercises.forEach(e=>{e.protocol={...e.protocol!,group:"PRIVATE SOURCE GROUP",format:"circuit"};}));
+  const structures=projectQualityContext(input).publishedStructures;
+  assert.notEqual(structures[0].sequence[0].protocol!.group,structures[1].sequence[0].protocol!.group);
+  assert.ok(!JSON.stringify(structures).includes("PRIVATE SOURCE GROUP"));
 });
 
 test("empty or malformed provider JSON gets only one fixed-hint repair, never discarded safety checks or raw-output feedback",async()=>{

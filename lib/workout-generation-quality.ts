@@ -10,7 +10,8 @@ export const QUALITY_REPAIR_HINTS = {
   header: "Use the exact schema; durationMinutes must be between 20 and requestedDurationMinutes.",
   row_shape: "Use only the declared exercise-row fields and supplied exercise aliases.",
   protocol: "Complete every protocol field. Time uses workSeconds only; distance uses distance only; reps uses neither. Grouped formats need a group. EMOM work must be shorter than its interval; AMRAP needs a block duration.",
-  row_constraints: "Check each exercise's available equipment, measurement, repMax and laterality. Non-rep rows use reps=1. Respect experience-specific sets/RPE, rest, AMRAP sets=1 and all schema limits.",
+  row_constraints: "Check each exercise's available equipment, measurement, repMax and laterality. Non-rep rows use reps=1. Respect experience-specific sets/RPE and the lower trainingAnalysis.intensityCeiling, rest, AMRAP sets=1 and all schema limits.",
+  planned_intensity: "Every targetRpe must be at or below trainingAnalysis.intensityCeiling, even when the general experience limit is higher.",
   numeric_load: "Do not include numeric lb loads or percentages in notes/reasons. Leave load selection to the Coach; do not repeat numeric body-composition targets there.",
   turf: "Distance per length must fit the available turf after converting yards/meters correctly.",
   group: "A group label must have identical block, format, rounds/sets and block duration. Use separate labels for separate groups.",
@@ -56,6 +57,22 @@ export const qualitySchema = {
     } },
   },
 };
+export function qualitySchemaFor(input: GenerationInput) {
+  const row = qualitySchema.properties.exercises.items;
+  const ceiling = Math.min(input.experience === "beginner" ? 7 : 8, input.intelligence?.analysis.intensityCeiling ?? 8);
+  return { ...qualitySchema,
+    required: [...qualitySchema.required,...(input.intelligence?["sourceReferenceKeys"]:[])],
+    properties: { ...qualitySchema.properties,
+      exercises: { ...qualitySchema.properties.exercises, items: { ...row, properties: { ...row.properties,
+        sets: { ...row.properties.sets, maximum: input.experience === "beginner" ? 3 : 4 },
+        protocol: { ...row.properties.protocol, properties: { ...row.properties.protocol.properties,
+          targetRpe: { ...row.properties.protocol.properties.targetRpe, maximum: ceiling },
+        } },
+      } } },
+      ...(input.intelligence ? { sourceReferenceKeys: { type:"array",minItems:input.references.length?1:0,maxItems:Math.min(3,input.references.length),items:{type:"string",enum:input.references.length ? input.references.map((_,i)=>`reference_${i+1}`) : ["none"]} } } : {}),
+    },
+  };
+}
 export const QUALITY_RULES = [
   "Every weight is pounds (lb), including body composition, targets, history and equipment. Do not convert pounds again. Unknown bar/plate quantities are unknown; never infer extra pairs. Coach selects and verifies absolute loads. Do not put numeric loads or percentages in exercise notes or reasons; Coach review chooses them. Do not emit kilograms.",
   "Adult Coach-review draft only. Never diagnose, rehabilitate injuries, guarantee results, or assign automatically.",
@@ -64,6 +81,7 @@ export const QUALITY_RULES = [
   "Choose a purposeful sequence: appropriate warm-up/preparation, goal-specific main work, optional accessories/conditioning/finisher and cooldown. Not every workout needs every section.",
   "For strength prioritize relevant compound work early with more recovery and fewer reps. Hypertrophy uses manageable accessory volume. Beginners use simple formats, modest volume and RPE at most 7. Athletic goals may use low-volume power and conditioning only when compatible.",
   "Use 3–12 movement rows, at most 28 total sets, at most 4 sets per row (3 for beginners), 1–20 reps bounded by each exercise's repMax, RPE 4–8 (7 beginner). Use low-repetition power work, not fatiguing high-rep throws. Preserve recovery; never prescribe failure as a target.",
+  "When trainingAnalysis is supplied, its intensityCeiling is an additional hard RPE maximum. Use the lower of that ceiling and the experience limit on every row, not just the main exercises.",
   "Use supplied published gym references as compatible stylistic/structural examples, adapted to this client, not copied unchanged. Draft/unpublished sources are never provided. If none, state general-library fallback honestly.",
   "Supported formats: straight, superset, circuit, stations, rounds, intervals, EMOM and AMRAP. Rows sharing a group must share format, block, set/round count and block duration. Use distinct group labels for distinct blocks.",
   "Reps are actual reps only for measurement=reps. For time/distance set reps=1 as a compatibility sentinel; prescribe actual workSeconds or distance. Unilateral work must say perSide=true. Never turn carries or ergs into arbitrary repetitions.",
@@ -94,7 +112,7 @@ export function projectQualityContext(input: GenerationInput) {
     publishedStructures: input.references.map((r, index) => {
       const groups = new Map<string, string>();
       return { referenceKey: `reference_${index + 1}`, goal: r.goal, durationMinutes: r.duration, sequence: r.exercises.filter(e => aliases.has(e.libraryExerciseId ?? "")).map(e => {
-        if (e.protocol?.group && !groups.has(e.protocol.group)) groups.set(e.protocol.group, `group_${groups.size + 1}`);
+        if (e.protocol?.group && !groups.has(e.protocol.group)) groups.set(e.protocol.group, `reference_${index + 1}_group_${groups.size + 1}`);
         return { exerciseKey: aliases.get(e.libraryExerciseId ?? ""), sets: e.sets, reps: e.reps, restSeconds: e.restSeconds,
           protocol: e.protocol ? { ...cleanProtocol(e.protocol), group: groups.get(e.protocol.group) ?? "" } : undefined };
       }) };
@@ -124,6 +142,7 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
     const e = input.candidates[index];
     let p: WorkoutProtocol;
     try { p = validateProtocol(raw.protocol); } catch { throw new QualityValidationError("protocol"); }
+    if (input.intelligence && p.targetRpe !== null && p.targetRpe > input.intelligence.analysis.intensityCeiling) throw new QualityValidationError("planned_intensity");
     if (!e || !e.equipment.every(t => input.equipment.includes(t)) || !Number.isInteger(raw.sets) || Number(raw.sets) < 1 || Number(raw.sets) > (input.experience === "beginner" ? 3 : 4)
       || !Number.isInteger(raw.reps) || Number(raw.reps) < 1 || Number(raw.reps) > 20 || !Number.isInteger(raw.restSeconds) || Number(raw.restSeconds) < 0 || Number(raw.restSeconds) > 300
       || (p.measurement !== "reps" && Number(raw.reps) !== 1) || (p.measurement === "reps" && ((e.measurement && e.measurement !== "reps") || Number(raw.reps) > Math.min(20, e.repMax ?? 20)))

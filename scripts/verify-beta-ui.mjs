@@ -44,10 +44,7 @@ try {
     env.PLAYWRIGHT_BASE_URL = "http://localhost:3100";
     env.RAVOGE_ENROLLMENT_TOKEN_KEY = randomBytes(32).toString("hex");
     delete env.RESEND_API_KEY; delete env.RAVOGE_EMAIL_FROM;
-    // Paid local QA must be explicitly requested and use an existing server key
-    // in process memory; default automated QA never makes paid provider calls.
-    if (env.RAVOGE_LOCAL_OPENAI_QA !== "yes") delete env.OPENAI_API_KEY;
-    else if (env.RAVOGE_LIVE_WORKOUT_QA !== "yes" || !env.OPENAI_API_KEY?.startsWith("sk-")) throw new Error("Explicit real-provider QA and an existing server-only key are required");
+    delete env.OPENAI_API_KEY; // Automated local browser QA uses the tested fallback, never a paid call.
     server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--port", "3100"], { env, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
     server.stderr.on("data", chunk => process.stderr.write(chunk));
     for (let attempt = 0; attempt < 60; attempt++) { try { if ((await fetch(env.PLAYWRIGHT_BASE_URL)).ok) break; } catch {} await new Promise(resolve => setTimeout(resolve, 500)); }

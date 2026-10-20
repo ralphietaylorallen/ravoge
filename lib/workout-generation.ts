@@ -4,7 +4,7 @@ import { kilogramsToPounds } from "./weight-units.ts";
 import { generatedWeightTextIsLoadFree, type WeightCapability } from "./equipment-weights.ts";
 import OpenAI from "openai";
 import type { WorkoutProtocol } from "./workout-protocol.ts";
-import { QUALITY_RULES, QUALITY_REPAIR_HINTS, QualityValidationError, projectQualityContext, qualitySchema, validateQualityWorkout } from "./workout-generation-quality.ts";
+import { QUALITY_RULES, QUALITY_REPAIR_HINTS, QualityValidationError, projectQualityContext, qualitySchemaFor, validateQualityWorkout } from "./workout-generation-quality.ts";
 import type { TrainingFocus } from "./training-focus.ts";
 import type { TrainingAnalysis } from "./workout-intelligence.ts";
 
@@ -137,7 +137,7 @@ export async function generateAssistedWorkout(input: GenerationInput, client?: R
           + (input.intelligence ? " Apply the structured client training analysis. Adapt the retrieved gym structures and gym profile to this Client instead of copying them. Cite only supplied reference keys that actually influenced the session in sourceReferenceKeys; use an empty list only when none are supplied. Never invent source instructions or new unapproved exercise identities." : "")
           + (attempt && repairIssue ? ` The previous output failed the ${repairIssue} constraint. ${QUALITY_REPAIR_HINTS[repairIssue]} All original safety and schema rules still apply.` : ""),
         input: [{ role: "user", content: JSON.stringify({ ...deidentifiedGenerationInput(input), repair: attempt ? repairIssue ? { issue: repairIssue, instruction: QUALITY_REPAIR_HINTS[repairIssue] } : "The previous attempt was rejected or unavailable. Recheck all schema and programming limits. Never invent a missing exercise or load." : null }) }],
-        text: { format: { type: "json_schema", name: "ravoge_reviewed_workout", strict: true, schema: input.schemaVersion === 2 ? input.intelligence ? { ...qualitySchema, required: [...qualitySchema.required,"sourceReferenceKeys"], properties: { ...qualitySchema.properties, sourceReferenceKeys: {type:"array",minItems:input.references.length?1:0,maxItems:Math.min(3,input.references.length),items:{type:"string",enum:input.references.length ? input.references.map((_,i)=>`reference_${i+1}`) : ["none"]}} } } : qualitySchema : schema } },
+        text: { format: { type: "json_schema", name: "ravoge_reviewed_workout", strict: true, schema: input.schemaVersion === 2 ? qualitySchemaFor(input) : schema } },
       }, { signal: AbortSignal.timeout(input.schemaVersion === 2 ? 18_000 : 14_000) });
       if (response.status !== "completed" || !response.output_text?.trim()) throw new QualityValidationError("response_incomplete");
       return { workout: input.schemaVersion === 2 ? validateQualityWorkout(response.output_text, input) : validateAssistedWorkout(response.output_text, input), model };
