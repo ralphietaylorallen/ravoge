@@ -113,3 +113,17 @@ test("empty or malformed provider JSON gets only one fixed-hint repair, never di
     assert.ok((await generateAssistedWorkout(input,sdk as never)).workout);assert.equal(calls,2);
   }
 });
+
+test("one duration repair receives verified aggregate timing, never rejected draft prose",async()=>{
+  const input=context();input.intelligence={analysis:analysis(),method:"openai",cacheHit:false};let calls=0;
+  const short=output(input);short.title="DO NOT FORWARD REJECTED PROSE";short.exercises.forEach(e=>{e.sets=1;e.restSeconds=0;});
+  const sdk={responses:{create:async(request:Record<string,unknown>)=>{
+    calls++;if(calls===1)return {status:"completed",output_text:JSON.stringify(short)};
+    const serialized=JSON.stringify(request);assert.ok(!serialized.includes(short.title));
+    const projected=JSON.parse((request.input as {content:string}[])[0].content);
+    assert.equal(projected.repair.issue,"duration");assert.ok(projected.repair.computation.timing.estimatedSeconds<900);
+    assert.equal(projected.repair.computation.timing.minimumSeconds,900);assert.equal(projected.repair.computation.timing.maximumSeconds,2880);
+    return {status:"completed",output_text:JSON.stringify(output(input))};
+  }}};
+  assert.ok((await generateAssistedWorkout(input,sdk as never)).workout);assert.equal(calls,2);
+});

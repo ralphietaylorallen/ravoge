@@ -23,8 +23,11 @@ export const QUALITY_REPAIR_HINTS = {
 } as const;
 export class QualityValidationError extends Error {
   readonly issue: keyof typeof QUALITY_REPAIR_HINTS;
-  constructor(issue: keyof typeof QUALITY_REPAIR_HINTS) { super("invalid_output"); this.issue = issue; }
+  readonly repair?: QualityRepairContext;
+  constructor(issue: keyof typeof QUALITY_REPAIR_HINTS, repair?: QualityRepairContext) { super("invalid_output"); this.issue = issue; this.repair = repair; }
 }
+export type QualityRepairContext = { timing: { estimatedSeconds:number; minimumSeconds:number; maximumSeconds:number } }
+  | { row: { exerciseKey:string; field:"reps"|"perSide"|"measurement"|"sets"; maximum?:number; required?:number|boolean|string } };
 
 // Normalize database validation failures without logging SQL details, user
 // data, model output, request payloads or provider error objects.
@@ -107,6 +110,7 @@ export function projectQualityContext(input: GenerationInput) {
       reps: input.gymProfile.statistics.reps, restSeconds: input.gymProfile.statistics.restSeconds,
       terminology: input.gymProfile.statistics.terminology, progressionPatterns: input.gymProfile.statistics.progressionPatterns, resourceUse: input.gymProfile.statistics.resourceUse } : null,
     publishedCount: input.publishedCount ?? 0,
+    timingBudget: { requestedSeconds:input.duration*60, minimumEstimatedSeconds:Math.min(15,input.duration*0.4)*60, maximumEstimatedSeconds:input.duration*60+180 },
     trainingAnalysis: input.intelligence?.analysis,
     todayReadiness: input.todayReadiness ? { answers: input.todayReadiness.answers, hasPain: input.todayReadiness.hasPain, coachDecision: input.todayReadiness.coachDecision } : null,
     publishedStructures: input.references.map((r, index) => {
@@ -143,6 +147,12 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
     let p: WorkoutProtocol;
     try { p = validateProtocol(raw.protocol); } catch { throw new QualityValidationError("protocol"); }
     if (input.intelligence && p.targetRpe !== null && p.targetRpe > input.intelligence.analysis.intensityCeiling) throw new QualityValidationError("planned_intensity");
+    const row = { exerciseKey:`exercise_${index+1}` };
+    if(e && p.measurement==="reps" && Number(raw.reps)>Math.min(20,e.repMax??20)) throw new QualityValidationError("row_constraints",{row:{...row,field:"reps",maximum:Math.min(20,e.repMax??20)}});
+    if(e?.laterality==="unilateral" && !p.perSide) throw new QualityValidationError("row_constraints",{row:{...row,field:"perSide",required:true}});
+    if(e && ((p.measurement==="reps" && e.measurement && e.measurement!=="reps") || (p.measurement==="distance" && e.measurement!=="distance"))) throw new QualityValidationError("row_constraints",{row:{...row,field:"measurement",required:e.measurement??"reps"}});
+    if(p.measurement!=="reps" && Number(raw.reps)!==1) throw new QualityValidationError("row_constraints",{row:{...row,field:"reps",required:1}});
+    if(p.format==="amrap" && Number(raw.sets)!==1) throw new QualityValidationError("row_constraints",{row:{...row,field:"sets",required:1}});
     if (!e || !e.equipment.every(t => input.equipment.includes(t)) || !Number.isInteger(raw.sets) || Number(raw.sets) < 1 || Number(raw.sets) > (input.experience === "beginner" ? 3 : 4)
       || !Number.isInteger(raw.reps) || Number(raw.reps) < 1 || Number(raw.reps) > 20 || !Number.isInteger(raw.restSeconds) || Number(raw.restSeconds) < 0 || Number(raw.restSeconds) > 300
       || (p.measurement !== "reps" && Number(raw.reps) !== 1) || (p.measurement === "reps" && ((e.measurement && e.measurement !== "reps") || Number(raw.reps) > Math.min(20, e.repMax ?? 20)))
@@ -161,7 +171,7 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
   });
   const seconds = estimateWorkoutSeconds(exercises);
   if (exercises.reduce((sum: number, e: { sets: number }) => sum + e.sets, 0) > 28) throw new QualityValidationError("volume");
-  if (seconds > input.duration * 60 + 180 || seconds < Math.min(15, input.duration * 0.4) * 60) throw new QualityValidationError("duration");
+  if (seconds > input.duration * 60 + 180 || seconds < Math.min(15, input.duration * 0.4) * 60) throw new QualityValidationError("duration",{timing:{estimatedSeconds:Math.ceil(seconds),minimumSeconds:Math.min(15,input.duration*0.4)*60,maximumSeconds:input.duration*60+180}});
   return { title: value.title, rationale: value.rationale, durationMinutes: Math.max(20, Math.min(input.duration, Math.ceil(seconds / 60))), exercises,
     ...(input.intelligence?{sourceReviewIds:value.sourceReferenceKeys.map((key:string)=>input.references[referenceKeys.indexOf(key)].id)}:{}) };
 }
