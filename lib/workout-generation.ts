@@ -139,13 +139,13 @@ export async function generateAssistedWorkout(input: GenerationInput, client?: R
         input: [{ role: "user", content: JSON.stringify({ ...deidentifiedGenerationInput(input), repair: attempt ? repairIssue ? { issue: repairIssue, instruction: QUALITY_REPAIR_HINTS[repairIssue] } : "The previous attempt was rejected or unavailable. Recheck all schema and programming limits. Never invent a missing exercise or load." : null }) }],
         text: { format: { type: "json_schema", name: "ravoge_reviewed_workout", strict: true, schema: input.schemaVersion === 2 ? input.intelligence ? { ...qualitySchema, required: [...qualitySchema.required,"sourceReferenceKeys"], properties: { ...qualitySchema.properties, sourceReferenceKeys: {type:"array",minItems:input.references.length?1:0,maxItems:Math.min(3,input.references.length),items:{type:"string",enum:input.references.length ? input.references.map((_,i)=>`reference_${i+1}`) : ["none"]}} } } : qualitySchema : schema } },
       }, { signal: AbortSignal.timeout(input.schemaVersion === 2 ? 18_000 : 14_000) });
-      if (response.status !== "completed") throw new QualityValidationError("response_incomplete");
+      if (response.status !== "completed" || !response.output_text?.trim()) throw new QualityValidationError("response_incomplete");
       return { workout: input.schemaVersion === 2 ? validateQualityWorkout(response.output_text, input) : validateAssistedWorkout(response.output_text, input), model };
     } catch (error) {
-      repairIssue = error instanceof QualityValidationError ? error.issue : null;
-      if (repairIssue) console.warn("[Ravoge generation] rejected output", { issue: repairIssue, attempt: attempt + 1 });
+      repairIssue = error instanceof QualityValidationError ? error.issue : error instanceof SyntaxError ? "response_json" : null;
       reason = error instanceof OpenAI.APIConnectionTimeoutError || (error instanceof Error && error.name === "TimeoutError") ? "timeout"
         : error instanceof SyntaxError || (error instanceof Error && error.message === "invalid_output") ? "invalid_output" : "unavailable";
+      console.warn("[Ravoge generation] rejected output", { issue: repairIssue ?? reason, attempt: attempt + 1 });
     }
   }
   return { workout: null, reason };

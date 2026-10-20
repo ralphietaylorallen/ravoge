@@ -17,6 +17,7 @@ export const QUALITY_REPAIR_HINTS = {
   volume: "Use no more than 28 total sets and respect the per-row/experience limits.",
   duration: "Recalculate actual duration using the supplied formula, including rest, unilateral work, transitions and shared blocks. It must reach min(15, requestedDurationMinutes*0.4) minutes and not exceed requestedDurationMinutes plus 3 minutes. Do not just change the declared duration.",
   response_incomplete: "Return a complete compact JSON workout within the output budget; keep prose brief and use only the necessary movement rows.",
+  response_json: "Return exactly one complete JSON object matching the schema, with no surrounding prose or markdown. Keep the workout compact and all original constraints intact.",
   references: "Cite only unique supplied reference keys that influenced this session. At least one is required when references are supplied; otherwise use an empty array.",
 } as const;
 export class QualityValidationError extends Error {

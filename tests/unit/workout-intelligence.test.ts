@@ -3,6 +3,7 @@ import test from "node:test";
 import { analyzeTrainingIntent, generateIntelligentWorkout, planningProjection, retrieveGymKnowledge, validateTrainingAnalysis, type TrainingAnalysis } from "../../lib/workout-intelligence.ts";
 import { generationSaveIssue, validateQualityWorkout } from "../../lib/workout-generation-quality.ts";
 import { defaultProtocol } from "../../lib/workout-protocol.ts";
+import { generateAssistedWorkout } from "../../lib/workout-generation.ts";
 import type { GenerationInput } from "../../lib/workout-generation.ts";
 
 function context(goal="athletic_performance"):GenerationInput {
@@ -85,4 +86,19 @@ test("source claims and planned intensity cannot bypass existing review validati
   const intense=output(input);intense.exercises[0].protocol.targetRpe=8;assert.throws(()=>validateQualityWorkout(JSON.stringify(intense),input));
   assert.equal(generationSaveIssue("Invalid training analysis"),"Invalid training analysis");
   assert.equal(generationSaveIssue("private@example.test invalid raw workout"),"other_database_validation");
+});
+
+test("empty or malformed provider JSON gets only one fixed-hint repair, never discarded safety checks or raw-output feedback",async()=>{
+  const input=context();input.intelligence={analysis:analysis(),method:"openai",cacheHit:false};
+  for(const invalid of ["","private@example.test malformed JSON"]) {
+    let calls=0;
+    const sdk={responses:{create:async(request:Record<string,unknown>)=>{
+      calls++;
+      if(calls===1) return {status:"completed",output_text:invalid};
+      assert.ok(!JSON.stringify(request).includes("private@example.test"));
+      assert.ok(JSON.stringify(request).includes(invalid?"response_json":"response_incomplete"));
+      return {status:"completed",output_text:JSON.stringify(output(input))};
+    }}};
+    assert.ok((await generateAssistedWorkout(input,sdk as never)).workout);assert.equal(calls,2);
+  }
 });
