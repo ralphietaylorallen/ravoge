@@ -17,6 +17,7 @@ export const QUALITY_REPAIR_HINTS = {
   volume: "Use no more than 28 total sets and respect the per-row/experience limits.",
   duration: "Recalculate actual duration using the supplied formula, including rest, unilateral work, transitions and shared blocks. It must reach min(15, requestedDurationMinutes*0.4) minutes and not exceed requestedDurationMinutes plus 3 minutes. Do not just change the declared duration.",
   response_incomplete: "Return a complete compact JSON workout within the output budget; keep prose brief and use only the necessary movement rows.",
+  references: "Cite only unique supplied reference keys that influenced this session. At least one is required when references are supplied; otherwise use an empty array.",
 } as const;
 export class QualityValidationError extends Error {
   readonly issue: keyof typeof QUALITY_REPAIR_HINTS;
@@ -76,6 +77,7 @@ export function projectQualityContext(input: GenerationInput) {
       reps: input.gymProfile.statistics.reps, restSeconds: input.gymProfile.statistics.restSeconds,
       terminology: input.gymProfile.statistics.terminology, progressionPatterns: input.gymProfile.statistics.progressionPatterns, resourceUse: input.gymProfile.statistics.resourceUse } : null,
     publishedCount: input.publishedCount ?? 0,
+    trainingAnalysis: input.intelligence?.analysis,
     todayReadiness: input.todayReadiness ? { answers: input.todayReadiness.answers, hasPain: input.todayReadiness.hasPain, coachDecision: input.todayReadiness.coachDecision } : null,
     publishedStructures: input.references.map((r, index) => {
       const groups = new Map<string, string>();
@@ -97,9 +99,12 @@ export function projectQualityContext(input: GenerationInput) {
 export function validateQualityWorkout(output: string, input: GenerationInput): AssistedWorkout {
   const value = JSON.parse(output);
   const text = (s: unknown, min: number, max: number): s is string => typeof s === "string" && s.trim().length >= min && s.length <= max && !/(https?:|@|kg\b|kilograms?|\b[0-9a-f]{8}-[0-9a-f-]{27,}\b)/i.test(s);
-  if (!value || Array.isArray(value) || Object.keys(value).some(k => !["title", "rationale", "durationMinutes", "exercises"].includes(k))
+  if (!value || Array.isArray(value) || Object.keys(value).some(k => !["title", "rationale", "durationMinutes", "exercises",...(input.intelligence?["sourceReferenceKeys"]:[])].includes(k))
     || !text(value.title, 2, 120) || !text(value.rationale, 2, 2000) || !Number.isInteger(value.durationMinutes) || value.durationMinutes < 20 || value.durationMinutes > input.duration
     || !Array.isArray(value.exercises) || value.exercises.length < 3 || value.exercises.length > 12) throw new QualityValidationError("header");
+  const referenceKeys=input.references.map((_,index)=>`reference_${index+1}`);
+  if(input.intelligence && (!Array.isArray(value.sourceReferenceKeys) || value.sourceReferenceKeys.length>(input.references.length?3:0) || (input.references.length && !value.sourceReferenceKeys.length)
+    || new Set(value.sourceReferenceKeys).size!==value.sourceReferenceKeys.length || value.sourceReferenceKeys.some((key:unknown)=>typeof key!=="string"||!referenceKeys.includes(key)))) throw new QualityValidationError("references");
   const groups = new Map<string, string>();
   const exercises = value.exercises.map((raw: Record<string, unknown>) => {
     if (!raw || Object.keys(raw).some(k => !["exerciseKey", "sets", "reps", "restSeconds", "notes", "reason", "protocol"].includes(k))) throw new QualityValidationError("row_shape");
@@ -111,7 +116,7 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
       || !Number.isInteger(raw.reps) || Number(raw.reps) < 1 || Number(raw.reps) > 20 || !Number.isInteger(raw.restSeconds) || Number(raw.restSeconds) < 0 || Number(raw.restSeconds) > 300
       || (p.measurement !== "reps" && Number(raw.reps) !== 1) || (p.measurement === "reps" && ((e.measurement && e.measurement !== "reps") || Number(raw.reps) > Math.min(20, e.repMax ?? 20)))
       || (p.measurement === "distance" && e.measurement !== "distance") || (p.format === "amrap" && Number(raw.sets) !== 1)
-      || p.percentageLoad !== null || p.targetRpe === null || p.targetRpe < 4 || p.targetRpe > (input.experience === "beginner" ? 7 : 8) || p.substitutionIds.length
+      || p.percentageLoad !== null || p.targetRpe === null || p.targetRpe < 4 || p.targetRpe > Math.min(input.intelligence?.analysis.intensityCeiling??8,input.experience === "beginner" ? 7 : 8) || p.substitutionIds.length
       || (e.laterality === "unilateral" && !p.perSide) || !text(raw.notes, 0, 500) || !text(raw.reason, 2, 500)) throw new QualityValidationError("row_constraints");
     if (!generatedWeightTextIsLoadFree(raw.notes as string, raw.reason as string)) throw new QualityValidationError("numeric_load");
     if (e.equipment.includes("turf") && !(input.facilities ?? []).some(f => f.type === "turf" && f.length * (f.unit === "yards" ? 0.9144 : 1) >= (p.distance ?? 1) * (p.distanceUnit === "yards" ? 0.9144 : 1))) throw new QualityValidationError("turf");
@@ -126,5 +131,6 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
   const seconds = estimateWorkoutSeconds(exercises);
   if (exercises.reduce((sum: number, e: { sets: number }) => sum + e.sets, 0) > 28) throw new QualityValidationError("volume");
   if (seconds > input.duration * 60 + 180 || seconds < Math.min(15, input.duration * 0.4) * 60) throw new QualityValidationError("duration");
-  return { title: value.title, rationale: value.rationale, durationMinutes: Math.max(20, Math.min(input.duration, Math.ceil(seconds / 60))), exercises };
+  return { title: value.title, rationale: value.rationale, durationMinutes: Math.max(20, Math.min(input.duration, Math.ceil(seconds / 60))), exercises,
+    ...(input.intelligence?{sourceReviewIds:value.sourceReferenceKeys.map((key:string)=>input.references[referenceKeys.indexOf(key)].id)}:{}) };
 }

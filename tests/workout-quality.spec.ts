@@ -24,6 +24,8 @@ async function nextOpenSet(player: Locator) {
 test("three-client quality generation, Owner programming review and mobile workout player", async ({ page, browser }, info) => {
   test.skip(process.env.RAVOGE_QUALITY_QA !== "yes" || info.project.name !== "desktop", "Explicit disposable Ravoge quality fixtures required");
   test.setTimeout(540_000);
+  const intelligenceQa = process.env.RAVOGE_INTELLIGENCE_QA === "yes";
+  const focuses = ["fat_loss_support", "muscle_growth", "running_5k"];
   const owner = accounts.find(a => a.role === "owner")!, coachAccount = accounts.find(a => a.role === "coach")!;
   const clients = accounts.filter(a => a.role === "client"); expect(clients).toHaveLength(3);
   const errors: string[] = []; page.on("pageerror", e => errors.push(`${new URL(page.url()).pathname}: ${e.message}`));
@@ -53,7 +55,7 @@ test("three-client quality generation, Owner programming review and mobile worko
 
   const sources = [
     { title: "Quality Circuit", goal: "fat_loss", duration: 11, format: "circuit", rows: [["Goblet Squat", "reps", "8"], ["Band Row", "reps", "8"], ["Dead Bug", "reps", "8"]], source: "Circuit A, 3 rounds: Goblet Squat 8, Band Row 8, Dead Bug 8. Rest 30s." },
-    { title: "Quality Strength", goal: "strength", duration: 23, format: "straight", rows: [["Back Squat", "reps", "5"], ["Bench Press", "reps", "5"], ["Romanian Deadlift", "reps", "5"]], source: "Back Squat 3 x 5 at 95 lb\nBench Press 3 x 5\nRomanian Deadlift 3 x 5\nRest 120 seconds between sets." },
+    { title: "Quality Strength", goal: intelligenceQa ? "muscle_gain" : "strength", duration: 23, format: "straight", rows: [["Back Squat", "reps", "5"], ["Bench Press", "reps", "5"], ["Romanian Deadlift", "reps", "5"]], source: "Back Squat 3 x 5 at 95 lb\nBench Press 3 x 5\nRomanian Deadlift 3 x 5\nRest 120 seconds between sets." },
     { title: "Quality Stations", goal: "athletic_performance", duration: 18, format: "emom", rows: [["Rower Interval", "time", "1"], ["Sled Push", "distance", "1"], ["Medicine Ball Chest Pass", "reps", "5"]], source: "EMOM: Rower 30s; Sled Push 10m; Medicine Ball Chest Pass 5 reps. Six visits each in 60s slots." },
   ];
   await page.goto("/owner/training-library/import");
@@ -87,14 +89,17 @@ test("three-client quality generation, Owner programming review and mobile worko
   await page.goto("/owner/training-library"); await expect(page.getByText(/3 reviewed, published sources available/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Unresolved source", exact: true })).toBeVisible();
   const coachApi = await scoped(coachAccount);
+  const { data: originalRows } = await api.from("training_library_items").select("id,normalized_content").order("id");
+  expect(originalRows).toHaveLength(4);
   const coachContext = await browser.newContext(); const coach = await coachContext.newPage(); coach.on("pageerror", e => errors.push(`${new URL(coach.url()).pathname}: ${e.message}`)); await login(coach, coachAccount);
   const signatures = new Set<string>();
   for (const [index, account] of clients.entries()) {
     const goal = sources[index].goal;
-    const { data: intake, error } = await coachApi.rpc("upsert_client_intake", { target_client_user_id: account.id, intake_payload: { trainingFrequencyGoal: index + 2, primaryGoal: goal, trainingYears: index === 0 ? 0 : 2, experienceLevel: index === 0 ? "beginner" : "intermediate", recentConsistency: "building", sessionDurationMinutes: 45, sleepQuality: 3, stressLevel: 3, recoveryPerception: 3, sorenessFatigue: 3, constraintTags: index === 0 ? ["impact"] : [], customFields: {} } });
+    const { data: intake, error } = await coachApi.rpc("upsert_client_intake", { target_client_user_id: account.id, intake_payload: { trainingFrequencyGoal: index + 2, primaryGoal: goal, trainingYears: index === 0 ? 0 : 2, experienceLevel: index === 0 ? "beginner" : "intermediate", recentConsistency: "building", sessionDurationMinutes: 45, sleepQuality: 3, stressLevel: 3, recoveryPerception: 3, sorenessFatigue: 3, constraintTags: index === 0 ? ["impact"] : [], customFields: intelligenceQa ? { trainingFocus: focuses[index] } : {} } });
     expect(error).toBeNull(); expect((await coachApi.rpc("confirm_intake_generation_safety", { target_intake_id: intake })).error).toBeNull();
     if (index === 1) {
       await coach.goto(`/coach/clients/${account.id}?tab=intake`);
+      if (intelligenceQa) await expect(coach.locator("#trainingFocus")).toHaveValue(focuses[index]);
       await coach.getByRole("button", { name: "Continue →", exact: true }).click();
       for(const [id,value] of Object.entries({squatLoadLb:"95",squatReps:"5",squatOneRmLb:"135",benchLoadLb:"65",benchReps:"5",benchOneRmLb:"95",pullupStrictReps:"0"})) await coach.locator(`#${id}`).fill(value);
       await coach.getByRole("button", {name:"Continue →",exact:true}).click(); await coach.locator("#rowerDistanceM").fill("500"); await coach.locator("#rowerTimeSeconds").fill("120");
@@ -104,6 +109,7 @@ test("three-client quality generation, Owner programming review and mobile worko
       for(const [width,height] of [[390,844],[820,1180],[1024,768]]) { await coach.setViewportSize({width,height}); expect(await coach.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true); await coach.screenshot({path:info.outputPath(`intake-lb-${width}.png`),fullPage:true}); }
       await coach.getByRole("button",{name:"Save versioned intake & baseline"}).click(); await expect(coach.getByRole("status")).toContainText("Versioned intake and baseline saved");
       await coach.reload(); expect(Number(await coach.locator("#goalWeightLb").inputValue())).toBeCloseTo(180,7); expect(Number(await coach.locator("#goalSkeletalMuscleMassLb").inputValue())).toBeCloseTo(85,7);
+      if (intelligenceQa) await expect(coach.locator("#trainingFocus")).toHaveValue(focuses[index]);
       const {data:latest}=await coachApi.from("client_intakes").select("id").eq("client_user_id",account.id).order("version",{ascending:false}).limit(1).single();
       expect((await coachApi.rpc("confirm_intake_generation_safety",{target_intake_id:latest!.id})).error).toBeNull();
       const {data:body}=await coachApi.from("client_body_composition_assessments").select("weight_kg,skeletal_muscle_mass_kg").eq("intake_id",latest!.id).single();
@@ -113,11 +119,27 @@ test("three-client quality generation, Owner programming review and mobile worko
       await page.goto("/owner/reports"); await expect(page.locator("body")).toContainText("190.0 lb"); await expect(page.locator("body")).not.toContainText(/\bkg\b|kilograms/i);
     }
     await coach.goto(`/coach/clients/${account.id}`); await coach.getByRole("button", { name: "Create workout", exact: true }).click(); await expect(coach).toHaveURL(/\/prescriptions\/[0-9a-f-]+$/, { timeout: 60_000 });
-    await expect(coach.getByRole("region", { name: "Generation evidence" })).toContainText(sources[index].title); await expect(coach.getByRole("region", { name: "Generation evidence" })).toContainText("Gym-profile version:");
+    if (!intelligenceQa) await expect(coach.getByRole("region", { name: "Generation evidence" })).toContainText(sources[index].title);
+    await expect(coach.getByRole("region", { name: "Generation evidence" })).toContainText("Gym-profile version:");
     const prescriptionId = coach.url().split("/").at(-1)!;
     const { data: draft } = await coachApi.from("generated_prescriptions").select("original_recommendation,status,generation_context").eq("id", prescriptionId).single(); expect(draft?.status).toBe("draft");
     if (process.env.RAVOGE_LIVE_WORKOUT_QA === "yes") await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status"), `Provider outcome: ${draft?.generation_context?.fallbackReason ?? "no fallback reason"}`).toContainText("OpenAI-assisted");
     else await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status")).toContainText("safe fallback");
+    if (intelligenceQa) {
+      const snapshot = draft!.generation_context.trainingSnapshot;
+      expect(snapshot.trainingFocus).toBe(focuses[index]); expect(snapshot.knowledgeCatalog).toBeUndefined();
+      expect(snapshot.knowledgeCounts).toMatchObject({ total: 4, approved: 3 });
+      expect(snapshot.facilities.some((f: { type: string; length: number; unit: string }) => f.type === "turf" && f.length === 25 && f.unit === "yards")).toBe(true);
+      expect(snapshot.intelligence.analysis.objectives).toContain(["fat_loss_support", "hypertrophy", "running_economy"][index]);
+      expect(snapshot.references.length).toBeGreaterThan(0);
+      expect(snapshot.references.some((r: { goal: string }) => r.goal === goal)).toBe(true);
+      if (process.env.RAVOGE_LIVE_WORKOUT_QA === "yes") {
+        expect(snapshot.intelligence.method).toBe("openai");
+        expect(draft!.generation_context.sourceType).toBe("reviewed_organization_references");
+        expect(draft!.generation_context.referenceVersions.map((r: { id: string }) => r.id)).toEqual(snapshot.references.map((r: { id: string }) => r.id));
+        expect(draft!.original_recommendation.every((e: { protocol: { targetRpe: number } }) => e.protocol.targetRpe <= snapshot.intelligence.analysis.intensityCeiling)).toBe(true);
+      }
+    }
     signatures.add(JSON.stringify(draft?.original_recommendation.map((e: { libraryExerciseId: string; protocol: { format: string } }) => [e.libraryExerciseId, e.protocol.format])));
     const ordinary = await scoped(account); expect((await ordinary.from("generated_prescriptions").select("id")).data).toEqual([]); expect((await ordinary.from("workout_assignments").select("id")).data).toEqual([]);
     const durationField=coach.getByLabel("Workout duration (minutes)"); const estimated=Number(await durationField.inputValue()); expect(estimated).toBeGreaterThanOrEqual(15); expect(estimated).toBeLessThanOrEqual(45); await durationField.fill(String(Math.min(45,estimated+1))); await coach.getByLabel("Coach instructions", { exact: true }).fill("QA Coach reviewed technique, constraints, timing and load. Stop for pain.");
@@ -159,5 +181,8 @@ test("three-client quality generation, Owner programming review and mobile worko
     }
     await ordinary.auth.signOut(); await context.close();
   }
-  expect(signatures.size).toBe(3); expect(errors).toEqual([]); await coachContext.close(); await coachApi.auth.signOut(); await api.auth.signOut();
+  expect(signatures.size).toBe(3); expect(errors).toEqual([]);
+  expect((await api.from("training_library_items").select("id,normalized_content").order("id")).data).toEqual(originalRows);
+  expect((await api.from("training_library_items").select("status").eq("title", "Unresolved source").single()).data?.status).not.toBe("published");
+  await coachContext.close(); await coachApi.auth.signOut(); await api.auth.signOut();
 });
