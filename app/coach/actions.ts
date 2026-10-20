@@ -8,6 +8,7 @@ import { parsePoundBodyCompositionGoals } from "@/lib/intake-targets";
 import { poundsToKilograms } from "@/lib/weight-units";
 import { type GenerationInput } from "@/lib/workout-generation";
 import { generateIntelligentWorkout } from "@/lib/workout-intelligence";
+import { generationSaveIssue } from "@/lib/workout-generation-quality";
 import { validTrainingFocus } from "@/lib/training-focus";
 import { protocolsFromForm } from "@/lib/workout-protocol";
 
@@ -290,6 +291,7 @@ export async function generatePrescriptionAction(clientId: string, _state: Gener
     generation_details: { ...(result.workout ? { model: result.model } : { reason: result.reason }), ...(result.intelligence ? { intelligence: result.intelligence, sourceReviewIds: result.workout?.sourceReviewIds??[] } : {}) },
   }).abortSignal(AbortSignal.timeout(5000));
   if (saveError && result.workout) {
+    console.warn("[Ravoge generation] database rejected draft", { issue: generationSaveIssue(saveError.message) });
     const fallback = await supabase.rpc("complete_pound_prescription", { target_prescription_id: data, expected_snapshot: input.snapshot, proposed_workout: null, generation_details: { reason: "invalid_output" } }).abortSignal(AbortSignal.timeout(5000));
     saveError = fallback.error;
   }

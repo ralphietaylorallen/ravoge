@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { analyzeTrainingIntent, generateIntelligentWorkout, planningProjection, retrieveGymKnowledge, validateTrainingAnalysis, type TrainingAnalysis } from "../../lib/workout-intelligence.ts";
-import { validateQualityWorkout } from "../../lib/workout-generation-quality.ts";
+import { generationSaveIssue, validateQualityWorkout } from "../../lib/workout-generation-quality.ts";
 import { defaultProtocol } from "../../lib/workout-protocol.ts";
 import type { GenerationInput } from "../../lib/workout-generation.ts";
 
@@ -83,4 +83,6 @@ test("source claims and planned intensity cannot bypass existing review validati
   const missing=output(input);missing.sourceReferenceKeys=[];assert.throws(()=>validateQualityWorkout(JSON.stringify(missing),input));
   const forged=output(input);forged.sourceReferenceKeys=["foreign-source"];assert.throws(()=>validateQualityWorkout(JSON.stringify(forged),input));
   const intense=output(input);intense.exercises[0].protocol.targetRpe=8;assert.throws(()=>validateQualityWorkout(JSON.stringify(intense),input));
+  assert.equal(generationSaveIssue("Invalid training analysis"),"Invalid training analysis");
+  assert.equal(generationSaveIssue("private@example.test invalid raw workout"),"other_database_validation");
 });

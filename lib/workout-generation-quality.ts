@@ -24,6 +24,17 @@ export class QualityValidationError extends Error {
   constructor(issue: keyof typeof QUALITY_REPAIR_HINTS) { super("invalid_output"); this.issue = issue; }
 }
 
+// Normalize database validation failures without logging SQL details, user
+// data, model output, request payloads or provider error objects.
+export function generationSaveIssue(message: string) {
+  const known = ["Invalid training analysis", "Invalid training analysis lists", "Invalid training intensity", "Unapproved training analysis value",
+    "Invalid source credits", "Source is not currently approved and compatible in this gym", "Draft exceeds planned intensity ceiling",
+    "Training or weight capabilities changed", "Training inputs changed", "Review targets and measurement units", "Invalid protocol value",
+    "Incomplete or unsupported workout structure", "Missing or conflicting timed/distance/load prescription", "Generated intensity exceeds review limits",
+    "Group format and rounds must agree", "Workout exceeds available duration; reduce workload or use a shorter source", "Draft duration is not plausible for these targets"];
+  return known.includes(message) ? message : "other_database_validation";
+}
+
 const protocolProperties = {
   block: { type: "string", enum: BLOCKS }, format: { type: "string", enum: FORMATS }, group: { type: "string", maxLength: 60 },
   measurement: { type: "string", enum: ["reps", "time", "distance"] }, workSeconds: { type: ["integer", "null"], minimum: 5, maximum: 1200 },
