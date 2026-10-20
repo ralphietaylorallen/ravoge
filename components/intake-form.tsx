@@ -5,10 +5,11 @@ import { useActionState, useRef, useState, type ReactNode } from "react";
 import { saveClientIntakeAction } from "@/app/coach/actions";
 
 import { poundsInputFromCanonical } from "@/lib/weight-units";
+import { TRAINING_FOCUS } from "@/lib/training-focus";
 import styles from "./dashboard.module.css";
 
 type IntakeDefaults = Partial<{
-  custom_fields: { bodyCompositionGoals?: { weightKg?: number; bodyFatPercentage?: number; skeletalMuscleMassKg?: number } };
+  custom_fields: { trainingFocus?: string; bodyCompositionGoals?: { weightKg?: number; bodyFatPercentage?: number; skeletalMuscleMassKg?: number } };
   avoided_exercises: string[];
   birth_year: number;
   coach_notes: string;
@@ -86,6 +87,7 @@ export function IntakeForm({ clientId, defaults = {}, checkin }: { clientId: str
             <div className={styles.field}><label htmlFor="primaryGoal">Primary goal</label><select defaultValue={defaults.primary_goal ?? "strength"} id="primaryGoal" name="primaryGoal">{goals.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
             <div className={styles.field}><label htmlFor="secondaryGoal">Secondary goal <span>optional</span></label><select defaultValue={defaults.secondary_goal ?? ""} id="secondaryGoal" name="secondaryGoal"><option value="">None</option>{goals.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
           </div>
+          <div className={styles.field}><label htmlFor="trainingFocus">Training focus <span>optional</span></label><select defaultValue={defaults.custom_fields?.trainingFocus ?? ""} id="trainingFocus" name="trainingFocus"><option value="">Use the saved goals</option>{Object.entries(TRAINING_FOCUS).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select><p className={styles.formHint}>Choose an explicit Client objective. Private notes and injury descriptions are not sent to OpenAI.</p></div>
         </div>
       </details>
 

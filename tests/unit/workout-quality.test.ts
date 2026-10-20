@@ -113,5 +113,5 @@ test("targeted repair never bypasses repeated invalid output or increases provid
   t.mock.method(console,"warn",()=>{}); let calls=0;
   const invalid=proposal("strength"); invalid.exercises[0].notes="Prescribe 95 lb.";
   const sdk={responses:{create:async()=>{calls++;return {status:"completed",output_text:JSON.stringify(invalid)};}}};
-  assert.deepEqual(await generateAssistedWorkout(input(),sdk as never),{workout:null,reason:"invalid_output"}); assert.equal(calls,2);
+  assert.deepEqual(await generateAssistedWorkout(input(),sdk as never),{workout:null,reason:"invalid_output",issue:"numeric_load"}); assert.equal(calls,2);
 });

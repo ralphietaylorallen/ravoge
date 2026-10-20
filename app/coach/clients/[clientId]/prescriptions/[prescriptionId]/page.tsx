@@ -7,6 +7,7 @@ import { PrescriptionReviewForm, type RecommendationExercise } from "@/component
 import { requireRole } from "@/lib/auth";
 import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
 import { FALLBACK_MESSAGE, type GenerationInput } from "@/lib/workout-generation";
+import { TRAINING_FOCUS } from "@/lib/training-focus";
 
 export default async function PrescriptionReviewPage({ params }: { params: Promise<{ clientId: string; prescriptionId: string }> }) {
   const { clientId, prescriptionId } = await params;
@@ -31,6 +32,9 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
       <p>Source: {prescription.generation_context?.sourceType ?? "global_library"}.</p>
       <p role="status">{prescription.engine_version.endsWith("-fallback") ? FALLBACK_MESSAGE : prescription.engine_version.endsWith("-openai") ? "OpenAI-assisted draft, validated against approved exercises and current gym equipment." : "Deterministic intake-based generation."}</p>
       {snapshot && <><p>Goal: {snapshot.goal.replaceAll("_", " ")}{snapshot.secondaryGoal ? ` · ${snapshot.secondaryGoal.replaceAll("_", " ")}` : ""}. {snapshot.experience} experience · {snapshot.frequency} sessions/week · {snapshot.duration}-minute preference.</p>
+        {snapshot.trainingFocus && <p>Client focus: {TRAINING_FOCUS[snapshot.trainingFocus]}.</p>}
+        {snapshot.intelligence && <p>Training analysis: {snapshot.intelligence.method==="openai"?"OpenAI-assisted":"Structured-goal fallback"}. Objectives: {snapshot.intelligence.analysis.objectives.join(", ").replaceAll("_"," ")}. Methods: {snapshot.intelligence.analysis.methods.join(", ")}. Progression focus: {snapshot.intelligence.analysis.progression.replaceAll("_"," ")}. Planned RPE ceiling: {snapshot.intelligence.analysis.intensityCeiling}. Coach review remains required.</p>}
+        {snapshot.knowledgeCounts && <p>Gym knowledge search: {snapshot.knowledgeCounts.total} stored sources · {snapshot.knowledgeCounts.approved} Owner-approved · {snapshot.knowledgeCounts.eligible} currently compatible sources · {snapshot.references.length} credited references. {snapshot.knowledgeCounts.approved===0?"Ask your Owner to review and publish accurately interpreted imports before gym history can influence generation. Unreviewed drafts were not used.":"Compatible blocks are adapted, never treated as automatic clearance or copied unchanged."}</p>}
         <p>Weight context: current weight {canonicalPounds(snapshot.bodyComposition.weightKg)} lb · current muscle {canonicalPounds(snapshot.bodyComposition.skeletalMuscleMassKg)} lb · goal weight {canonicalPounds(snapshot.targets.weightKg)} lb · goal muscle {canonicalPounds(snapshot.targets.skeletalMuscleMassKg)} lb.</p>
         <p>Equipment: {snapshot.equipment.join(", ").replaceAll("_", " ") || "Bodyweight only"}.</p>
         <p>Available weight capabilities (lb): {snapshot.weightCapabilities?.filter(c => c.minLb !== null || c.maxLb !== null || c.sizesLb?.length).map(c => `${c.type}: individual range ${c.minLb ?? "unknown"}–${c.maxLb ?? "unknown"}; exact sizes ${c.sizesLb?.join(", ") ?? "unknown"}${c.pairsConfirmed ? "; one matched pair per plate size confirmed" : ""}`).join(" · ") || "Unknown — Coach must confirm any load; no sizes or quantities were assumed"}.</p>

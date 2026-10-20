@@ -69,10 +69,43 @@ do $$ declare client uuid; intake uuid; p uuid; data jsonb; goal text; n integer
 end $$;
 select pg_temp.assert_true((select count(distinct original_recommendation)=3 from public.generated_prescriptions),'Three materially different intakes produced identical drafts');
 select pg_temp.assert_true((select bool_and(x->'protocol'->>'measurement' in ('time','distance','reps')) from public.generated_prescriptions p cross join lateral jsonb_array_elements(p.original_recommendation) x),'Structured targets lost');
+-- Intelligence searches current, confirmed classifications across goals; raw
+-- imports remain excluded and source-credit writes still use ordinary roles.
+select pg_temp.assert_true(jsonb_array_length(public.get_quality_generation_input((select id from quality_ids where kind='draft-4'))->'knowledgeCatalog')=3,'Knowledge search prematurely limited the intermediate Client to exact-goal references');
+select pg_temp.assert_true(public.get_quality_generation_input((select id from quality_ids where kind='draft-3'))->'knowledgeCounts'->>'total'='4','Knowledge search omitted the raw/published distinction');
+do $$ declare p uuid; input jsonb; proposed jsonb; details jsonb; begin
+ p:=public.generate_initial_prescription_v0('bb100000-0000-4000-8000-000000000004');
+ input:=public.get_pound_generation_input(p);
+ details:=jsonb_build_object('model','mock-rls-only','sourceReviewIds',jsonb_build_array((select id from quality_ids where kind='strength')),
+   'intelligence',jsonb_build_object('method','openai','cacheHit',false,'analysis',jsonb_build_object('objectives',jsonb_build_array('strength'),
+     'priorityPatterns',jsonb_build_array('squat','hinge','horizontal_push'),'methods',jsonb_build_array('strength'),'preferredFormats',jsonb_build_array('straight'),'progression','technique_then_reps','intensityCeiling',6)));
+ proposed:=jsonb_build_object('title','Mock validated review','rationale','Owner-approved strength structure adapted for isolated SQL verification.',
+   'durationMinutes',40,'exercises',input->'references'->0->'exercises');
+ begin
+   perform public.complete_pound_prescription(p,input->>'snapshot',proposed,jsonb_set(details,'{sourceReviewIds}',jsonb_build_array(gen_random_uuid())));
+   raise exception 'Forged or cross-gym source credit accepted';
+ exception when raise_exception then if sqlerrm not like 'Source is not currently approved%' then raise; end if; end;
+ if not exists(select 1 from public.generated_prescriptions where id=p and engine_version='prescription-v0.2') then raise exception 'Invalid credit partially changed the draft'; end if;
+ begin
+   perform public.complete_pound_prescription(p,input->>'snapshot',proposed,jsonb_set(details,'{intelligence,analysis,intensityCeiling}','9'));
+   raise exception 'Planner widened the intensity ceiling';
+ exception when raise_exception then if sqlerrm<>'Invalid training intensity' then raise; end if; end;
+ perform public.complete_pound_prescription(p,input->>'snapshot',proposed,details);
+ if not exists(select 1 from public.generated_prescriptions where id=p and status='draft' and engine_version='prescription-v0.4-openai'
+   and generation_context->'referenceVersions'->0->>'id'=(select id::text from quality_ids where kind='strength')
+   and not(generation_context->'trainingSnapshot' ? 'knowledgeCatalog')
+   and generation_context->'trainingSnapshot'->'intelligence'->>'method'='openai') then raise exception 'Validated source credits or compact audit snapshot lost'; end if;
+end $$;
 select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000001',true);
+select public.save_gym_resource((select id from quality_ids where kind='rower'),'equipment','rower','QA Rower',null,null,'yards',false,null);
+select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000002',true);
+select pg_temp.assert_true(not exists(select 1 from jsonb_array_elements(public.get_quality_generation_input((select id from quality_ids where kind='draft-5'))->'knowledgeCatalog') r where r->>'id'=(select id::text from quality_ids where kind='emom')),'An incompatible circuit was split into invented partial source instructions');
+select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000001',true);
+select public.save_gym_resource((select id from quality_ids where kind='rower'),'equipment','rower','QA Rower',null,null,'yards',true,null);
 select public.review_training_library_item('bb300000-0000-4000-8000-000000000001','Source pending re-review','review',null,null,'[]','Legacy unpublish operation');
 select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000002',true);
 select pg_temp.assert_true(public.get_quality_generation_input((select id from quality_ids where kind='draft-3'))->'gymProfile'='null'::jsonb,'Stale profile carried unpublished source statistics into generation');
+select pg_temp.assert_true(not exists(select 1 from jsonb_array_elements(public.get_quality_generation_input((select id from quality_ids where kind='draft-3'))->'knowledgeCatalog') r where r->>'id'=(select id::text from quality_ids where kind='circuit')),'Unpublished source remained in the intelligence catalog');
 
 -- Clients cannot inspect draft/private generator inputs or publish/promote data.
 select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000003',true);
@@ -102,6 +135,9 @@ select pg_temp.assert_true((select count(*)=3 from public.workout_exercises wher
 select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000007',true);
 select pg_temp.assert_true(not exists(select 1 from public.organization_facilities),'Cross-gym facility read');
 select pg_temp.assert_true(not exists(select 1 from public.gym_programming_profiles),'Cross-gym profile read');
+do $$ begin
+ begin perform public.get_pound_generation_input((select id from quality_ids where kind='draft-3')); raise exception 'Foreign Coach read intelligence catalog'; exception when others then if sqlerrm='Foreign Coach read intelligence catalog' then raise; end if; end;
+end $$;
 do $$ begin
  begin perform public.manage_quality_workout((select id from quality_ids where kind='assigned'),'start',null,null); raise exception 'Cross-gym workout mutation'; exception when others then if sqlerrm='Cross-gym workout mutation' then raise; end if; end;
  begin perform public.review_training_readiness(gen_random_uuid(),'accepted','No'); raise exception 'Cross-gym readiness mutation'; exception when others then if sqlerrm='Cross-gym readiness mutation' then raise; end if; end;
@@ -138,5 +174,8 @@ reset role;
 select pg_temp.assert_true((select count(*)=4 from public.training_library_items where organization_id='bb200000-0000-4000-8000-000000000001'),'Original import row count changed');
 select pg_temp.assert_true(not has_function_privilege('anon','public.get_quality_generation_input(uuid)','execute'),'Anonymous generation API permission');
 select pg_temp.assert_true(not has_function_privilege('authenticated','private.validate_quality_exercises(jsonb,uuid,uuid,boolean)','execute'),'Private validator exposed');
+select pg_temp.assert_true(not has_function_privilege('authenticated','private.workout_knowledge_catalog(uuid,uuid)','execute'),'Private catalog exposed');
+select pg_temp.assert_true(not has_function_privilege('authenticated','public.get_quality_generation_input_before_intelligence(uuid)','execute'),'Legacy privileged catalog entry exposed');
+select pg_temp.assert_true(not has_function_privilege('authenticated','public.complete_pound_prescription_before_intelligence(uuid,text,jsonb,jsonb)','execute'),'Legacy completion could bypass intelligence validation');
 select 'Workout quality, scoped resources, structured publication, three-client generation, review/assignment, performance and readiness RLS passed' as result;
 rollback;
