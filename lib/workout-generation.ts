@@ -123,7 +123,7 @@ export function validateAssistedWorkout(output: string, input: GenerationInput):
 }
 
 export async function generateAssistedWorkout(input: GenerationInput, client?: ResponsesClient): Promise<
-  { workout: AssistedWorkout; model: string; reason?: never } | { workout: null; reason: FallbackReason; model?: never }
+  { workout: AssistedWorkout; model: string; reason?: never } | { workout: null; reason: FallbackReason; model?: never; issue?: keyof typeof QUALITY_REPAIR_HINTS }
 > {
   if (!client && !process.env.OPENAI_API_KEY) return { workout: null, reason: "not_configured" };
   const sdk = client ?? new OpenAI({ maxRetries: 0, timeout: input.schemaVersion === 2 ? 16_000 : 12_000 });
@@ -148,7 +148,7 @@ export async function generateAssistedWorkout(input: GenerationInput, client?: R
       console.warn("[Ravoge generation] rejected output", { issue: repairIssue ?? reason, attempt: attempt + 1 });
     }
   }
-  return { workout: null, reason };
+  return { workout: null, reason, ...(repairIssue ? {issue:repairIssue} : {}) };
 }
 
 export function configuredWorkoutModel() {

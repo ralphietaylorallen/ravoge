@@ -118,12 +118,12 @@ test("three-client quality generation, Owner programming review and mobile worko
       await page.goto(`/owner/clients/${account.id}?tab=progress`); await expect(page.getByRole("columnheader",{name:"Weight (lb)"})).toBeVisible(); await expect(page.getByRole("cell",{name:"190.0",exact:true})).toBeVisible(); await expect(page.locator("body")).not.toContainText(/\bkg\b|kilograms/i);
       await page.goto("/owner/reports"); await expect(page.locator("body")).toContainText("190.0 lb"); await expect(page.locator("body")).not.toContainText(/\bkg\b|kilograms/i);
     }
-    await coach.goto(`/coach/clients/${account.id}`); await coach.getByRole("button", { name: "Create workout", exact: true }).click(); await expect(coach).toHaveURL(/\/prescriptions\/[0-9a-f-]+$/, { timeout: 60_000 });
+    await coach.goto(`/coach/clients/${account.id}`); await coach.getByRole("button", { name: "Create workout", exact: true }).click(); await expect(coach).toHaveURL(/\/prescriptions\/[0-9a-f-]+(?:\?generationIssue=[^#]+)?$/, { timeout: 60_000 });
     if (!intelligenceQa) await expect(coach.getByRole("region", { name: "Generation evidence" })).toContainText(sources[index].title);
     await expect(coach.getByRole("region", { name: "Generation evidence" })).toContainText("Gym-profile version:");
-    const prescriptionId = coach.url().split("/").at(-1)!;
+    const prescriptionId = new URL(coach.url()).pathname.split("/").at(-1)!;
     const { data: draft } = await coachApi.from("generated_prescriptions").select("original_recommendation,status,generation_context").eq("id", prescriptionId).single(); expect(draft?.status).toBe("draft");
-    if (process.env.RAVOGE_LIVE_WORKOUT_QA === "yes") await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status"), `Provider outcome: ${draft?.generation_context?.fallbackReason ?? "no fallback reason"}`).toContainText("OpenAI-assisted");
+    if (process.env.RAVOGE_LIVE_WORKOUT_QA === "yes") await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status"), `Provider outcome: ${draft?.generation_context?.fallbackReason ?? "no fallback reason"}; notice: ${new URL(coach.url()).searchParams.get("generationIssue") ?? "none"}`).toContainText("OpenAI-assisted");
     else await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status")).toContainText("safe fallback");
     if (intelligenceQa) {
       const snapshot = draft!.generation_context.trainingSnapshot;
