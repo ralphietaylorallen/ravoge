@@ -42,6 +42,10 @@ movement, not omitted to bypass safety filtering. Defaults cover 55 exercises.
 
 Comparable history uses the same format and nearby repetition target. Actual
 substitutions are not misattributed to the originally prescribed movement.
+Time/distance work compares the actual seconds/distance against its prescribed
+target, with matching measurement and distance unit. No synthetic repetitions
+are written to set history. Different duration/distance targets are not treated
+as comparable progression evidence.
 All sets must be recorded, successful, pain-free and below target RPE before
 one smallest available increment. Reductions use the lowest successful working
 load; failed/incomplete work repeats a successful load or reduces one increment.
@@ -82,7 +86,12 @@ from synthetic source credit alone.
 
 ## Verification
 
-One additive migration: `20261022191400_deterministic_starting_loads.sql`.
+Additive migration: `20261022191400_deterministic_starting_loads.sql`.
+After its application, the user explicitly approved the narrow corrective
+`20261022203132_measured_load_history.sql`: private function interpretation only,
+no raw-history rewrite, no change to authorization, and no reapplication or edit
+of the original migration. It fails closed if the expected function definitions
+have changed unexpectedly.
 Before application, all 24 SQL suites execute with the pending DDL in one
 rollback-only transaction. `starting_loads_rls.sql` tests the actual SQL kernel,
 ordinary Owner/Coach/Client RPCs, scope denial, final-set learning, private

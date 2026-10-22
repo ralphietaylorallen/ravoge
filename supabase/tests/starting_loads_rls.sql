@@ -40,6 +40,13 @@ do $$ declare rule jsonb; x jsonb; history jsonb; size numeric; begin
  perform pg_temp.assert_load(x->>'load'='10' and x->>'semantics'='each_hand','Carry uses confirmed per-hand load');
  x:=private.calculate_starting_load(rule||'{"prescription_type":"sled","coefficient":null,"intake_anchor":null,"weight_semantics":"sled"}',null,array[45,90]::numeric[],'[]',1,6);
  perform pg_temp.assert_load(x->>'load'='45' and x->>'semantics'='sled','Sled uses confirmed total sled load');
+ history:='[{"recorded":true,"load":40,"prescribedLoad":40,"reps":null,"prescribedReps":1,"actualTarget":20.5,"prescribedTarget":20.5,"rpe":5,"result":"complete","pain":false}]';
+ x:=private.calculate_starting_load(rule||'{"prescription_type":"carry","weight_semantics":"each_hand"}',null,array[30,40,50]::numeric[],history,1,6);
+ perform pg_temp.assert_load(x->>'load'='50','Completed fractional distance, not invented reps, must permit one increment');
+ x:=private.calculate_starting_load(rule||'{"prescription_type":"sled","weight_semantics":"sled"}',null,array[30,40,50]::numeric[],jsonb_set(history,'{0,actualTarget}','10'),1,6);
+ perform pg_temp.assert_load(x->>'load'='40','Incomplete distance cannot progress');
+ x:=private.calculate_starting_load(rule,null,array[30,40,50]::numeric[],jsonb_set(history,'{0,pain}','true'),1,6);
+ perform pg_temp.assert_load(x->>'load' is null and x->>'coachReviewRequired'='true','Pain in measured work requires Coach review');
 end $$;
 
 insert into auth.users(id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
@@ -99,6 +106,37 @@ select set_config('request.jwt.claim.sub','bd100000-0000-4000-8000-000000000003'
 select pg_temp.assert_load((select count(*)=0 from exercise_load_rules),'Client cannot read/change programming rules');
 select pg_temp.assert_load((select count(*)=0 from generated_prescriptions where status='draft'),'Client cannot read generated draft');
 select pg_temp.assert_load((select count(*)=1 from workout_assignments),'Client sees only approved assignment');
+
+-- Ordinary authenticated RPC proof: a real carry stores distance and NULL reps.
+select set_config('request.jwt.claim.sub','bd100000-0000-4000-8000-000000000002',true);
+do $$ declare p uuid; input jsonb; rows jsonb; workout uuid; s record; begin
+ p:=public.generate_initial_prescription_v0('bd100000-0000-4000-8000-000000000003');
+ input:=public.get_pound_generation_input(p);
+ select jsonb_agg(jsonb_build_object('libraryExerciseId',id,'sets',3,'reps',case when slug='farmer-carry' then 1 else 8 end,'restSeconds',120,'load',null,'loadUnit','lb','notes','Controlled technique','reason','Compatible reviewed work',
+ 'protocol',jsonb_build_object('block','strength','format','straight','group','','measurement',case when slug='farmer-carry' then 'distance' else 'reps' end,'workSeconds',null,'distance',case when slug='farmer-carry' then 20 end,'distanceUnit','yards','intervalSeconds',null,'blockDurationSeconds',null,'percentageLoad',null,'perSide',false,'targetRpe',6,'substitutionIds','[]'::jsonb)) order by slug)
+ into rows from exercise_library where organization_id is null and slug in ('goblet-squat','farmer-carry','dead-bug');
+ perform public.complete_pound_prescription(p,input->>'snapshot',jsonb_build_object('title','Distance learning QA','rationale','Reviewed carry targets.','durationMinutes',30,'exercises',rows),'{"model":"mock-sql-only"}');
+ select original_recommendation into rows from generated_prescriptions where id=p;
+ workout:=public.approve_pound_prescription(p,'Distance learning QA',null,current_date,30::smallint,rows);
+ perform set_config('request.jwt.claim.sub','bd100000-0000-4000-8000-000000000003',true);
+ perform public.manage_quality_workout(workout,'start',null,null);
+ for s in select q.id from workout_sets q join workout_exercises e on e.id=q.workout_exercise_id join exercise_library l on l.id=e.library_exercise_id
+   where e.workout_assignment_id=workout and l.slug='farmer-carry' loop
+   perform public.record_quality_workout_set(workout,s.id,'complete','{"distance":20,"load":40,"loadUnit":"lb","rpe":5,"pain":false}');
+ end loop;
+ perform pg_temp.assert_load((select bool_and(q.actual_reps is null and q.actual_distance=20 and q.actual_load=40)
+   from workout_sets q join workout_exercises e on e.id=q.workout_exercise_id join exercise_library l on l.id=e.library_exercise_id
+   where e.workout_assignment_id=workout and l.slug='farmer-carry'),'Carry raw distance must remain accurate with no fabricated reps');
+ perform set_config('request.jwt.claim.sub','bd100000-0000-4000-8000-000000000002',true);
+ p:=public.generate_initial_prescription_v0('bd100000-0000-4000-8000-000000000003');
+ input:=public.get_pound_generation_input(p);
+ -- Completion accepts only blank AI loads; DB alone resolves the learned value.
+ select jsonb_agg(v||'{"load":null}'::jsonb) into rows from jsonb_array_elements(rows) v;
+ perform public.complete_pound_prescription(p,input->>'snapshot',jsonb_build_object('title','Learned carry QA','rationale','Reviewed comparable distance.','durationMinutes',30,'exercises',rows),'{"model":"mock-sql-only"}');
+ perform pg_temp.assert_load((select exists(select 1 from jsonb_array_elements(original_recommendation) v join exercise_library l on l.id=(v->>'libraryExerciseId')::uuid
+   where l.slug='farmer-carry' and v->>'load'='50' and v->'loadPrescription'->>'basis'='same exercise history') from generated_prescriptions where id=p),'Completed distance must progress one confirmed increment through ordinary RPCs');
+end $$;
+select set_config('request.jwt.claim.sub','bd100000-0000-4000-8000-000000000003',true);
 do $$ begin
  begin perform public.get_pound_generation_input((select id from load_ids where kind='later')); raise exception 'Client accessed generation context'; exception when others then if sqlerrm='Client accessed generation context' then raise; end if; end;
 end $$;
