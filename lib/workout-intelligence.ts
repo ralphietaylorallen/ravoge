@@ -93,3 +93,7 @@ export async function generateIntelligentWorkout(input:GenerationInput,client?:C
   const prepared={...input,references,intelligence};
   return {...await generateAssistedWorkout(prepared,sdk),intelligence};
 }
+
+export function requiresReviewedGymRetry(input: GenerationInput) {
+  return input.schemaVersion === 2 && (input.knowledgeCatalog?.length ?? 0) > 0 && input.references.length === 0;
+}
