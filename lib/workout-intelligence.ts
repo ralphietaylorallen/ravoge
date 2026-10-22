@@ -70,7 +70,7 @@ export async function analyzeTrainingIntent(input:GenerationInput,client?:Client
 export function retrieveGymKnowledge(input:GenerationInput,analysis:TrainingAnalysis) {
   const candidates=new Map(input.candidates.map(c=>[c.id,c]));
   const objectives:Record<string,string[]>={strength:["strength"],muscle_gain:["hypertrophy"],conditioning:["aerobic_endurance"],athletic_performance:["running_economy","aerobic_endurance"],general_fitness:["general_fitness"],fat_loss:["fat_loss_support"],body_recomposition:["hypertrophy","fat_loss_support"]};
-  return (input.knowledgeCatalog??input.references).map(reference=>{
+  const ranked = (input.knowledgeCatalog??input.references).map(reference=>{
     // Defense in depth: never turn a circuit with an unavailable movement into
     // a different, partially reconstructed circuit, even for a stale caller.
     const blockKey=(e:typeof reference.exercises[number],i:number)=>e.protocol?.group ? `${e.protocol.block}:${e.protocol.format}:${e.protocol.group}` : `row:${i}`;
@@ -83,7 +83,19 @@ export function retrieveGymKnowledge(input:GenerationInput,analysis:TrainingAnal
     const methods=new Set(rows.map(e=>e.protocol?.block)),formats=new Set(rows.map(e=>e.protocol?.format??"straight"));
     const score=goalMatch+overlap+analysis.methods.filter(m=>methods.has(m as never)).length*8+analysis.preferredFormats.filter(f=>formats.has(f as never)).length*10-Math.min(30,Math.abs(reference.duration-input.duration)/2);
     return {reference:{...reference,exercises:rows},score};
-  }).filter(r=>r.score>0).sort((a,b)=>b.score-a.score||a.reference.id.localeCompare(b.reference.id)).slice(0,3).map(r=>r.reference);
+  }).filter(r=>r.score>0).sort((a,b)=>b.score-a.score||a.reference.id.localeCompare(b.reference.id));
+  // Sources are alternative programming examples, not three full sessions to
+  // concatenate. Search/rank the complete catalog, then bound the selected
+  // reference volume by the Client's session budget. A longer best match may
+  // still be adapted, but is not stacked with additional full-length sources.
+  const selected: GenerationInput["references"] = [];
+  let minutes = 0;
+  for (const item of ranked) {
+    if (selected.length >= 3) break;
+    if (selected.length && minutes + item.reference.duration > input.duration) continue;
+    selected.push(item.reference); minutes += item.reference.duration;
+  }
+  return selected;
 }
 export async function generateIntelligentWorkout(input:GenerationInput,client?:Client) {
   if(input.schemaVersion!==2) return {...await generateAssistedWorkout(input,client),intelligence:undefined};
