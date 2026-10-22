@@ -41,6 +41,15 @@ test("independent Owner Coach Client: measured pounds, edit, final-set reduction
   expect((await ownerApi.rpc("review_structured_training_item", { target_item_id: source!.id, review_title: "Disposable load QA source — NOT Pitt", review_status: "published", goal: "strength", duration_minutes: 16,
     review_exercises: sourceIds.map(e => ({ libraryExerciseId: e.id, sets: 3, reps: 8, load: null, loadUnit: "lb", restSeconds: 60, sourceText: "Explicit 3 x 8; 60 seconds rest, reviewed for synthetic QA only", notes: "Controlled technique", protocol: defaultProtocol() })), review_notes: "Synthetic source, not Pitt programming. Explicit Owner-confirmed review.", source_confirmed: true })).error).toBeNull();
   await coach.goto(`/coach/clients/${clientAccount.id}?tab=intake`);
+  // Controlled QA profile: test a comparable source movement rather than
+  // assuming an unconstrained generative model always selects one exact lift.
+  // These explicit exercise exclusions go through the real saved intake and
+  // Coach safety review; neither the provider nor DB checks are mocked.
+  const excludedNames = library!.filter(e => !sourceIds.some(source => source.id === e.id)).map(e => e.name);
+  // Both existing intake fields accept at most 30 entries; do not let their
+  // intentional cap silently make the QA profile nondeterministic.
+  await coach.locator("#avoidedExercises").fill(excludedNames.slice(0, 30).join(", "));
+  await coach.locator("#movementsToAvoid").fill(excludedNames.slice(30).join(", "));
   for (const [id, value] of Object.entries({ primaryGoal: "strength", experienceLevel: "intermediate", recentConsistency: "building" })) await coach.locator(`#${id}`).selectOption(value);
   for (const [id, value] of Object.entries({ trainingFrequencyGoal: "3", trainingYears: "2", sessionDurationMinutes: "45" })) await coach.locator(`#${id}`).fill(value);
   for (const id of ["sleepQuality", "stressLevel", "recoveryPerception", "sorenessFatigue"]) await coach.locator(`#${id}`).selectOption("3");
