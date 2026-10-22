@@ -33,9 +33,17 @@ type ExerciseOption = {
   id: string;
   name: string;
   equipment_requirements?: string[];
+  weight_semantics?: string;
+  prescription_type?: string;
 };
 
 type ReviewRow = RecommendationExercise & { rowId: number };
+function changedExerciseLoad(option?: ExerciseOption): LoadPrescription {
+  const kind = option?.prescription_type;
+  const calibrationRequired = !kind || ["weighted", "carry", "sled"].includes(kind);
+  return { semantics: option?.weight_semantics, basis: "Coach override", calibrationRequired,
+    explanation: calibrationRequired ? "Exercise changed — confirm this movement’s technique load before approval." : kind === "bodyweight" ? "Bodyweight" : kind === "band" ? "Select and record the band resistance." : "Review the time or distance target; no invented weight." };
+}
 
 export function PrescriptionReviewForm({
   clientId,
@@ -77,6 +85,7 @@ export function PrescriptionReviewForm({
       restSeconds: 75,
       rowId: nextId,
       sets: firstOption.default_set_min,
+      loadPrescription: changedExerciseLoad(firstOption),
       ...(quality ? { protocol: defaultProtocol() } : {}),
     }]);
     setNextId((current) => current + 1);
@@ -108,7 +117,7 @@ export function PrescriptionReviewForm({
                 const id = event.target.value;
                 const fieldset = event.currentTarget.closest("fieldset")!;
                 fieldset.querySelector<HTMLInputElement>('[name="exerciseLoad"]')!.value = "";
-                setRows(current => current.map(ex => ex.rowId === row.rowId ? { ...ex, libraryExerciseId: id, load: null, programmingSources: [], loadPrescription: { calibrationRequired: true, explanation: "Exercise changed — confirm this movement’s technique load before approval." } } : ex));
+                setRows(current => current.map(ex => ex.rowId === row.rowId ? { ...ex, libraryExerciseId: id, load: null, programmingSources: [], loadPrescription: changedExerciseLoad(exerciseOptions.find(option => option.id === id)) } : ex));
               }}>
                 {exerciseOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
               </select>
