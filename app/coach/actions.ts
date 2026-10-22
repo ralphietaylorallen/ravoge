@@ -4,11 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
+import { createGeneratedWorkoutDraft } from "@/lib/create-workout-draft";
 import { parsePoundBodyCompositionGoals } from "@/lib/intake-targets";
 import { poundsToKilograms } from "@/lib/weight-units";
-import { type GenerationInput } from "@/lib/workout-generation";
-import { generateIntelligentWorkout } from "@/lib/workout-intelligence";
-import { generationSaveIssue } from "@/lib/workout-generation-quality";
 import { validTrainingFocus } from "@/lib/training-focus";
 import { protocolsFromForm } from "@/lib/workout-protocol";
 
@@ -269,41 +267,9 @@ export type GenerationActionState = { status: "idle" | "error"; message?: string
 export async function generatePrescriptionAction(clientId: string, _state: GenerationActionState): Promise<GenerationActionState> {
   void _state;
   const { supabase, userId } = await requireRole("coach");
-  if (!UUID_PATTERN.test(clientId)) return { status: "error", message: "This Client is unavailable. Return to My Clients and choose an assigned Client." };
-  const { data, error } = await supabase.rpc("generate_initial_prescription_v0", {
-    target_client_user_id: clientId,
-  }).abortSignal(AbortSignal.timeout(5000));
-  if (error || typeof data !== "string") {
-    return { status: "error", message: "A safe draft could not be created. Complete intake and goals, confirm the safety review, and review actual gym equipment below. No workout was assigned." };
-  }
-  const { data: input, error: inputError } = await supabase.rpc("get_pound_generation_input", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
-  if (inputError || !input) {
-    await supabase.rpc("discard_incomplete_quality_draft", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
-    return { status: "error", message: inputError?.message.includes("Review the new pain check-in") ? "Today’s pain check-in needs a Coach decision. Review the readiness recommendation before creating a workout. No workout was assigned." : "Training inputs changed or could not be checked. Review the latest intake and try Create workout again. No workout was assigned." };
-  }
-  // Paid calls are bounded per authenticated Coach; repeated submissions still
-  // have a safe deterministic path instead of an unbounded provider loop.
-  const { count, error: countError } = await supabase.from("generated_prescriptions").select("id", { count: "exact", head: true }).eq("coach_user_id", userId).gte("generated_at", new Date(Date.now() - 60_000).toISOString()).abortSignal(AbortSignal.timeout(5000));
-  const result = countError || (count ?? 4) > 3 ? { workout: null, reason: "unavailable" as const, intelligence: undefined } : await generateIntelligentWorkout(input as GenerationInput);
-  let generationIssue = result.reason === "invalid_output" ? `output:${"issue" in result ? result.issue : result.reason}` : "";
-  let { error: saveError } = await supabase.rpc("complete_pound_prescription", {
-    target_prescription_id: data, expected_snapshot: input.snapshot,
-    proposed_workout: result.workout,
-    generation_details: { ...(result.workout ? { model: result.model } : { reason: result.reason }), ...(result.intelligence ? { intelligence: result.intelligence, sourceReviewIds: result.workout?.sourceReviewIds??[] } : {}) },
-  }).abortSignal(AbortSignal.timeout(5000));
-  if (saveError && result.workout) {
-    console.warn("[Ravoge generation] database rejected draft", { issue: generationSaveIssue(saveError.message), code: /^[A-Z0-9]{5}$/.test(saveError.code ?? "") ? saveError.code : "transport" });
-    generationIssue = `save:${/^[A-Z0-9]{5}$/.test(saveError.code ?? "") ? saveError.code : "transport"}:${generationSaveIssue(saveError.message)}`;
-    const fallback = await supabase.rpc("complete_pound_prescription", { target_prescription_id: data, expected_snapshot: input.snapshot, proposed_workout: null, generation_details: { reason: "invalid_output" } }).abortSignal(AbortSignal.timeout(5000));
-    saveError = fallback.error;
-  }
-  if (saveError) {
-    await supabase.rpc("discard_incomplete_quality_draft", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
-    return { status: "error", message: "The training snapshot changed or validation failed. Review intake, restrictions and equipment, then create a fresh draft. Nothing was assigned." };
-  }
-  // This notice contains only application-owned categories, never input/model
-  // text. It does not change the stored draft, provider status or authorization.
-  redirect(`/coach/clients/${clientId}/prescriptions/${data}${generationIssue ? `?generationIssue=${encodeURIComponent(generationIssue)}` : ""}`);
+  const result = await createGeneratedWorkoutDraft({ clientId, supabase, userId });
+  if (!result.ok) return { status: "error", message: result.message };
+  redirect(`/coach/clients/${clientId}/prescriptions/${result.prescriptionId}${result.generationIssue ? `?generationIssue=${encodeURIComponent(result.generationIssue)}` : ""}`);
 }
 
 export async function confirmGenerationSafetyAction(clientId: string, intakeId: string, form: FormData) {
