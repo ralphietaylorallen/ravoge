@@ -41,9 +41,19 @@ test("runner, muscle-growth and fitness/fat-loss use a compact OpenAI intent the
 test("retrieval searches all 124 reviewed entries instead of a newest-three prefix and respects gym identity",()=>{
   const input=context();const generic=input.references[2];
   input.knowledgeCatalog=Array.from({length:124},(_,i)=>({...generic,id:`review-${String(i).padStart(3,"0")}`,goal:i===123?"athletic_performance":"general_fitness"}));
-  assert.equal(retrieveGymKnowledge(input,analysis())[0].id,"review-123");assert.equal(retrieveGymKnowledge(input,analysis()).length,3);
+  assert.equal(retrieveGymKnowledge(input,analysis())[0].id,"review-123");assert.equal(retrieveGymKnowledge(input,analysis()).length,1);
   const another=context();another.knowledgeCatalog=[{...another.references[0],id:"different-gym-immutable-review",exercises:another.references[0].exercises.slice(1)}];
   assert.notDeepEqual(retrieveGymKnowledge(input,analysis()),retrieveGymKnowledge(another,analysis()));
+});
+
+test("ranked gym references fit the session budget without excluding a longer best match from adaptation",()=>{
+  const input=context();
+  input.knowledgeCatalog=input.references.map((reference,i)=>({...reference,duration:[23,11,18][i]}));
+  const selected=retrieveGymKnowledge(input,analysis());
+  assert.ok(selected.length>0 && selected.length<=3);
+  assert.ok(selected.reduce((minutes,r)=>minutes+r.duration,0)<=input.duration);
+  input.knowledgeCatalog=[{...input.references[0],duration:90}];
+  assert.equal(retrieveGymKnowledge(input,analysis())[0].duration,90);
 });
 
 test("analysis cache is bounded to validated deidentified context and invalidates on changed goals/history",async()=>{

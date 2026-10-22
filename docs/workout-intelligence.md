@@ -20,7 +20,9 @@ It does not reprocess imports or automatically publish programming.
    compatible blocks may remain. Unresolved/draft sources are never eligible.
 4. Existing bounded generation (at most two attempts) adapts those structures,
    current gym profile, actual equipment/facilities and recent performance.
-   Absolute loads stay blank for Coach confirmation. Existing safety, units,
+   AI absolute loads stay blank; the deterministic database load engine then
+   resolves confirmed starting pounds or explicit calibration (see
+   [starting loads](deterministic-starting-loads.md)). Existing safety, units,
    duration, protocol and equipment validators remain enforced.
 5. Map model reference aliases back to current approved review IDs server-side.
    The database rechecks sources, intensity and the complete optimistic snapshot.

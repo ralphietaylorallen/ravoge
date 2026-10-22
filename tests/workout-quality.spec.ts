@@ -47,7 +47,8 @@ test("three-client quality generation, Owner programming review and mobile worko
   for (const [type, name] of [["rower", "Quality Rower"], ["ski_erg", "Quality SkiErg"]]) {
     const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Add equipment", exact: true }) });
     await form.getByLabel("Equipment type", { exact: true }).selectOption(type); await form.getByLabel("Name", { exact: true }).fill(name);
-    await form.getByRole("button", { name: "Add equipment", exact: true }).click(); await expect(form.getByRole("status")).toContainText("Saved");
+    await form.getByRole("button", { name: "Add equipment", exact: true }).click(); await expect(form.getByRole("status")).toContainText("Saved", { timeout: 15_000 });
+    await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
   }
   await page.getByText("Add turf or training space", { exact: true }).click();
   const turf = page.locator("form").filter({ has: page.getByRole("button", { name: "Add facility feature", exact: true }) });
@@ -63,7 +64,12 @@ test("three-client quality generation, Owner programming review and mobile worko
   await page.getByLabel("Workout history file").setInputFiles({ buffer: Buffer.from(csv), name: "quality-programming.csv", mimeType: "text/csv" });
   await page.getByRole("button", { name: "Parse and preview" }).click(); await page.getByRole("button", { name: "Save import", exact: true }).click(); await expect(page.getByRole("status").filter({ hasText: "saved as draft" })).toBeVisible();
   const api = await scoped(owner);
-  const { data: library } = await api.from("exercise_library").select("id,name").eq("is_active", true);
+  for (const [type, sizes, quantity] of [...[20,25,30,35,40,50].map(n => ["dumbbells", [n], 2]), ["sled", [45], 1], ["medicine_balls", [8], 1]] as [string,number[],number][]) {
+    expect((await api.rpc("save_gym_resource_lb", { target_id:null,resource_kind:"equipment",resource_type:type,resource_name:`Quality confirmed ${type} ${sizes[0]}`,resource_quantity:quantity,resource_length:null,resource_unit:"yards",available:true,resource_notes:null,minimum_lb:sizes[0],maximum_lb:sizes[0],exact_sizes_lb:sizes,matched_pairs:false })).error).toBeNull();
+  }
+  const { data: library } = await api.from("exercise_library").select("id,name,equipment_requirements").eq("is_active", true);
+  const { data: loadRules, error: ruleError } = await api.from("exercise_load_rules").select("exercise_id,prescription_type").eq("active",true);
+  expect(ruleError).toBeNull();
   for (const source of sources) {
     await page.goto("/owner/training-library"); await page.getByRole("link", { name: source.title, exact: true }).click();
     await expect(page.getByRole("heading", { name: "Original imported row" })).toBeVisible();
@@ -143,6 +149,7 @@ test("three-client quality generation, Owner programming review and mobile worko
     signatures.add(JSON.stringify(draft?.original_recommendation.map((e: { libraryExerciseId: string; protocol: { format: string } }) => [e.libraryExerciseId, e.protocol.format])));
     const ordinary = await scoped(account); expect((await ordinary.from("generated_prescriptions").select("id")).data).toEqual([]); expect((await ordinary.from("workout_assignments").select("id")).data).toEqual([]);
     const durationField=coach.getByLabel("Workout duration (minutes)"); const estimated=Number(await durationField.inputValue()); expect(estimated).toBeGreaterThanOrEqual(15); expect(estimated).toBeLessThanOrEqual(45); await durationField.fill(String(Math.min(45,estimated+1))); await coach.getByLabel("Coach instructions", { exact: true }).fill("QA Coach reviewed technique, constraints, timing and load. Stop for pain.");
+    for (const band of await coach.locator('input[name="bandResistance"]:not([type="hidden"])').all()) await band.fill("Light band — explicitly confirmed for QA");
     if (index === 1) {
       const row=coach.locator("fieldset").filter({has:coach.locator('select[name="libraryExerciseId"]')}).first();
       await row.getByLabel("Exercise",{exact:true}).selectOption(library!.find(e=>e.name==="Back Squat")!.id);
@@ -150,7 +157,21 @@ test("three-client quality generation, Owner programming review and mobile worko
       await expect(coach.locator("body")).not.toContainText(/\bkg\b|kilograms/i);
       for(const [width,height] of [[390,844],[820,1180],[1024,768]]) { await coach.setViewportSize({width,height}); expect(await coach.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true); await coach.screenshot({path:info.outputPath(`review-lb-${width}.png`),fullPage:true}); }
     }
-    await coach.getByRole("button", { name: "Approve & assign" }).click(); await expect(coach).toHaveURL(new RegExp(`/coach/clients/${account.id}\\?notice=prescription-assigned`));
+    // The generator may correctly require technique calibration when the
+    // calculated load is below this synthetic gym's smallest confirmed size.
+    // Act as the reviewing Coach; never bypass the approval validation.
+    for (const row of await coach.locator("fieldset").filter({has:coach.locator('select[name="libraryExerciseId"]')}).all()) {
+      const id=await row.locator('select[name="libraryExerciseId"]').inputValue();
+      const rule=loadRules!.find(r=>r.exercise_id===id);
+      const load=row.locator('input[name="exerciseLoad"]');
+      if (["weighted","carry","sled"].includes(rule?.prescription_type ?? "") && await load.inputValue()==="") {
+        const equipment=library!.find(e=>e.id===id)!.equipment_requirements as string[];
+        const confirmed=equipment.includes("dumbbells") ? 20 : equipment.includes("barbell") ? 35 : equipment.includes("sled") ? 45 : equipment.includes("medicine_balls") ? 8 : null;
+        expect(confirmed,"Calibration must use an exact size explicitly saved in this QA gym").not.toBeNull();
+        await load.fill(String(confirmed));
+      }
+    }
+    await coach.getByRole("button", { name: "Approve & assign" }).click(); await expect(coach).toHaveURL(new RegExp(`/coach/clients/${account.id}\\?notice=prescription-assigned`),{timeout:15_000});
     const { data: assignments } = await ordinary.from("workout_assignments").select("id"); expect(assignments).toHaveLength(1);
     const context = await browser.newContext(); const client = await context.newPage(); client.on("pageerror", e => errors.push(`${new URL(client.url()).pathname}: ${e.message}`)); await login(client, account);
     await client.goto(`/client/workouts/${assignments![0].id}`); const player = client.getByRole("region", { name: "Ravoge workout player" }); await expect(player).toBeVisible();

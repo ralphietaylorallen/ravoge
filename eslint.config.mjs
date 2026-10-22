@@ -7,6 +7,8 @@ export default defineConfig([
   ...nextTs,
   globalIgnores([
     ".next/**",
+    ".netlify/**",
+    ".temp/**",
     "out/**",
     "build/**",
     "test-results/**",

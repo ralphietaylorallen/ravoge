@@ -5,6 +5,18 @@ import { requireRole } from "@/lib/auth";
 import { protocolsFromForm } from "@/lib/workout-protocol";
 
 export type ReviewState = { status: "idle" | "error" | "success"; message?: string };
+export async function saveLoadRule(_state: ReviewState, form: FormData): Promise<ReviewState> {
+  const { supabase } = await requireRole("owner");
+  const number = (key: string) => String(form.get(key) ?? "").trim() ? Number(form.get(key)) : null;
+  const coefficient = number("coefficient"), minimum = number("minimum"), maximum = number("maximum");
+  if ([coefficient, minimum, maximum].some(v => v !== null && !Number.isFinite(v))) return { status: "error", message: "Use finite rule values." };
+  const { error } = await supabase.rpc("save_exercise_load_rule", { target_exercise_id: String(form.get("exerciseId")), starting_coefficient: coefficient,
+    anchor: String(form.get("anchor") ?? "") || null, semantics: String(form.get("semantics")), minimum_lb: minimum, maximum_lb: maximum,
+    calibration: String(form.get("calibration")), equivalent_id: String(form.get("equivalent") ?? "") || null, explanation: String(form.get("explanation") ?? "").trim() });
+  if (error) return { status: "error", message: "Rule not saved. Check the anchor/coefficient pair, safeguards, and equivalent equipment/semantics." };
+  revalidatePath("/owner/training-library/load-rules");
+  return { status: "success", message: "New gym rule version saved. Existing assigned workouts remain unchanged." };
+}
 export async function setTrainingStatus(_state: ReviewState, form: FormData): Promise<ReviewState> {
   const { supabase } = await requireRole("owner");
   const ids = [...new Set(form.getAll("itemId").map(String))];

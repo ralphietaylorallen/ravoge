@@ -17,7 +17,10 @@ test("normalization retains exact source evidence for explicit prescriptions", (
 test("normalization does not fabricate timed, range, percentage or unknown prescriptions", () => {
   const result = suggestTrainingReview(source({ Description: "EMOM 15 Minutes\\n- Bench Press x8 @ 50-60%\\n- Unknown lift 3x10" }), library);
   assert.equal(result.status, "needs_review");
-  assert.equal(result.exercises.length, 0);
+  assert.equal(result.exercises.length, 1);
+  assert.equal(result.exercises[0].sets, null);
+  assert.equal(result.exercises[0].reps, null);
+  assert.equal(result.exercises[0].sourceText, "- Bench Press x8 @ 50-60%");
   assert.ok(result.issues.length >= 3);
 });
 test("fixed-set description recognition leaves other source lines visibly unresolved", () => {

@@ -120,12 +120,12 @@ reset role;
 do $$
 begin
   if exists (
-    select 1 from public.workout_assignments where status = 'completed'
+    select 1 from public.workout_assignments where status = 'completed' and organization_id = 'a1000000-0000-0000-0000-000000000001'
   ) then
     raise exception 'Client changed workout status during the coach-only gate';
   end if;
   if exists (
-    select 1 from public.workout_exercises where exercise_name = 'Client Rewrite'
+    select 1 from public.workout_exercises where exercise_name = 'Client Rewrite' and workout_assignment_id in (select id from public.workout_assignments where organization_id = 'a1000000-0000-0000-0000-000000000001')
   ) then
     raise exception 'Client changed the prescribed exercise structure';
   end if;

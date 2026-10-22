@@ -41,7 +41,9 @@ do $$ declare intake uuid; p uuid; input jsonb; rows jsonb; workout uuid; set_id
  perform set_config('request.jwt.claim.sub','bc100000-0000-4000-8000-000000000003',true);
  perform pg_temp.assert_true((select count(*)=0 from public.generated_prescriptions),'Client can read unassigned draft');
  perform set_config('request.jwt.claim.sub','bc100000-0000-4000-8000-000000000002',true);
- perform pg_temp.assert_true((select bool_and(x->>'loadUnit'='lb' and x->>'load' is null) from public.generated_prescriptions g cross join lateral jsonb_array_elements(g.original_recommendation) x where g.id=p),'Draft guessed or mislabelled a historical load');
+ perform pg_temp.assert_true((select bool_and(x->>'loadUnit'='lb' and x->'loadPrescription' is not null
+   and (x->>'load' is null or x->>'load'='35') and x->'loadPrescription'->>'basis'='equipment calibration')
+   from public.generated_prescriptions g cross join lateral jsonb_array_elements(g.original_recommendation) x where g.id=p),'Draft calibration must use the lightest confirmed 35 lb bar, never a guessed or historical load');
  select jsonb_agg(jsonb_build_object('libraryExerciseId',id,'sets',3,'reps',5,'restSeconds',120,'load',95,'loadUnit','lb','notes','Coach confirmed','reason','Goal compatible',
    'protocol',jsonb_build_object('block','strength','format','straight','group','','measurement','reps','workSeconds',null,'distance',null,'distanceUnit','meters','intervalSeconds',null,'blockDurationSeconds',null,'percentageLoad',null,'perSide',false,'targetRpe',6,'substitutionIds','[]'::jsonb)) order by name) into rows
  from public.exercise_library where organization_id is null and slug in ('back-squat','bench-press','romanian-deadlift');

@@ -56,7 +56,7 @@ export default async function ClientWorkoutPage({
     supabase.from("organizations").select("name").eq("id", membership.organization_id).single(),
     supabase
       .from("workout_assignments")
-      .select("id,coach_user_id,title,instructions,scheduled_date,status,completed_at,objective,estimated_duration_minutes,workout_exercises(id,exercise_name,sets,reps,load,load_unit,notes,rest_seconds,sort_order,completed_at,prescription_details,exercise_library(coach_cue,equipment_requirements),workout_sets(id,set_number,actual_reps,actual_load,actual_load_unit,actual_work_seconds,actual_distance,actual_rpe,client_result,completed_at,pain_reported,failure_notes))")
+      .select("id,coach_user_id,title,instructions,scheduled_date,status,completed_at,objective,estimated_duration_minutes,workout_exercises(id,exercise_name,sets,reps,load,load_unit,load_prescription,notes,rest_seconds,sort_order,completed_at,prescription_details,exercise_library(coach_cue,equipment_requirements),workout_sets(id,set_number,actual_reps,actual_load,actual_load_unit,actual_work_seconds,actual_distance,actual_rpe,client_result,completed_at,pain_reported,failure_notes))")
       .eq("id", workoutId)
       .eq("organization_id", membership.organization_id)
       .eq("client_user_id", userId)

@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { generationSaveIssue } from "@/lib/workout-generation-quality";
 import { type GenerationInput } from "@/lib/workout-generation";
-import { generateIntelligentWorkout } from "@/lib/workout-intelligence";
+import { generateIntelligentWorkout, requiresReviewedGymRetry } from "@/lib/workout-intelligence";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -57,6 +57,14 @@ export async function createGeneratedWorkoutDraft({
   const result = countError || (count ?? 4) > 3
     ? { workout: null, reason: "unavailable" as const, intelligence: undefined }
     : await generateIntelligentWorkout(input as GenerationInput);
+  // The legacy deterministic fallback reads exact-goal references. If the
+  // wider reviewed catalog has compatible sources but that older shortlist
+  // is empty, do not silently call global programming a gym-informed fallback.
+  // Leave manual creation available and ask for a fresh provider attempt.
+  if (!result.workout && requiresReviewedGymRetry(input as GenerationInput)) {
+    await supabase.rpc("discard_incomplete_quality_draft", { target_prescription_id: data }).abortSignal(AbortSignal.timeout(5000));
+    return { ok: false, status: 503, message: "Reviewed gym programming is available, but automated adaptation could not finish. Try Create workout again shortly, or use the manual builder. No generic replacement was assigned." };
+  }
   let generationIssue = result.reason === "invalid_output"
     ? `output:${"issue" in result ? result.issue : result.reason}`
     : "";
