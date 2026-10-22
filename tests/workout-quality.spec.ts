@@ -63,6 +63,9 @@ test("three-client quality generation, Owner programming review and mobile worko
   await page.getByLabel("Workout history file").setInputFiles({ buffer: Buffer.from(csv), name: "quality-programming.csv", mimeType: "text/csv" });
   await page.getByRole("button", { name: "Parse and preview" }).click(); await page.getByRole("button", { name: "Save import", exact: true }).click(); await expect(page.getByRole("status").filter({ hasText: "saved as draft" })).toBeVisible();
   const api = await scoped(owner);
+  for (const [type, sizes, quantity] of [...[20,25,30,35,40,50].map(n => ["dumbbells", [n], 2]), ["sled", [45], 1], ["medicine_balls", [8], 1]] as [string,number[],number][]) {
+    expect((await api.rpc("save_gym_resource_lb", { target_id:null,resource_kind:"equipment",resource_type:type,resource_name:`Quality confirmed ${type} ${sizes[0]}`,resource_quantity:quantity,resource_length:null,resource_unit:"yards",available:true,resource_notes:null,minimum_lb:sizes[0],maximum_lb:sizes[0],exact_sizes_lb:sizes,matched_pairs:false })).error).toBeNull();
+  }
   const { data: library } = await api.from("exercise_library").select("id,name").eq("is_active", true);
   for (const source of sources) {
     await page.goto("/owner/training-library"); await page.getByRole("link", { name: source.title, exact: true }).click();
@@ -143,6 +146,7 @@ test("three-client quality generation, Owner programming review and mobile worko
     signatures.add(JSON.stringify(draft?.original_recommendation.map((e: { libraryExerciseId: string; protocol: { format: string } }) => [e.libraryExerciseId, e.protocol.format])));
     const ordinary = await scoped(account); expect((await ordinary.from("generated_prescriptions").select("id")).data).toEqual([]); expect((await ordinary.from("workout_assignments").select("id")).data).toEqual([]);
     const durationField=coach.getByLabel("Workout duration (minutes)"); const estimated=Number(await durationField.inputValue()); expect(estimated).toBeGreaterThanOrEqual(15); expect(estimated).toBeLessThanOrEqual(45); await durationField.fill(String(Math.min(45,estimated+1))); await coach.getByLabel("Coach instructions", { exact: true }).fill("QA Coach reviewed technique, constraints, timing and load. Stop for pain.");
+    for (const band of await coach.locator('input[name="bandResistance"]:not([type="hidden"])').all()) await band.fill("Light band — explicitly confirmed for QA");
     if (index === 1) {
       const row=coach.locator("fieldset").filter({has:coach.locator('select[name="libraryExerciseId"]')}).first();
       await row.getByLabel("Exercise",{exact:true}).selectOption(library!.find(e=>e.name==="Back Squat")!.id);

@@ -6,10 +6,11 @@ import { saveClientIntakeAction } from "@/app/coach/actions";
 
 import { poundsInputFromCanonical } from "@/lib/weight-units";
 import { TRAINING_FOCUS } from "@/lib/training-focus";
+import type { StrengthAnchor } from "@/lib/starting-load";
 import styles from "./dashboard.module.css";
 
 type IntakeDefaults = Partial<{
-  custom_fields: { trainingFocus?: string; bodyCompositionGoals?: { weightKg?: number; bodyFatPercentage?: number; skeletalMuscleMassKg?: number } };
+  custom_fields: { trainingFocus?: string; strengthAnchors?: Record<string, StrengthAnchor>; bodyCompositionGoals?: { weightKg?: number; bodyFatPercentage?: number; skeletalMuscleMassKg?: number } };
   avoided_exercises: string[];
   birth_year: number;
   coach_notes: string;
@@ -50,6 +51,19 @@ const constraints = [
   ["balance", "Balance"], ["conditioning", "Conditioning"],
 ];
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+function StrengthTestFields({ kind, label, optional = false, initial }: { kind: string; label: string; optional?: boolean; initial?: StrengthAnchor }) {
+  const [method, setMethod] = useState(initial?.method ?? (optional ? "not_tested" : "tested"));
+  const methodName = optional ? `${kind}Method` : `${kind}OneRmMethod`;
+  return <>
+    <label className={styles.field}>{label} 1RM method<select id={methodName} name={methodName} value={method} onChange={event => setMethod(event.target.value)}><option value="not_tested">Not tested — no safe measured anchor</option><option value="tested">Tested</option><option value="estimated">Estimated from measured work</option></select></label>
+    <fieldset disabled={method === "not_tested"} className={styles.threeColumns}>
+      <label className={styles.field}>{label} load (lb)<input id={`${kind}LoadLb`} name={`${kind}LoadLb`} type="number" min={0} step="any" defaultValue={poundsInputFromCanonical(initial?.loadKg)} required/></label>
+      <label className={styles.field}>Reps<input id={`${kind}Reps`} name={`${kind}Reps`} type="number" min={1} max={30} defaultValue={initial?.reps ?? ""} required/></label>
+      <label className={styles.field}>1RM (lb)<input id={`${kind}OneRmLb`} name={`${kind}OneRmLb`} type="number" min={0} step="any" defaultValue={poundsInputFromCanonical(initial?.oneRmKg)} required/></label>
+    </fieldset>
+  </>;
+}
 
 function ScaleSelect({ defaultValue, id, label, required = true }: { defaultValue?: number; id: string; label: string; required?: boolean }) {
   return (
@@ -152,11 +166,18 @@ export function IntakeForm({ clientId, defaults = {}, checkin }: { clientId: str
         <div className={styles.sectionFields}>
           <p className={styles.formHint}>Record measured values in pounds (lb). Mark each 1RM as tested or estimated; do not fabricate a test.</p>
           <div className={styles.formColumns}><div className={styles.field}><label htmlFor="squatVariation">Squat variation</label><select id="squatVariation" name="squatVariation" required><option value="back_squat">Back Squat</option><option value="front_squat">Front Squat</option><option value="goblet_squat">Goblet Squat</option><option value="other">Other</option></select></div><div className={styles.field}><label htmlFor="squatOtherVariation">Other variation <span>when selected</span></label><input id="squatOtherVariation" maxLength={120} name="squatOtherVariation" /></div></div>
-          <div className={styles.threeColumns}><div className={styles.field}><label htmlFor="squatLoadLb">Squat load (lb)</label><input id="squatLoadLb" min={0} name="squatLoadLb" required step="0.01" type="number" /></div><div className={styles.field}><label htmlFor="squatReps">Reps</label><input id="squatReps" max={100} min={1} name="squatReps" required type="number" /></div><div className={styles.field}><label htmlFor="squatOneRmLb">1RM (lb)</label><input id="squatOneRmLb" min={0} name="squatOneRmLb" required step="0.01" type="number" /></div></div>
-          <div className={styles.formColumns}><div className={styles.field}><label htmlFor="squatOneRmMethod">Squat 1RM method</label><select id="squatOneRmMethod" name="squatOneRmMethod"><option value="tested">Tested</option><option value="estimated">Estimated</option></select></div><div className={styles.field}><label htmlFor="squatNotes">Squat notes <span>optional</span></label><input id="squatNotes" maxLength={1000} name="squatNotes" /></div></div>
+          <StrengthTestFields kind="squat" label="Squat"/>
+          <label className={styles.field}>Squat notes <input id="squatNotes" name="squatNotes" maxLength={1000}/></label>
           <div className={styles.field}><label htmlFor="benchVariation">Bench variation</label><input defaultValue="Barbell Bench Press" id="benchVariation" maxLength={120} name="benchVariation" required /></div>
-          <div className={styles.threeColumns}><div className={styles.field}><label htmlFor="benchLoadLb">Bench load (lb)</label><input id="benchLoadLb" min={0} name="benchLoadLb" required step="0.01" type="number" /></div><div className={styles.field}><label htmlFor="benchReps">Reps</label><input id="benchReps" max={100} min={1} name="benchReps" required type="number" /></div><div className={styles.field}><label htmlFor="benchOneRmLb">1RM (lb)</label><input id="benchOneRmLb" min={0} name="benchOneRmLb" required step="0.01" type="number" /></div></div>
-          <div className={styles.formColumns}><div className={styles.field}><label htmlFor="benchOneRmMethod">Bench 1RM method</label><select id="benchOneRmMethod" name="benchOneRmMethod"><option value="tested">Tested</option><option value="estimated">Estimated</option></select></div><div className={styles.field}><label htmlFor="benchNotes">Bench notes <span>optional</span></label><input id="benchNotes" maxLength={1000} name="benchNotes" /></div></div>
+          <StrengthTestFields kind="bench" label="Bench"/>
+          <label className={styles.field}>Bench notes <input id="benchNotes" name="benchNotes" maxLength={1000}/></label>
+          <details><summary>Optional measured deadlift and overhead press anchors</summary>
+            <p>Not tested is valid. Never infer these values from a different movement.</p>
+            <label className={styles.field}>Deadlift variation<select name="deadliftVariation" defaultValue={defaults.custom_fields?.strengthAnchors?.deadlift?.variation ?? "deadlift"}><option value="deadlift">Deadlift</option><option value="romanian_deadlift">Romanian deadlift</option></select></label>
+            <StrengthTestFields kind="deadlift" label="Deadlift" optional initial={defaults.custom_fields?.strengthAnchors?.deadlift}/>
+            <input type="hidden" name="overhead_pressVariation" value="overhead_press"/>
+            <StrengthTestFields kind="overhead_press" label="Overhead press" optional initial={defaults.custom_fields?.strengthAnchors?.overhead_press}/>
+          </details>
           <div className={styles.threeColumns}><div className={styles.field}><label htmlFor="pullupStrictReps">Strict pull-ups</label><input id="pullupStrictReps" max={100} min={0} name="pullupStrictReps" required type="number" /></div><div className={styles.field}><label htmlFor="pullupMode">Pull-up mode</label><select id="pullupMode" name="pullupMode"><option value="bodyweight">Bodyweight</option><option value="assisted">Assisted</option><option value="weighted">Weighted</option></select></div><div className={styles.field}><label htmlFor="pullupAdjustmentLb">Assistance / added weight (lb) <span>if applicable</span></label><input id="pullupAdjustmentLb" min={0} name="pullupAdjustmentLb" step="0.01" type="number" /></div></div>
           <div className={styles.field}><label htmlFor="pullupNotes">Pull-up notes <span>optional</span></label><input id="pullupNotes" maxLength={1000} name="pullupNotes" /></div>
         </div>

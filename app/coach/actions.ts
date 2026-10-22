@@ -9,6 +9,7 @@ import { parsePoundBodyCompositionGoals } from "@/lib/intake-targets";
 import { poundsToKilograms } from "@/lib/weight-units";
 import { validTrainingFocus } from "@/lib/training-focus";
 import { protocolsFromForm } from "@/lib/workout-protocol";
+import { optionalStrengthAnchors } from "@/lib/starting-load";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const GOALS = new Set(["strength", "muscle_gain", "general_fitness", "conditioning", "fat_loss", "athletic_performance", "body_recomposition"]);
@@ -229,7 +230,8 @@ export async function saveClientIntakeAction(
   let baseline: Record<string, string>;
   try { baseline = Object.fromEntries(baselineKeys.map(key => [key, canonicalText(key)])); }
   catch { return { status: "error", message: "Enter finite measured weights in lb." }; }
-  const requiredBaseline = ["squatVariation", "squatLoadKg", "squatReps", "squatOneRmKg", "squatOneRmMethod", "benchVariation", "benchLoadKg", "benchReps", "benchOneRmKg", "benchOneRmMethod", "pullupStrictReps", "pullupMode"];
+  const requiredBaseline = ["squatVariation", "squatOneRmMethod", "benchVariation", "benchOneRmMethod", "pullupStrictReps", "pullupMode",
+    ...["squat", "bench"].flatMap(key => baseline[`${key}OneRmMethod`] === "not_tested" ? [] : [`${key}LoadKg`, `${key}Reps`, `${key}OneRmKg`])];
   const hasRower = Boolean(baseline.rowerDistanceM && baseline.rowerTimeSeconds);
   const hasVersa = Boolean(baseline.versaDurationSeconds && baseline.versaFeet);
   if (requiredBaseline.some((key) => !baseline[key]) || (!hasRower && !hasVersa) ||
@@ -250,10 +252,13 @@ export async function saveClientIntakeAction(
     return { message: "A completed InBody needs a test date, weight, body-fat percentage and skeletal muscle mass.", status: "error" };
   }
 
+  let strengthAnchors;
+  try { strengthAnchors = optionalStrengthAnchors(formData); }
+  catch (error) { return { status: "error", message: error instanceof Error ? error.message : "Review optional strength tests." }; }
   const { error } = await supabase.rpc("save_client_intake_v1", {
     baseline_payload: baseline,
     inbody_payload: inbody,
-    intake_payload: payload,
+    intake_payload: { ...payload, customFields: { ...payload.customFields, strengthAnchors } },
     target_client_user_id: clientId,
   });
   if (error) return { message: "The intake could not be saved. Confirm the client assignment and all required values.", status: "error" };
@@ -326,6 +331,7 @@ export async function approvePrescriptionAction(
     load: loads[index] || null,
     loadUnit: "lb",
     referenceLoadLb: getStrings(formData, "referenceLoadLb")[index] || null,
+    bandResistance: getStrings(formData, "bandResistance")[index] || null,
     notes: [!protocols && efforts[index] ? `Target effort RPE ${efforts[index]}.` : "", notes[index]].filter(Boolean).join(" ") || null,
     reason: reasons[index] || null,
     reps: Number(reps[index]),

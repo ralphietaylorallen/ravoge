@@ -6,9 +6,10 @@ import { playerSessionAction, playerSetAction } from "@/app/client/workout-playe
 import { orderedPlayerSets, protocolTarget, type WorkoutProtocol } from "@/lib/workout-protocol";
 import { loadInPounds, loadLabel, poundsInText } from "@/lib/weight-units";
 import styles from "./workout-player.module.css";
+import { startingLoadLabel, type LoadPrescription } from "@/lib/starting-load";
 
 type PlayerSet = { id: string; set_number: number; actual_reps: number | null; actual_load: number | null; actual_load_unit: string | null; actual_work_seconds: number | null; actual_distance: number | null; actual_rpe: number | null; client_result: string | null; completed_at: string | null; pain_reported: boolean; failure_notes: string | null };
-export type PlayerExercise = { id: string; exercise_name: string; sets: number; reps: number; load: number | null; load_unit?: string | null; rest_seconds: number | null; notes: string | null; prescription_details: WorkoutProtocol | null; workout_sets: PlayerSet[]; exercise_library: { coach_cue: string | null; equipment_requirements: string[] } | null };
+export type PlayerExercise = { id: string; exercise_name: string; sets: number; reps: number; load: number | null; load_unit?: string | null; load_prescription?: LoadPrescription | null; rest_seconds: number | null; notes: string | null; prescription_details: WorkoutProtocol | null; workout_sets: PlayerSet[]; exercise_library: { coach_cue: string | null; equipment_requirements: string[] } | null };
 
 export function WorkoutTimer({ work, rest, workLabel = "Work" }: { work: number; rest: number; workLabel?: string }) {
   const [timer, setTimer] = useState({ remaining: 0, phase: "Rest", running: false, end: 0 });
@@ -74,6 +75,7 @@ export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, 
       return <article id={`player-exercise-${index}`} key={exercise.id} className={styles.block}>
         <div className={styles.blockHeading}><span>{String(index + 1).padStart(2, "0")} · {(p?.block ?? "strength").replaceAll("_", " ")}</span><span>{p?.format ?? "straight"}{p?.group ? ` · ${p.group}` : ""}</span></div>
         <h3>{exercise.exercise_name}</h3><p className={styles.target}>{protocolTarget(exercise.sets, exercise.reps, p)}{exercise.load !== null ? ` · ${loadLabel(exercise.load, exercise.load_unit)}` : ""}</p>
+        {exercise.load_prescription && <p>{startingLoadLabel(exercise.load, exercise.load_prescription)}{exercise.load_prescription.bandResistance ? ` · Band: ${exercise.load_prescription.bandResistance}` : ""}</p>}
         {p?.format === "emom" && <p>Begin this station every {p.intervalSeconds}s slot. Rest for the remainder; keep the shared group order.</p>}
         {p?.format === "amrap" && <p>{p.blockDurationSeconds}s for this entire group. Repeat its movements at controlled effort; no fixed number of rounds is prescribed.</p>}
         {["circuit", "superset", "stations", "rounds"].includes(p?.format ?? "") && <p>Complete the group in the Coach’s listed order, then repeat for the prescribed rounds.</p>}

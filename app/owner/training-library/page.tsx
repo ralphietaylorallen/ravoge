@@ -19,9 +19,10 @@ export default async function TrainingLibraryPage({ searchParams }: { searchPara
       .order("created_at", { ascending: false })
       .range(offset, offset + 29),
   ]);
-  const [{ count: published }, { data: programmingProfile }] = await Promise.all([
+  const [{ count: published }, { data: programmingProfile }, { data: catalogCounts }] = await Promise.all([
     supabase.from("training_library_items").select("id", { count: "exact", head: true }).eq("organization_id", membership.organization_id).eq("status", "published").eq("generation_excluded", false),
     supabase.from("gym_programming_profiles").select("version,summary,statistics,preferences").eq("organization_id", membership.organization_id).order("version", { ascending: false }).limit(1).maybeSingle(),
+    supabase.rpc("get_training_catalog_counts"),
   ]);
   const { data: titles } = libraryItems?.length ? await supabase.from("training_library_reviews").select("training_item_id,title,revision").in("training_item_id", libraryItems.map(i => i.id)).eq("organization_id", membership.organization_id).order("revision", { ascending: false }) : { data: [] };
   const reviewedTitles = new Map<string, string>();
@@ -32,6 +33,8 @@ export default async function TrainingLibraryPage({ searchParams }: { searchPara
         <div><p className={styles.eyebrow}>Owner workspace</p><h2>Training library</h2></div>
         <Link className={styles.action} href="/owner/training-library/import">Import workout history</Link>
       </div>
+      <p role="status">{catalogCounts?.imported ?? count ?? 0} imported · {catalogCounts?.approved ?? 0} approved · {catalogCounts?.eligible ?? 0} available to generation before Client-specific safety checks</p>
+      <Link className={styles.secondaryAction} href="/owner/training-library/load-rules">Review starting-load rules</Link>
       <ProgrammingProfileForm key={programmingProfile?.version ?? 0} profile={programmingProfile as ProgrammingProfile | undefined} published={published ?? 0}/>
       <section className={`${styles.panel} ${styles.libraryShell}`}>
         <span className={styles.statusPill}>{count ?? 0} source records</span>
