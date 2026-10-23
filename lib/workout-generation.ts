@@ -19,14 +19,15 @@ export type GenerationInput = {
   restrictions: { tags: string[]; hasInjuries: boolean; hasPain: boolean; hasLimitations: boolean; hasAvoidedExercises: boolean; coachReviewed: boolean };
   weightCapabilities?: WeightCapability[];
   equipment: string[]; candidates: Candidate[];
-  references: { id: string; title: string; revision: number; goal: string; duration: number; exercises: SourceExercise[] }[];
+  references: { id: string; title: string; revision: number; goal: string; duration: number; exercises: SourceExercise[];
+    sourceKind?: "raw_reference"; rawStyle?: {exerciseIds:string[];formats:string[];terms:string[];rawProtocolsUnverified:boolean} }[];
   history: { status: string; exercises: SourceExercise[] }[];
   schemaVersion?: number; facilities?: { type: string; length: number; unit: string }[]; publishedCount?: number;
   gymProfile?: { id: string; version: number; summary: string; preferences: { formats: string[]; emphasis: string[] }; statistics: { formats?: Record<string, number>; emphasis?: Record<string, number>; sets?: number[]; reps?: number[]; restSeconds?: number[]; terminology?: string[]; progressionPatterns?: string[]; resourceUse?: Record<string, number> } } | null;
   todayReadiness?: { answers: number[]; hasPain: boolean; coachDecision: string } | null;
   trainingFocus?: TrainingFocus | null;
   knowledgeCatalog?: GenerationInput["references"];
-  knowledgeCounts?: { total: number; approved: number; eligible: number };
+  knowledgeCounts?: { total: number; approved: number; eligible: number; referenceEnabled?:number };
   intelligence?: { analysis: TrainingAnalysis; method: "openai" | "rules_fallback"; cacheHit: boolean };
 };
 export type AssistedWorkout = {

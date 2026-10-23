@@ -59,7 +59,7 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   const csv = 'Title,Description\nBeta Gym Strength,"Goblet Squat 3 x 8\nDumbbell RDL 3 x 8\nBand Row 3 x 8"\nComplex EMOM,"EMOM 15 Minutes\nGoblet Squat x8 @ 50-60% Each"\n';
   await page.getByLabel("Workout history file").setInputFiles({ buffer: Buffer.from(csv), name: "beta-safe-and-complex.csv", mimeType: "text/csv" });
   await page.getByRole("button", { name: "Parse and preview" }).click(); await page.getByRole("button", { name: "Save import" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "saved as draft" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Added to your gym" })).toBeVisible();
   await page.goto("/owner/training-library");
   await page.getByRole("link", { name: "Complex EMOM", exact: true }).click();
   await expect(page.getByRole("button", { name: "Publish reviewed workout" })).toBeDisabled();

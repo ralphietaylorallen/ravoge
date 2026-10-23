@@ -62,7 +62,7 @@ test("three-client quality generation, Owner programming review and mobile worko
   await page.goto("/owner/training-library/import");
   const csv = "Title,Duration,Goal,Description\n" + sources.map(s => `${s.title},${s.duration},${s.goal},"${s.source.replaceAll('"', '""')}"`).join("\n") + '\nUnresolved source,,,"EMOM unknown percentages, missing per-side targets"\n';
   await page.getByLabel("Workout history file").setInputFiles({ buffer: Buffer.from(csv), name: "quality-programming.csv", mimeType: "text/csv" });
-  await page.getByRole("button", { name: "Parse and preview" }).click(); await page.getByRole("button", { name: "Save import", exact: true }).click(); await expect(page.getByRole("status").filter({ hasText: "saved as draft" })).toBeVisible();
+  await page.getByRole("button", { name: "Parse and preview" }).click(); await page.getByRole("button", { name: "Save import", exact: true }).click(); await expect(page.getByRole("status").filter({ hasText: "Added to your gym" })).toBeVisible();
   const api = await scoped(owner);
   for (const [type, sizes, quantity] of [...[20,25,30,35,40,50].map(n => ["dumbbells", [n], 2]), ["sled", [45], 1], ["medicine_balls", [8], 1]] as [string,number[],number][]) {
     expect((await api.rpc("save_gym_resource_lb", { target_id:null,resource_kind:"equipment",resource_type:type,resource_name:`Quality confirmed ${type} ${sizes[0]}`,resource_quantity:quantity,resource_length:null,resource_unit:"yards",available:true,resource_notes:null,minimum_lb:sizes[0],maximum_lb:sizes[0],exact_sizes_lb:sizes,matched_pairs:false })).error).toBeNull();
@@ -92,7 +92,7 @@ test("three-client quality generation, Owner programming review and mobile worko
     await page.getByRole("button", { name: "Publish reviewed workout" }).click(); await expect(page.getByRole("status")).toContainText("Published for your gym");
     if(source.title === "Quality Strength") { await page.reload(); await expect(page.getByRole("group",{name:"Exercise 1",exact:true}).getByLabel("Load (lb), if specified")).toHaveValue("95"); }
   }
-  await page.goto("/owner/training-library"); await expect(page.getByText(/3 reviewed, published sources available/)).toBeVisible();
+  await page.goto("/owner/training-library"); await expect(page.getByRole('status').filter({hasText:/4 gym references enabled · 3 fully structured templates/})).toBeVisible();
   await expect(page.getByRole("link", { name: "Unresolved source", exact: true })).toBeVisible();
   const coachApi = await scoped(coachAccount);
   const { data: originalRows } = await api.from("training_library_items").select("id,normalized_content").order("id");

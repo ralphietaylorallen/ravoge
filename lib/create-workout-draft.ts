@@ -75,6 +75,7 @@ export async function createGeneratedWorkoutDraft({
     proposed_workout: result.workout,
     generation_details: {
       ...(result.workout ? { model: result.model } : { reason: result.reason }),
+      ...("method" in result && result.method ? {method:result.method,providerIssue:result.providerIssue}:{}),
       ...(result.intelligence ? { intelligence: result.intelligence, sourceReviewIds: result.workout?.sourceReviewIds ?? [] } : {}),
     },
   }).abortSignal(AbortSignal.timeout(5000));
@@ -85,7 +86,8 @@ export async function createGeneratedWorkoutDraft({
       code: /^[A-Z0-9]{5}$/.test(saveError.code ?? "") ? saveError.code : "transport",
     });
     generationIssue = `save:${/^[A-Z0-9]{5}$/.test(saveError.code ?? "") ? saveError.code : "transport"}:${generationSaveIssue(saveError.message)}`;
-    const fallback = await supabase.rpc("complete_pound_prescription", {
+    const fallback = requiresReviewedGymRetry(input as GenerationInput) || (input as GenerationInput).knowledgeCounts?.referenceEnabled
+      ? {error:saveError} : await supabase.rpc("complete_pound_prescription", {
       target_prescription_id: data,
       expected_snapshot: input.snapshot,
       proposed_workout: null,
