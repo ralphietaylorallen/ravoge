@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {retrieveGymKnowledge,generateIntelligentWorkout,type TrainingAnalysis} from '../../lib/workout-intelligence.ts';
+import {retrieveGymKnowledge,generateIntelligentWorkout,referenceCandidates,type TrainingAnalysis} from '../../lib/workout-intelligence.ts';
 import {projectQualityContext,validateQualityWorkout} from '../../lib/workout-generation-quality.ts';
 import {defaultProtocol} from '../../lib/workout-protocol.ts';
 import {referenceFallback} from '../../lib/reference-fallback.ts';
@@ -36,4 +36,10 @@ test('provider failure gives an honestly labeled deterministic reference-inspire
 });
 test('fallback cannot assign unavailable canonical identities or claim an unrelated raw source',()=>{
  const x=input();x.references=retrieveGymKnowledge(x,analysis);x.references.forEach(r=>r.rawStyle!.exerciseIds=['unavailable']);assert.equal(referenceFallback(x),null);
+});
+test('raw source combinations stay primary with no more than two complementary approved additions',()=>{
+ const x=input();const refs=retrieveGymKnowledge(x,analysis);const choices=referenceCandidates(x,refs,analysis);
+ assert.equal(choices.length,5);assert.deepEqual(choices.slice(0,3).map(c=>c.id),x.candidates.slice(0,3).map(c=>c.id));
+ assert.ok(choices.every(c=>x.candidates.some(approved=>approved.id===c.id)));
+ assert.equal(referenceCandidates({...x,candidates:x.candidates.slice(0,2)},refs,analysis).length,2);
 });

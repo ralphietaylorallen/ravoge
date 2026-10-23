@@ -33,7 +33,7 @@ test('raw references: all 124 pages, reversible enable, immediate new import, so
  expect(draft!.generation_context.sourceType).toBe('gym_reference_examples');expect(draft!.generation_context.trainingSnapshot.knowledgeCounts.referenceEnabled).toBe(125);expect(draft!.generation_context.trainingSnapshot.knowledgeCounts.approved).toBe(0);
  expect(draft!.generation_context.referenceVersions.length).toBeGreaterThan(0);expect(draft!.generation_context.referenceVersions.length).toBeLessThanOrEqual(5);expect(draft!.generation_context.trainingSnapshot.knowledgeCatalog).toBeUndefined();
  expect(draft!.generation_context.loadEngine).toBe('deterministic-v1');expect(draft!.original_recommendation.every((e:{loadUnit:string})=>e.loadUnit==='lb')).toBe(true);
- if(process.env.RAVOGE_LIVE_WORKOUT_QA==='yes')expect(draft!.engine_version).toBe('prescription-v0.4-openai');else expect(draft!.engine_version).toBe('prescription-v0.4-fallback');
+ if(process.env.RAVOGE_LIVE_WORKOUT_QA==='yes')expect(draft!.engine_version,`Provider outcome: ${draft!.generation_context.fallbackReason??'none'}; issue: ${new URL(coach.url()).searchParams.get('generationIssue')??'none'}`).toBe('prescription-v0.4-openai');else expect(draft!.engine_version).toBe('prescription-v0.4-fallback');
  await expect(coach.getByRole('region',{name:'Generation evidence'})).toContainText(/Raw style QA|New immediate QA/);
  expect((await ua.from('generated_prescriptions').select('id')).data).toEqual([]);expect((await ua.from('workout_assignments').select('id')).data).toEqual([]);
  for(const band of await coach.locator('input[name="bandResistance"]:not([type="hidden"])').all())await band.fill('Light band — explicitly reviewed synthetic QA');

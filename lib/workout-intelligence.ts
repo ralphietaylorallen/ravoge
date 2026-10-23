@@ -113,7 +113,7 @@ export async function generateIntelligentWorkout(input:GenerationInput,client?:C
   const sdk=client??(process.env.OPENAI_API_KEY?new OpenAI({maxRetries:0,timeout:16000}):undefined);
   const intelligence=await analyzeTrainingIntent(input,sdk);
   const references=retrieveGymKnowledge(input,intelligence.analysis);
-  const prepared={...input,references,intelligence};
+  const prepared={...input,candidates:referenceCandidates(input,references,intelligence.analysis),references,intelligence};
   const result=await generateAssistedWorkout(prepared,sdk);
   if(!result.workout && references.length) {
     const fallback=referenceFallback(prepared);
@@ -124,4 +124,21 @@ export async function generateIntelligentWorkout(input:GenerationInput,client?:C
 
 export function requiresReviewedGymRetry(input: GenerationInput) {
   return input.schemaVersion === 2 && (input.knowledgeCatalog?.length ?? 0) > 0 && input.references.length === 0;
+}
+
+// Search the full safe catalog first, then keep raw-source combinations primary.
+// At most two complementary canonical additions can reach the model alongside
+// three or more recognized compatible source movements. No validation is relaxed.
+export function referenceCandidates(input:GenerationInput,references:GenerationInput['references'],analysis:TrainingAnalysis) {
+  if(!references.some(r=>r.sourceKind==='raw_reference')) return input.candidates;
+  const sourceIds=new Set(references.flatMap(r=>r.rawStyle?.exerciseIds??r.exercises.map(e=>e.libraryExerciseId??'')));
+  const matched=input.candidates.filter(c=>sourceIds.has(c.id));
+  if(matched.length<3) return input.candidates;
+  const patterns=new Set(matched.map(c=>c.pattern));
+  const score=(c:GenerationInput['candidates'][number])=>{
+    const rank=analysis.priorityPatterns.indexOf(c.pattern);
+    return (patterns.has(c.pattern)?0:30)+(c.quality===input.goal?20:0)+(rank<0?0:Math.max(0,15-rank*2));
+  };
+  const extras=input.candidates.filter(c=>!sourceIds.has(c.id)).sort((a,b)=>score(b)-score(a)||a.id.localeCompare(b.id)).slice(0,2);
+  return [...matched,...extras];
 }
