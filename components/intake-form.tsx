@@ -213,7 +213,7 @@ export function IntakeForm({ clientId, defaults = {}, checkin }: { clientId: str
 
       {step===4&&<section className={styles.operationCard}><h3>Review your evaluation</h3><p className={styles.formHint}>Measurements use pounds (lb). Saving creates a new baseline version and preserves earlier assessments.</p><dl className={styles.reviewValues}>{review.map(([key,value])=><div key={key+value}><dt>{key.replace(/Lb$/, " (lb)").replace(/([A-Z])/g," $1")}</dt><dd>{value.replaceAll("_"," ")}</dd></div>)}</dl></section>}
       <div className={styles.stepActions}>{step>0&&<button className={styles.secondaryAction} onClick={()=>go(step-1)} type="button">← Back</button>}{step<4&&<button className={styles.action} onClick={()=>go(step+1)} type="button">Continue →</button>}</div>
-      <button className={styles.action} hidden={step!==4} disabled={pending} type="submit">{pending ? "Calculating…" : "Save versioned intake & baseline"}</button>
+      <button className={styles.action} hidden={step!==4} disabled={pending} type="submit">{pending ? "Saving intake…" : "Save intake"}</button>
       {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
     </form></>
   );

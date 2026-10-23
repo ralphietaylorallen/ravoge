@@ -189,8 +189,8 @@ test.describe("hosted production-stabilization flow", () => {
     await expect(invitedCoach.getByText("Coach-readable readiness")).toBeVisible();
     await invitedCoach.getByRole("button", { name: "Generate Ravoge workout" }).click();
     await expect(invitedCoach).toHaveURL(/\/coach\/clients\/.+\/prescriptions\/.+$/);
-    await expect(invitedCoach.getByRole("heading", { name: "Review first prescription" })).toBeVisible();
-    await invitedCoach.getByRole("button", { name: "Approve & assign" }).click();
+    await expect(invitedCoach.getByRole("heading", { name: "Review and assign" })).toBeVisible();
+    await invitedCoach.getByRole("button", { name: "Assign", exact: true }).click();
     await expect(invitedCoach.getByRole("status")).toContainText("now assigned");
 
     await client.goto("/client");

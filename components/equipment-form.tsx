@@ -18,10 +18,10 @@ const equipmentTypes = [
 
 export function EquipmentChecklist({ existing }: { existing: string[] }) {
   const [state, action, pending] = useActionState(saveEquipmentChecklistAction, { status: "idle" as const });
-  return <form action={action} className={styles.form}>
+  return <form action={action} className={styles.form} aria-busy={pending}>
     <div className={styles.checklistGrid}>{equipmentTypes.map(([value, label]) => <label className={styles.checkboxLabel} key={value}><input name="equipmentType" value={value} type="checkbox" disabled={existing.includes(value)}/>{label}{existing.includes(value) ? " — already saved" : ""}</label>)}</div>
     <p className={styles.formHint}>Select only equipment you actually have. This adds missing types without replacing inventory or guessing quantities. Manage availability of saved items below.</p>
-    <button className={styles.action} disabled={pending}>Save available equipment</button>
+    <button className={styles.action} disabled={pending}>{pending ? "Saving equipment…" : "Save available equipment"}</button>
     {state.message && <p role="status" className={styles.notice}>{state.message}</p>}
   </form>;
 }

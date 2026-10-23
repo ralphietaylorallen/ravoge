@@ -60,3 +60,32 @@ flow, including 125th immediate import and responsive layouts. Enable with
 `scripts/verify-beta-ui.mjs`; add `RAVOGE_LIVE_WORKOUT_QA=yes` on a verified
 preview/production to require real OpenAI rather than the tested local fallback.
 Real Pitt bulk enable and Ralphie proof must be recorded separately from QA.
+
+## Primary user workflow
+
+Owner uploads use the existing parser and atomic import RPC in one server action.
+Preview-before-upload remains optional under Advanced. The normal library reports
+workouts saved and gym references enabled; mapping, template statistics and load
+rules are optional. Bulk controls sit above the list and use one keyboard-accessible
+in-page confirmation, with cancellation leaving all reference decisions unchanged.
+
+Coach creation still uses the existing intake-safety review, equipment filters,
+load calculations and history. The review page leads with client context, gym
+workout names, starting loads and editable exercises. Optional percentage loads,
+protocol controls and technical evidence remain under Advanced, mounted in the
+same form so unchanged targets are preserved. Assign is the existing approval
+and assignment transaction, not an additional gate. Validation opens any hidden
+Advanced section containing an invalid field. Readiness pain warnings stay visible.
+
+The focused browser suite now enters equipment and intake through visible forms,
+uploads without a preview/save gate, checks cancel/keyboard confirmation, edits
+and assigns, completes the workout as the independent Client, then creates another
+draft and verifies that completed results reached its history snapshot. Assertions
+may read stored state; workflow mutations do not use test routes or direct RPCs.
+Disposable QA proof must never be described as real Pitt/Ralphie acceptance.
+This usability change requires no database migration, data rewrite or new service.
+Safety confirmation now shows its saving state; the existing server guard still
+decides readiness. Library edit links do not speculatively load every source.
+For Windows networks reporting HTTP/2 stream resets, the focused browser suite
+accepts `RAVOGE_QA_HTTP1=yes` as a transport diagnostic. HTTPS certificate checks,
+application assertions and production networking remain unchanged.

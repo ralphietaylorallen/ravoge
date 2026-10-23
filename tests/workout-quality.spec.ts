@@ -62,7 +62,7 @@ test("three-client quality generation, Owner programming review and mobile worko
   await page.goto("/owner/training-library/import");
   const csv = "Title,Duration,Goal,Description\n" + sources.map(s => `${s.title},${s.duration},${s.goal},"${s.source.replaceAll('"', '""')}"`).join("\n") + '\nUnresolved source,,,"EMOM unknown percentages, missing per-side targets"\n';
   await page.getByLabel("Workout history file").setInputFiles({ buffer: Buffer.from(csv), name: "quality-programming.csv", mimeType: "text/csv" });
-  await page.getByRole("button", { name: "Parse and preview" }).click(); await page.getByRole("button", { name: "Save import", exact: true }).click(); await expect(page.getByRole("status").filter({ hasText: "Added to your gym" })).toBeVisible();
+  await page.getByRole("button", { name: "Upload workouts", exact: true }).click(); await expect(page.getByRole("status").filter({ hasText: "Added to your gym" })).toBeVisible();
   const api = await scoped(owner);
   for (const [type, sizes, quantity] of [...[20,25,30,35,40,50].map(n => ["dumbbells", [n], 2]), ["sled", [45], 1], ["medicine_balls", [8], 1]] as [string,number[],number][]) {
     expect((await api.rpc("save_gym_resource_lb", { target_id:null,resource_kind:"equipment",resource_type:type,resource_name:`Quality confirmed ${type} ${sizes[0]}`,resource_quantity:quantity,resource_length:null,resource_unit:"yards",available:true,resource_notes:null,minimum_lb:sizes[0],maximum_lb:sizes[0],exact_sizes_lb:sizes,matched_pairs:false })).error).toBeNull();
@@ -92,7 +92,7 @@ test("three-client quality generation, Owner programming review and mobile worko
     await page.getByRole("button", { name: "Publish reviewed workout" }).click(); await expect(page.getByRole("status")).toContainText("Published for your gym");
     if(source.title === "Quality Strength") { await page.reload(); await expect(page.getByRole("group",{name:"Exercise 1",exact:true}).getByLabel("Load (lb), if specified")).toHaveValue("95"); }
   }
-  await page.goto("/owner/training-library"); await expect(page.getByRole('status').filter({hasText:/4 gym references enabled · 3 fully structured templates/})).toBeVisible();
+  await page.goto("/owner/training-library"); await expect(page.getByRole('status').filter({hasText:/4 gym references enabled · 4 workouts saved/})).toBeVisible();
   await expect(page.getByRole("link", { name: "Unresolved source", exact: true })).toBeVisible();
   const coachApi = await scoped(coachAccount);
   const { data: originalRows } = await api.from("training_library_items").select("id,normalized_content").order("id");
@@ -113,7 +113,7 @@ test("three-client quality generation, Owner programming review and mobile worko
       for(const [id,value] of Object.entries({weightLb:"190",skeletalMuscleMassLb:"80",bodyFatPercentage:"24",goalWeightLb:"180",goalSkeletalMuscleMassLb:"85",goalBodyFatPercentage:"18"})) await coach.locator(`#${id}`).fill(value);
       await coach.getByRole("button", {name:"Continue →",exact:true}).click(); await expect(coach.locator("body")).not.toContainText(/\bkg\b|kilograms/i);
       for(const [width,height] of [[390,844],[820,1180],[1024,768]]) { await coach.setViewportSize({width,height}); expect(await coach.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true); await coach.screenshot({path:info.outputPath(`intake-lb-${width}.png`),fullPage:true}); }
-      await coach.getByRole("button",{name:"Save versioned intake & baseline"}).click(); await expect(coach.getByRole("status")).toContainText("Versioned intake and baseline saved");
+      await coach.getByRole("button",{name:"Save intake",exact:true}).click(); await expect(coach.getByRole("status")).toContainText("Intake saved");
       await coach.reload(); expect(Number(await coach.locator("#goalWeightLb").inputValue())).toBeCloseTo(180,7); expect(Number(await coach.locator("#goalSkeletalMuscleMassLb").inputValue())).toBeCloseTo(85,7);
       if (intelligenceQa) await expect(coach.locator("#trainingFocus")).toHaveValue(focuses[index]);
       const {data:latest}=await coachApi.from("client_intakes").select("id").eq("client_user_id",account.id).order("version",{ascending:false}).limit(1).single();
@@ -126,7 +126,8 @@ test("three-client quality generation, Owner programming review and mobile worko
     }
     await coach.goto(`/coach/clients/${account.id}`); await coach.getByRole("button", { name: "Create workout", exact: true }).click(); await expect(coach).toHaveURL(/\/prescriptions\/[0-9a-f-]+(?:\?generationIssue=[^#]+)?$/, { timeout: 60_000 });
     if (!intelligenceQa) await expect(coach.getByRole("region", { name: "Generation evidence" })).toContainText(sources[index].title);
-    await expect(coach.getByRole("region", { name: "Generation evidence" })).toContainText("Gym-profile version:");
+    await coach.getByText("Advanced: programming details and evidence", { exact: true }).click();
+    await expect(coach.getByText(/Gym-profile version:/)).toBeVisible();
     const prescriptionId = new URL(coach.url()).pathname.split("/").at(-1)!;
     const { data: draft } = await coachApi.from("generated_prescriptions").select("original_recommendation,status,generation_context").eq("id", prescriptionId).single(); expect(draft?.status).toBe("draft");
     if (process.env.RAVOGE_LIVE_WORKOUT_QA === "yes") await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status"), `Provider outcome: ${draft?.generation_context?.fallbackReason ?? "no fallback reason"}; notice: ${new URL(coach.url()).searchParams.get("generationIssue") ?? "none"}`).toContainText("OpenAI-assisted");
@@ -153,6 +154,7 @@ test("three-client quality generation, Owner programming review and mobile worko
     if (index === 1) {
       const row=coach.locator("fieldset").filter({has:coach.locator('select[name="libraryExerciseId"]')}).first();
       await row.getByLabel("Exercise",{exact:true}).selectOption(library!.find(e=>e.name==="Back Squat")!.id);
+      await row.getByText("Advanced: timing, notes and percentage loads", { exact: true }).click();
       await row.getByLabel("Target measurement").selectOption("reps"); await row.getByLabel("Reps",{exact:true}).fill("5"); await row.getByLabel("Load (lb)",{exact:true}).fill("95");
       await expect(coach.locator("body")).not.toContainText(/\bkg\b|kilograms/i);
       for(const [width,height] of [[390,844],[820,1180],[1024,768]]) { await coach.setViewportSize({width,height}); expect(await coach.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true); await coach.screenshot({path:info.outputPath(`review-lb-${width}.png`),fullPage:true}); }
@@ -171,7 +173,7 @@ test("three-client quality generation, Owner programming review and mobile worko
         await load.fill(String(confirmed));
       }
     }
-    await coach.getByRole("button", { name: "Approve & assign" }).click(); await expect(coach).toHaveURL(new RegExp(`/coach/clients/${account.id}\\?notice=prescription-assigned`),{timeout:15_000});
+    await coach.getByRole("button", { name: "Assign", exact: true }).click(); await expect(coach).toHaveURL(new RegExp(`/coach/clients/${account.id}\\?notice=prescription-assigned`),{timeout:15_000});
     const { data: assignments } = await ordinary.from("workout_assignments").select("id"); expect(assignments).toHaveLength(1);
     const context = await browser.newContext(); const client = await context.newPage(); client.on("pageerror", e => errors.push(`${new URL(client.url()).pathname}: ${e.message}`)); await login(client, account);
     await client.goto(`/client/workouts/${assignments![0].id}`); const player = client.getByRole("region", { name: "Ravoge workout player" }); await expect(player).toBeVisible();

@@ -564,3 +564,7 @@
 .photoDialog progress { width: 100%; accent-color: #a98755; }
 .photoDialog .photoChoices { flex-wrap: wrap; }
 .photoDialog button { min-height: 44px; }
+.libraryShell .activityList .checkboxLabel > span { display: grid; min-width: 0; gap: 0.35rem; }
+.libraryShell .activityList .checkboxLabel small { overflow-wrap: anywhere; }
+.reviewForm .reviewRow { align-items: start; }
+.reviewForm .reviewRow > .reviewReason { grid-column: 1 / -1; }
