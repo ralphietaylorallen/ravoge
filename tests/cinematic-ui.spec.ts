@@ -11,7 +11,9 @@ test("cinematic entry screens retain real wolf branding, readable controls and r
     await expect.poll(() => logo.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     expect(await logo.getAttribute("src")).toContain("ravoge-wolf-transparent.png");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), route).toBe(true);
-    if (["/login", "/signup/coach", "/coach/install"].includes(route)) await page.screenshot({ path: info.outputPath(`cinematic-${route.replaceAll("/", "-")}.png`) });
+    // Netlify injects its CDP review iframe after </html> on previews. Omit that
+    // third-party toolbar from image capture only, never from app/test behavior.
+    if (["/login", "/signup/coach", "/coach/install"].includes(route)) await page.screenshot({ path: info.outputPath(`cinematic-${route.replaceAll("/", "-")}.png`), style: '[data-netlify-deploy-id] { visibility: hidden !important; }' });
   }
 });
 
