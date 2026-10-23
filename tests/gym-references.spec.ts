@@ -15,6 +15,12 @@ test('raw references: all 124 pages, reversible enable, immediate new import, so
  const errors:string[]=[];for(const p of [owner,coach,client]){p.on('pageerror',()=>errors.push('runtime error'));p.on('requestfailed',r=>{if(r.failure()?.errorText!=='net::ERR_ABORTED')console.log('QA browser transport',new URL(r.url()).pathname,r.failure()?.errorText);});}
  const oa=await api(ownerAccount),ca=await api(coachAccount),ua=await api(clientAccount);
  await login(owner,ownerAccount);await login(coach,coachAccount);await login(client,clientAccount);
+ if(process.env.RAVOGE_CINEMATIC_QA==='yes'){
+  for(const [actor,label,path]of [[coach,'coach-clients','/coach'],[coach,'profile','/coach/profile'],[client,'client-home','/client']]as const){
+   await actor.goto(path);await expect(actor.locator('[data-ravoge-visual="cinematic"]')).toBeVisible();
+   for(const [width,height]of [[390,844],[820,1180],[1440,1000]]){await actor.setViewportSize({width,height});expect(await actor.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await actor.screenshot({path:info.outputPath(`cinematic-${label}-${width}.png`),fullPage:true});}
+  }
+ }
  await owner.goto('/owner/equipment');await owner.getByRole('checkbox',{name:'Bands',exact:true}).check();await owner.getByRole('button',{name:'Save available equipment',exact:true}).click();await expect(owner.getByRole('status').filter({hasText:'Selected equipment types added'})).toBeVisible({timeout:15000});
  const equipment=owner.locator('section').filter({has:owner.getByRole('heading',{name:'Add equipment',exact:true})});
  await equipment.getByLabel('Equipment type',{exact:true}).selectOption('dumbbells');await equipment.getByLabel('Name',{exact:true}).fill('Synthetic confirmed dumbbell pairs');await equipment.getByLabel('Quantity (optional)').fill('12');await equipment.getByLabel('Minimum weight (lb)').fill('20');await equipment.getByLabel('Maximum weight (lb)').fill('50');await equipment.getByLabel('Exact available sizes (lb, optional)').fill('20, 25, 30, 35, 40, 50');await equipment.getByRole('button',{name:'Add equipment',exact:true}).click();await expect(equipment.getByRole('status')).toContainText('Saved.');
@@ -33,6 +39,7 @@ test('raw references: all 124 pages, reversible enable, immediate new import, so
  await upload(1,'New immediate QA');await owner.goto('/owner/training-library');await expect(owner.getByRole('status').filter({hasText:'125 gym references enabled'})).toBeVisible();
  expect((await oa.from('training_library_items').select('id').eq('reference_enabled',true)).data).toHaveLength(125);
  await coach.goto(`/coach/clients/${clientAccount.id}?tab=intake`);
+ if(process.env.RAVOGE_CINEMATIC_QA==='yes')for(const [width,height]of [[390,844],[820,1180],[1440,1000]]){await coach.setViewportSize({width,height});expect(await coach.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await coach.screenshot({path:info.outputPath(`cinematic-intake-${width}.png`),fullPage:true});}
  await coach.getByLabel('Experience',{exact:true}).selectOption('intermediate');await coach.getByLabel('Years training',{exact:true}).fill('2');await coach.getByLabel('Session duration',{exact:true}).fill('45');
  await coach.getByRole('button',{name:'Continue →',exact:true}).click();
  await coach.locator('#squatOneRmMethod').selectOption('not_tested');await coach.locator('#benchOneRmMethod').selectOption('not_tested');await coach.getByLabel('Strict pull-ups',{exact:true}).fill('0');

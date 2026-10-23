@@ -1,0 +1,44 @@
+.theme {
+  --ui-canvas: #070808;
+  --ui-surface: #111212;
+  --ui-raised: #1b1b18;
+  --ui-input: #151616;
+  --ui-text: #f6f5f1;
+  --ui-muted: #bbbcb7;
+  --ui-gold: #efd08a;
+  --ui-border: #48402d;
+  --ui-divider: #2b2b26;
+  --ui-danger: #ffb2a6;
+  --ui-danger-surface: #301b19;
+  --ui-success: #83edb5;
+  --ui-success-surface: #102a21;
+  --ui-radius: 14px;
+  --ui-control-radius: 10px;
+  --ui-sidebar-width: 14rem;
+  --ui-panel-background: linear-gradient(125deg, #201e18 0%, #131414 48%, #0e0f0f 100%);
+  --ui-button-background: linear-gradient(115deg, #ffe3a1 0%, #edc56f 43%, #bd8734 100%);
+  color-scheme: dark;
+  min-height: 100svh;
+  background: var(--ui-canvas);
+  color: var(--ui-text);
+}
+
+.theme :is(button, a, input, select, textarea, summary) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.theme :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid #ffe0a0;
+  outline-offset: 4px;
+}
+
+.theme input::placeholder, .theme textarea::placeholder { color: #999b96; opacity: 1; }
+.theme :is(input, select, textarea) { color-scheme: dark; }
+.theme :is(input[type="checkbox"], input[type="radio"], progress) { accent-color: #edc56f; }
+.theme :is(input, select, textarea):disabled { opacity: .65; }
+.theme summary { cursor: pointer; }
+.theme :is(button, a, input, select, textarea) { transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .theme *, .theme *::before, .theme *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
