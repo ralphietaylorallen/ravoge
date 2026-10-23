@@ -43,6 +43,7 @@ test("private generation receives saved goal, all spots, observations, recovery 
     intakeAssessment:{movementObservations:{limitations:"No overhead pressing"},strengthAssessments:{bench_one_rm_kg:50},recovery:{sleepQuality:2},preferences:["Walking"],dislikes:[]},
     injurySpots:[{id:"one",region:"shoulder",clinicianDetails:"No overhead pressing",pain:0},{id:"two",region:"knee",pain:null}] } as unknown as GenerationInput;
   const p=deidentifiedGenerationInput(full); assert.equal(p.injurySpots?.length,2); assert.equal(p.assessments?.movementObservations.limitations,"No overhead pressing");
+  assert.equal(p.savedIntake?.noInjuryReport,false); assert.equal(p.injurySpots?.[0].id,undefined);
   assert.ok(Math.abs(Number(p.assessments?.strengthAssessments?.bench_one_rm_lb)-110.23113109243879)<1e-9);
   assert.equal(p.assessments?.strengthAssessments?.bench_one_rm_kg,undefined);
 });

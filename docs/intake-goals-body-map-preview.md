@@ -47,6 +47,7 @@ app/coach/clients/[clientId]/page.tsx
 app/coach/clients/[clientId]/prescriptions/[prescriptionId]/page.tsx
 components/dashboard.module.css
 components/intake-form.tsx
+components/generate-workout-form.tsx
 components/intake-goals.tsx
 components/intake-goals.module.css
 components/injury-map.tsx

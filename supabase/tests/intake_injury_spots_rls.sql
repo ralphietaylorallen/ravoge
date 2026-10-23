@@ -64,7 +64,10 @@ begin
  into rows from public.exercise_library where organization_id is null and slug in ('goblet-squat','band-row','dead-bug');
  select jsonb_build_object('version',1,'rows',jsonb_agg(jsonb_build_object('exerciseId',x->>'libraryExerciseId','referenceId',ref,'segmentKey','cell_1','adaptation','Reduced complexity for the saved intake','substitutionReason','','evidenceIds','[]'::jsonb))) into audit from jsonb_array_elements(rows) x;
  -- SQL fixtures verify validation, not actual provider retrieval or medical guidance.
- details:=jsonb_build_object('model','mock-sql-contract-only','provenanceAudit',audit,'evidence',jsonb_build_object('version','retrieved-v1','cacheHit',false,'sources',jsonb_build_array(jsonb_build_object('id','evidence_1','url','https://acsm.org/education/','title','Synthetic SQL validation fixture only','retrievedAt',now(),'recommendations',jsonb_build_array('Fixture recommendation'),'limitations',jsonb_build_array('Not a live evidence test'),'applicability','Synthetic adult test population only')))));
+ details:=jsonb_build_object('model','mock-sql-contract-only','provenanceAudit',audit,
+  'evidence',jsonb_build_object('version','retrieved-v1','cacheHit',false,
+   'sources',jsonb_build_array(jsonb_build_object('id','evidence_1','url','https://acsm.org/education/','title','Synthetic SQL validation fixture only','retrievedAt',now(),
+    'recommendations',jsonb_build_array('Fixture recommendation'),'limitations',jsonb_build_array('Not a live evidence test'),'applicability','Synthetic adult test population only'))));
  proposed:=jsonb_build_object('title','Isolated new-intake contract','rationale','Synthetic SQL-only source and intake validation fixture.','durationMinutes',30,'exercises',rows);
  begin perform public.complete_pound_prescription(p,input->>'snapshot',proposed,jsonb_set(details,'{provenanceAudit,rows,0,segmentKey}','"invented_segment"')); raise exception 'Fake segment accepted'; exception when raise_exception then if sqlerrm='Fake segment accepted' then raise; end if; end;
  begin perform public.complete_pound_prescription(p,input->>'snapshot',proposed,jsonb_set(details,'{provenanceAudit,rows,0,evidenceIds}','["fake_citation"]')); raise exception 'Fake citation accepted'; exception when raise_exception then if sqlerrm='Fake citation accepted' then raise; end if; end;
