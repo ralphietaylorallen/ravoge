@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
-import { createGeneratedWorkoutDraft } from "@/lib/create-workout-draft";
+
 import { parsePoundBodyCompositionGoals } from "@/lib/intake-targets";
 import { poundsToKilograms } from "@/lib/weight-units";
 import { validTrainingFocus } from "@/lib/training-focus";
@@ -278,10 +278,9 @@ export type GenerationActionState = { status: "idle" | "error"; message?: string
 
 export async function generatePrescriptionAction(clientId: string, _state: GenerationActionState): Promise<GenerationActionState> {
   void _state;
-  const { supabase, userId } = await requireRole("coach");
-  const result = await createGeneratedWorkoutDraft({ clientId, supabase, userId });
-  if (!result.ok) return { status: "error", message: result.message };
-  redirect(`/coach/clients/${clientId}/prescriptions/${result.prescriptionId}${result.generationIssue ? `?generationIssue=${encodeURIComponent(result.generationIssue)}` : ""}`);
+  await requireRole("coach");
+  if (!UUID_PATTERN.test(clientId)) return {status:"error",message:"Client unavailable."};
+  redirect(`/coach/clients/${clientId}#train-session`);
 }
 
 export async function confirmGenerationSafetyAction(clientId: string, intakeId: string, form: FormData) {
@@ -352,7 +351,7 @@ export async function approvePrescriptionAction(
     return { message: "One or more exercise values are invalid.", status: "error" };
   }
 
-  const { error } = await supabase.rpc("approve_pound_prescription", {
+  const { data:assignedWorkoutId, error } = await supabase.rpc("approve_pound_prescription", {
     exercises,
     target_prescription_id: prescriptionId,
     workout_instructions: instructions || null,
@@ -364,5 +363,5 @@ export async function approvePrescriptionAction(
 
   revalidatePath(`/coach/clients/${clientId}`);
   revalidatePath("/coach");
-  redirect(`/coach/clients/${clientId}?notice=prescription-assigned`);
+  redirect(typeof assignedWorkoutId === "string" && UUID_PATTERN.test(assignedWorkoutId) ? `/coach/clients/${clientId}/workouts/${assignedWorkoutId}` : `/coach/clients/${clientId}?notice=prescription-assigned`);
 }

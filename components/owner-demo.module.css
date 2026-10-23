@@ -1,0 +1,15 @@
+.root { min-width: 0; padding-bottom: 3rem; }
+.root h1 { font-size: clamp(2rem,4vw,3rem); margin: .5rem 0; }
+.banner { display: flex; align-items: center; gap: 1rem; border: 1px solid #b99a59; border-radius: 12px; padding: 1rem; margin-bottom: 1.4rem; background: #c3a25d12; line-height: 1.6; }
+.banner strong { color: #f1d28d; white-space: nowrap; }
+.roleSwitch { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; margin-block: 1rem; }
+.roleSwitch button, .tabs button { min-height: 48px; border: 1px solid #766343; border-radius: 10px; padding: .8rem; background: #151613; color: #e9e4d9; cursor: pointer; font: inherit; }
+.roleSwitch button[aria-pressed="true"], .tabs button[aria-current="page"] { background: linear-gradient(110deg,#edcb86,#c29b55); color: #17130c; font-weight: 700; }
+.tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1.2rem 0 2rem; }
+.tabs button { flex: 1 1 auto; }
+.actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-block: 1rem; }
+.root button:focus-visible, .root a:focus-visible { outline: 3px solid #ffe4a4; outline-offset: 4px; }
+.root :is(input,textarea,select) { max-width: 100%; }
+.root ul { overflow-wrap: anywhere; }
+.photo { border-radius: 50%; object-fit: cover; }
+@media(max-width:600px) { .banner { align-items: flex-start; flex-direction: column; gap: .4rem; } .actions > * { width: 100%; } .tabs button { flex-basis: 43%; } }

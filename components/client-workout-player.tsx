@@ -7,6 +7,7 @@ import { orderedPlayerSets, protocolTarget, type WorkoutProtocol } from "@/lib/w
 import { loadInPounds, loadLabel, poundsInText } from "@/lib/weight-units";
 import styles from "./workout-player.module.css";
 import { startingLoadLabel, type LoadPrescription } from "@/lib/starting-load";
+import { useDemo } from "./demo-context";
 
 type PlayerSet = { id: string; set_number: number; actual_reps: number | null; actual_load: number | null; actual_load_unit: string | null; actual_work_seconds: number | null; actual_distance: number | null; actual_rpe: number | null; client_result: string | null; completed_at: string | null; pain_reported: boolean; failure_notes: string | null };
 export type PlayerExercise = { id: string; exercise_name: string; sets: number; reps: number; load: number | null; load_unit?: string | null; load_prescription?: LoadPrescription | null; rest_seconds: number | null; notes: string | null; prescription_details: WorkoutProtocol | null; workout_sets: PlayerSet[]; exercise_library: { coach_cue: string | null; equipment_requirements: string[] } | null };
@@ -32,9 +33,10 @@ export function WorkoutTimer({ work, rest, workLabel = "Work" }: { work: number;
 }
 
 function PlayerSetForm({ set, exercise, workoutId, locked, expanded, role, substitutions }: { set: PlayerSet; exercise: PlayerExercise; workoutId: string; locked: boolean; expanded: boolean; role: "client" | "coach"; substitutions: { id: string; name: string }[] }) {
-  const [state, action, pending] = useActionState(playerSetAction.bind(null, role, workoutId, set.id), { status: "idle" as const });
+  const demo=useDemo();
+  const [state, action, pending] = useActionState(demo ? demo.recordSet.bind(null,set.id) : playerSetAction.bind(null, role, workoutId, set.id), { status: "idle" as const });
   const router = useRouter();
-  useEffect(() => { if (state.status === "success") router.refresh(); }, [state, router]);
+  useEffect(() => { if (state.status === "success"&&!demo) router.refresh(); }, [state, router, demo]);
   const p = exercise.prescription_details;
   const label = `Set ${set.set_number}`;
   return <details id={`player-set-${set.id}`} className={styles.set} open={expanded}><summary>{label} · {set.client_result ?? (set.completed_at ? "recorded" : "not started")}{set.pain_reported ? " · pain reported" : ""}</summary>
@@ -57,9 +59,10 @@ function PlayerSetForm({ set, exercise, workoutId, locked, expanded, role, subst
 }
 
 export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, exercises, substitutions = [], role = "client" }: { workoutId: string; title: string; goal: string | null; duration: number | null; status: string; exercises: PlayerExercise[]; substitutions?: { id: string; name: string }[]; role?: "client" | "coach" }) {
-  const [state, action, pending] = useActionState(playerSessionAction.bind(null, role, workoutId), { status: "idle" as const });
+  const demo=useDemo();
+  const [state, action, pending] = useActionState(demo?.session ?? playerSessionAction.bind(null, role, workoutId), { status: "idle" as const });
   const router = useRouter();
-  useEffect(() => { if (state.status === "success") router.refresh(); }, [state, router]);
+  useEffect(() => { if (state.status === "success"&&!demo) router.refresh(); }, [state, router, demo]);
   const allSets = exercises.flatMap(e => e.workout_sets);
   const recorded = allSets.filter(s => s.completed_at).length;
   const locked = ["completed", "cancelled"].includes(status);
@@ -86,7 +89,7 @@ export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, 
         {index + 1 < exercises.length && <a className={styles.next} href={`#player-exercise-${index + 1}`}>Next exercise →</a>}
       </article>;
     })}
-    {!locked && recorded !== allSets.length && <p>Record the remaining {allSets.length - recorded} sets before completing this workout. You can mark a set Modified or Missed when needed.</p>}
-    <form action={action} className={styles.block}><h3>Finish and reflect</h3><label>How difficult was today’s workout?<select name="difficulty" required defaultValue="" disabled={locked}><option value="" disabled>Choose 1–5</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} — {n === 1 ? "Easy" : n === 5 ? "Very difficult" : "Moderate"}</option>)}</select></label><label>Short feedback (optional)<textarea name="feedback" maxLength={2000} rows={3} disabled={locked}/></label><button className={styles.primary} name="intent" value="finish" disabled={pending || locked || recorded !== allSets.length || allSets.length === 0}>Complete workout</button>{state.message && <p role="status">{state.message}</p>}</form>
+    {!locked && recorded !== allSets.length && <p>{demo?"TEST: You can finish now without recording every set.":`Record the remaining ${allSets.length-recorded} sets before completing this workout. You can mark a set Modified or Missed when needed.`}</p>}
+    <form action={action} noValidate={!!demo} className={styles.block}><h3>Finish and reflect</h3><label>How difficult was today’s workout?<select name="difficulty" required defaultValue="" disabled={locked}><option value="" disabled>Choose 1–5</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} — {n === 1 ? "Easy" : n === 5 ? "Very difficult" : "Moderate"}</option>)}</select></label><label>Short feedback (optional)<textarea name="feedback" maxLength={2000} rows={3} disabled={locked}/></label><button className={styles.primary} name="intent" value="finish" disabled={pending || locked || (!demo && (recorded !== allSets.length || allSets.length === 0))}>Complete workout</button>{state.message && <p role="status">{state.message}</p>}</form>
   </section>;
 }

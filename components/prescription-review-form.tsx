@@ -9,7 +9,8 @@ import styles from "./dashboard.module.css";
 import { defaultProtocol, protocolTarget, type WorkoutProtocol } from "@/lib/workout-protocol";
 import { WorkoutProtocolFields } from "./workout-protocol-fields";
 import { roundedPercentageLoad, type WeightCapability } from "@/lib/equipment-weights";
-import { startingLoadLabel, type LoadPrescription } from "@/lib/starting-load";
+import { type LoadPrescription } from "@/lib/starting-load";
+import { useDemo } from "./demo-context";
 
 export type RecommendationExercise = {
   libraryExerciseId: string;
@@ -66,7 +67,8 @@ export function PrescriptionReviewForm({
   quality?: boolean;
   weightCapabilities?: WeightCapability[];
 }) {
-  const approve = approvePrescriptionAction.bind(null, clientId, prescriptionId);
+  const demo=useDemo();
+  const approve = demo?.approve ?? approvePrescriptionAction.bind(null, clientId, prescriptionId);
   const [state, action, pending] = useActionState(approve, { status: "idle" as const });
   const [rows, setRows] = useState<ReviewRow[]>(exercises.map((exercise, index) => ({ ...exercise, rowId: index + 1 })));
   const [nextId, setNextId] = useState(exercises.length + 1);
@@ -97,7 +99,7 @@ export function PrescriptionReviewForm({
   }
 
   return (
-    <form action={action} className={styles.reviewForm} onInvalidCapture={event => {
+    <form action={action} noValidate={!!demo} className={styles.reviewForm} onInvalidCapture={event => {
       let details = event.target instanceof HTMLElement ? event.target.closest("details") : null;
       while (details) { details.open = true; details = details.parentElement?.closest("details") ?? null; }
     }}>
@@ -127,11 +129,11 @@ export function PrescriptionReviewForm({
             </div>
             <div className={styles.field}><label htmlFor={`review-sets-${row.rowId}`}>Sets</label><input defaultValue={row.sets} id={`review-sets-${row.rowId}`} max={100} min={1} name="exerciseSets" required type="number" /></div>
             {quality && row.protocol && row.protocol.measurement !== "reps" ? <input type="hidden" name="exerciseReps" value="1"/> : <div className={styles.field}><label htmlFor={`review-reps-${row.rowId}`}>Reps</label><input defaultValue={row.reps} id={`review-reps-${row.rowId}`} max={1000} min={1} name="exerciseReps" required type="number" /></div>}
-            <div className={styles.field}><label htmlFor={`review-load-${row.rowId}`}>Load (lb){row.loadPrescription?.semantics === "each_hand" ? " per hand" : ""}</label><input defaultValue={loadInPounds(row.load, row.loadUnit) ?? ""} id={`review-load-${row.rowId}`} max={100000} min={0} name="exerciseLoad" step="any" type="number" />
-              {row.loadPrescription && <div><p>{startingLoadLabel(row.load, row.loadPrescription)}</p><p>{row.loadPrescription.explanation}</p>{row.loadPrescription.coachReviewRequired && <p role="alert">Pain was recorded. Review before assigning; no automatic progression.</p>}</div>}
-            </div>
+            {row.loadPrescription?.basis === "bodyweight" ? <div className={styles.field}><span>Bodyweight</span><input type="hidden" name="exerciseLoad" value=""/></div> : <div className={styles.field}><label htmlFor={`review-load-${row.rowId}`}>Load (lb){row.loadPrescription?.semantics === "each_hand" ? " per hand" : ""}</label><input defaultValue={loadInPounds(row.load, row.loadUnit) ?? ""} id={`review-load-${row.rowId}`} max={100000} min={0} name="exerciseLoad" placeholder="Set starting weight" step="any" type="number" />
+              {row.loadPrescription && <div>{row.loadPrescription.coachReviewRequired && <p role="alert">Pain was recorded. Review before assigning; no automatic progression.</p>}</div>}
+            </div>}
             {exerciseOptions.find(e => e.id === row.libraryExerciseId)?.equipment_requirements?.includes("bands") ? <label className={styles.field}>Band resistance / level<input name="bandResistance" maxLength={120} required placeholder="Coach-confirmed band level"/></label> : <input type="hidden" name="bandResistance" value=""/>}
-            <div className={styles.reviewReason}><p>Suggested target: {protocolTarget(row.sets, row.reps, row.protocol)}</p><details><summary>Advanced: timing, notes and percentage loads</summary>
+            <div className={styles.reviewReason}><p>{protocolTarget(row.sets, row.reps, row.protocol)}</p><details><summary>Details / edit timing</summary>{row.loadPrescription && <p>{row.loadPrescription.explanation}</p>}
             <div className={styles.field}><label htmlFor={`review-reference-${row.rowId}`}>Coach-confirmed 1RM (lb, only for a percentage target)</label><input id={`review-reference-${row.rowId}`} name="referenceLoadLb" type="number" min="0.001" max="100000" step="0.001" />
               <button className={styles.textAction} type="button" onClick={event => {
                 const fieldset = event.currentTarget.closest("fieldset")!;
@@ -156,7 +158,7 @@ export function PrescriptionReviewForm({
         ))}
       </div>
       <div className={styles.reviewFooter}>
-        <p>Assigning approves your changes and makes this workout visible to the client.</p>
+        <p>{demo?"Assigning sends this TEST workout to Client Demo only. No real client is changed.":"Assigning approves your changes and makes this workout visible to the client."}</p>
         <button className={styles.action} disabled={pending} type="submit">{pending ? "Assigning…" : "Assign"}</button>
       </div>
       {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}

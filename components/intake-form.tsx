@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useRef, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { saveClientIntakeAction } from "@/app/coach/actions";
 
 import { poundsInputFromCanonical } from "@/lib/weight-units";
 import { IntakeGoals } from "./intake-goals";
 import { InjuryMap } from "./injury-map";
+import { useDemo } from "./demo-context";
 import type { InjurySpot, IntakeContext } from "@/lib/intake-history";
 import type { StrengthAnchor } from "@/lib/starting-load";
 import styles from "./dashboard.module.css";
@@ -49,14 +50,16 @@ const constraints = [
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function StrengthTestFields({ kind, label, optional = false, initial }: { kind: string; label: string; optional?: boolean; initial?: StrengthAnchor }) {
-  const [method, setMethod] = useState(initial?.method ?? (optional ? "not_tested" : "tested"));
+  const demo=useDemo();
+  const stored=demo?.intakeValues;
+  const [method, setMethod] = useState(stored?.[optional?`${kind}Method`:`${kind}OneRmMethod`]?.[0] ?? initial?.method ?? (optional ? "not_tested" : "tested"));
   const methodName = optional ? `${kind}Method` : `${kind}OneRmMethod`;
   return <>
     <label className={styles.field}>{label} 1RM method<select id={methodName} name={methodName} value={method} onChange={event => setMethod(event.target.value)}><option value="not_tested">Not tested — no safe measured anchor</option><option value="tested">Tested</option><option value="estimated">Estimated from measured work</option></select></label>
     <fieldset disabled={method === "not_tested"} className={styles.threeColumns}>
-      <label className={styles.field}>{label} load (lb)<input id={`${kind}LoadLb`} name={`${kind}LoadLb`} type="number" min={0} step="any" defaultValue={poundsInputFromCanonical(initial?.loadKg)} required/></label>
-      <label className={styles.field}>Reps<input id={`${kind}Reps`} name={`${kind}Reps`} type="number" min={1} max={30} defaultValue={initial?.reps ?? ""} required/></label>
-      <label className={styles.field}>1RM (lb)<input id={`${kind}OneRmLb`} name={`${kind}OneRmLb`} type="number" min={0} step="any" defaultValue={poundsInputFromCanonical(initial?.oneRmKg)} required/></label>
+      <label className={styles.field}>{label} load (lb)<input id={`${kind}LoadLb`} name={`${kind}LoadLb`} type="number" min={0} step="any" defaultValue={stored?.[`${kind}LoadLb`]?.[0] ?? poundsInputFromCanonical(initial?.loadKg)} required/></label>
+      <label className={styles.field}>Reps<input id={`${kind}Reps`} name={`${kind}Reps`} type="number" min={1} max={30} defaultValue={stored?.[`${kind}Reps`]?.[0] ?? initial?.reps ?? ""} required/></label>
+      <label className={styles.field}>1RM (lb)<input id={`${kind}OneRmLb`} name={`${kind}OneRmLb`} type="number" min={0} step="any" defaultValue={stored?.[`${kind}OneRmLb`]?.[0] ?? poundsInputFromCanonical(initial?.oneRmKg)} required/></label>
     </fieldset>
   </>;
 }
@@ -74,18 +77,30 @@ function ScaleSelect({ defaultValue, id, label, required = true }: { defaultValu
 }
 
 export function IntakeForm({ clientId, defaults = {}, checkin, injurySpots = [], availableDays = 7 }: { clientId: string; defaults?: IntakeDefaults; checkin?: ReactNode; injurySpots?: InjurySpot[]; availableDays?:number }) {
+  const demo=useDemo();
   const [step,setStep]=useState(0);
-  const [tests,setTests]=useState({rower:true,versa:false});
+  const [tests,setTests]=useState<{rower:boolean;versa:boolean}>({rower:!demo?.intakeValues.versaDurationSeconds || !!demo?.intakeValues.rowerDistanceM,versa:!!demo?.intakeValues.versaDurationSeconds});
   const [review,setReview]=useState<[string,string][]>([]);
   const formRef=useRef<HTMLFormElement>(null);
+  const restored=useRef(false);
+  useEffect(()=>{
+    if(!demo||restored.current||!formRef.current)return;
+    restored.current=true;
+    for(const element of formRef.current.elements){
+      if(!(element instanceof HTMLInputElement||element instanceof HTMLSelectElement||element instanceof HTMLTextAreaElement))continue;
+      const values=demo.intakeValues[element.name];if(!values)continue;
+      if(element instanceof HTMLInputElement&&(element.type==="checkbox"||element.type==="radio"))element.checked=values.includes(element.value);
+      else element.value=values[0]??"";
+    }
+  },[demo]);
   const steps=["Your goals","Body map","Movement review","Strength tests","Conditioning","InBody","Review & save"];
   function go(next:number) { if(next===6&&formRef.current) setReview([...new FormData(formRef.current).entries()].filter(([key,value])=>typeof value==="string"&&value!==""&&!key.startsWith("$")).map(([key,value])=>[key,String(value)])); setStep(next); }
-  function validate(event:React.FormEvent<HTMLFormElement>) { if(!event.currentTarget.checkValidity()){ event.preventDefault(); const invalid=event.currentTarget.querySelector(":invalid") as HTMLInputElement|null; const container=invalid?.closest("[data-step]") as HTMLElement|null; if(container) setStep(Number(container.dataset.step)); requestAnimationFrame(()=>invalid?.reportValidity()); } }
-  const saveForClient = saveClientIntakeAction.bind(null, clientId);
+  function validate(event:React.FormEvent<HTMLFormElement>) { if(!demo&&!event.currentTarget.checkValidity()){ event.preventDefault(); const invalid=event.currentTarget.querySelector(":invalid") as HTMLInputElement|null; const container=invalid?.closest("[data-step]") as HTMLElement|null; if(container) setStep(Number(container.dataset.step)); requestAnimationFrame(()=>invalid?.reportValidity()); } }
+  const saveForClient = demo?.saveIntake ?? saveClientIntakeAction.bind(null, clientId);
   const [state, action, pending] = useActionState(saveForClient, { status: "idle" as const });
-  const [inbodyStatus, setInbodyStatus] = useState("pending");
+  const [inbodyStatus, setInbodyStatus] = useState(demo?.intakeValues.inbodyStatus?.[0] ?? "pending");
   return (
-    <><nav aria-label="Intake steps" className={styles.intakeSteps}>{steps.map((label,index)=><button aria-current={step===index?"step":undefined} key={label} onClick={()=>go(index)} type="button"><span>{index+1}</span>{label}</button>)}</nav>{step===2&&checkin}<form action={action} className={styles.intakeForm} noValidate onSubmit={validate} ref={formRef}>
+    <>{demo&&<p className={styles.notice}>TEST assessment — every step is optional. Jump between steps or skip ahead. Changes stay in this Owner demo.</p>}<nav aria-label="Intake steps" className={styles.intakeSteps}>{steps.map((label,index)=><button aria-current={step===index?"step":undefined} key={label} onClick={()=>go(index)} type="button"><span>{index+1}</span>{label}</button>)}</nav>{step===2&&checkin}<form action={action} className={styles.intakeForm} noValidate onSubmit={validate} onChange={demo?event=>demo.captureIntake(new FormData(event.currentTarget)):undefined} ref={formRef}>
       <div data-step={0} hidden={step!==0}>
         <IntakeGoals initialGoal={defaults.primary_goal} initial={defaults.custom_fields?.intakeContext} birthYear={defaults.birth_year} experience={defaults.experience_level} frequency={defaults.training_frequency_goal} duration={defaults.session_duration_minutes} targetWeightKg={defaults.custom_fields?.bodyCompositionGoals?.weightKg} availableDays={availableDays}/>
         <div className={styles.sectionFields}>
@@ -188,7 +203,7 @@ export function IntakeForm({ clientId, defaults = {}, checkin, injurySpots = [],
       </details>
 
       {step===6&&<section className={styles.operationCard}><h3>Review your evaluation</h3><p className={styles.formHint}>Measurements use pounds (lb). Saving creates a new baseline version and preserves earlier assessments. Body-map spots are saved individually.</p><dl className={styles.reviewValues}>{review.map(([key,value])=><div key={key+value}><dt>{key.replace(/Lb$/, " (lb)").replace(/([A-Z])/g," $1")}</dt><dd>{value.replaceAll("_"," ")}</dd></div>)}</dl></section>}
-      <div className={styles.stepActions}>{step>0&&<button className={styles.secondaryAction} onClick={()=>go(step-1)} type="button">← Back</button>}{step<6&&<button className={styles.action} onClick={()=>go(step+1)} type="button">Continue →</button>}</div>
+      <div className={styles.stepActions}>{step>0&&<button className={styles.secondaryAction} onClick={()=>go(step-1)} type="button">← Back</button>}{step<6&&<button className={styles.action} onClick={()=>go(step+1)} type="button">Continue →</button>}{demo&&step<6&&<button className={styles.secondaryAction} type="button" onClick={()=>go(6)}>Skip to review</button>}</div>
       <button className={styles.action} hidden={step!==6} disabled={pending} type="submit">{pending ? "Saving intake…" : "Save intake"}</button>
       {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
     </form></>

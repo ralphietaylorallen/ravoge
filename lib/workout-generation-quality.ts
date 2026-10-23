@@ -1,4 +1,5 @@
 import "server-only";
+import { repeatsRecentDraft } from "./session-programming.ts";
 import { kilogramsToPounds } from "./weight-units.ts";
 import { generatedWeightTextIsLoadFree } from "./equipment-weights.ts";
 import type { GenerationInput, AssistedWorkout } from "./workout-generation.ts";
@@ -9,6 +10,7 @@ import { provenanceSchema, validateWorkoutProvenance, type RowProvenance } from 
 // Fixed application-owned diagnostics only: never retain or echo rejected model
 // text, client information, request bodies or provider exception messages.
 export const QUALITY_REPAIR_HINTS = {
+  repeated_session: "This repeats a previous draft’s executable targets unchanged. Use recorded performance and today’s recovery to choose a purposeful progression, regression, weekly emphasis or compatible accessory change. Preserve useful main lifts; do not change only prose, order or title. Keep all safety, source and duration limits.",
   header: "Use the exact schema; durationMinutes must be between 20 and requestedDurationMinutes.",
   row_shape: "Use only the declared exercise-row fields and supplied exercise aliases.",
   protocol: "Complete every protocol field. Time uses workSeconds only; distance uses distance only; reps uses neither. Grouped formats need a group. EMOM work must be shorter than its interval; AMRAP needs a block duration.",
@@ -194,6 +196,7 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
     return { libraryExerciseId: e.id, name: e.name, sets: Number(raw.sets), reps: Number(raw.reps), restSeconds: Number(raw.restSeconds), load: null, loadUnit: "lb" as const,
       targetRpe: p.targetRpe, notes: raw.notes, reason: raw.reason, protocol: p };
   });
+  if(repeatsRecentDraft({exercises},input))throw new QualityValidationError("repeated_session");
   const seconds = estimateWorkoutSeconds(exercises);
   let provenanceAudit;
   if(input.intakeContext?.version===2) {

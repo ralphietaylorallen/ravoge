@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 
 import { getActiveMembership, getVerifiedUser } from "@/lib/auth";
 import { createGeneratedWorkoutDraft } from "@/lib/create-workout-draft";
+import { prepareTrainingSession } from "@/lib/training-session";
 
+export const maxDuration=60;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cli
   }
 
   const { clientId } = await params;
+  if(!/^[0-9a-f-]{36}$/i.test(clientId))return reply({error:"Client unavailable."},404);
+  try{await prepareTrainingSession(supabase,clientId,await request.json());}
+  catch(error){return reply({error:error instanceof Error?error.message:"Today’s check-in could not be saved."},422);}
   const result = await createGeneratedWorkoutDraft({ clientId, supabase, userId });
   if (!result.ok) return reply({ error: result.message }, result.status);
 

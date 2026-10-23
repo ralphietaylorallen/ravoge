@@ -1,4 +1,5 @@
 import "server-only";
+import { repeatsRecentDraft } from "./session-programming.ts";
 import { createHash } from "node:crypto";
 import OpenAI from "openai";
 import { configuredWorkoutModel, deidentifiedGenerationInput, generateAssistedWorkout, type GenerationInput } from "./workout-generation.ts";
@@ -18,7 +19,7 @@ const CACHE_TTL = 5*60_000;
 // its bounded intent is used to search already-reviewed structured records.
 export function planningProjection(input: GenerationInput) {
   const p=deidentifiedGenerationInput(input);
-  return {goal:p.goal,secondaryGoal:p.secondaryGoal,trainingFocus:p.trainingFocus,experience:p.experience,
+  return {age:p.age,previousDrafts:p.previousDrafts,sessionPlanning:p.sessionPlanning,goal:p.goal,secondaryGoal:p.secondaryGoal,trainingFocus:p.trainingFocus,experience:p.experience,
     ...(input.intakeContext?.version===2?{savedIntake:p.savedIntake,injurySpots:p.injurySpots,assessments:p.assessments,evidence:p.evidence}:{}),
     weeklyFrequency:p.weeklyFrequency,requestedDurationMinutes:p.requestedDurationMinutes,bodyComposition:p.bodyComposition,
     optionalTargets:p.optionalTargets,restrictions:p.restrictions,weightUnit:p.weightUnit,equipment:p.equipment,
@@ -125,7 +126,7 @@ export async function generateIntelligentWorkout(input:GenerationInput,client?:C
   const result=await generateAssistedWorkout(prepared,sdk);
   if(!result.workout && references.length && input.intakeContext?.version!==2) {
     const fallback=referenceFallback(prepared);
-    if(fallback) return {workout:fallback,model:"deterministic-reference-v1",intelligence,method:"deterministic_reference_fallback" as const,providerIssue:result.reason,reason:undefined};
+    if(fallback && !repeatsRecentDraft(fallback,prepared)) return {workout:fallback,model:"deterministic-reference-v1",intelligence,method:"deterministic_reference_fallback" as const,providerIssue:result.reason,reason:undefined};
   }
   return {...result,intelligence,method:undefined,evidence:input.evidence};
 }

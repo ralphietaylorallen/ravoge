@@ -4,12 +4,12 @@ import { notFound } from "next/navigation";
 
 import { OperationsTabs } from "@/components/operations-tabs";
 import { CoachCheckin } from "@/components/coach-checkin";
-import { TrainingReadinessForm } from "@/components/training-readiness";
-import { TrainingReadinessHistory } from "@/components/training-readiness-history";
+import { TrainSessionForm } from "@/components/train-session-form";
+
 import { ProgressChart } from "@/components/progress-chart";
 import { localDateInTimeZone } from "@/lib/timezone";
-import { WorkoutGenerationStatus } from "@/components/workout-generation-status";
-import type { WorkoutReadiness } from "@/lib/workout-readiness";
+
+
 import { BaselineSummary, type BaselineRecord } from "@/components/baseline-summary";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { ProfilePhotoForm } from "@/components/profile-photo-editor";
@@ -57,10 +57,10 @@ export default async function CoachClientPage({ params, searchParams }: { params
     supabase.from("client_body_composition_assessments").select("intake_id,inbody_score,body_fat_percentage,weight_kg,skeletal_muscle_mass_kg,measured_at").eq("organization_id", membership.organization_id).eq("client_user_id", clientId),
   ]);
   if (!clientProfile) notFound();
-  const [{data:bookings},{data:questions},{data:generationReadiness}]=await Promise.all([
+  const [{data:generationReadiness},{data:bookings},{data:questions}]=await Promise.all([
+    supabase.rpc("get_workout_generation_readiness",{target_client_user_id:clientId}),
     supabase.from("bookings").select("id,starts_at,timezone,status").eq("organization_id",membership.organization_id).eq("client_user_id",clientId).eq("coach_user_id",userId).eq("status","scheduled").gte("starts_at",new Date().toISOString()).order("starts_at"),
     supabase.from("organization_preworkout_questions").select("position,question_text,scale_min,scale_max").eq("organization_id",membership.organization_id).order("position"),
-    supabase.rpc("get_workout_generation_readiness",{target_client_user_id:clientId}),
   ]);
   const latestIntake = (intakeRows?.[0] ?? null) as IntakeRow | null;
   const [{data:injuryRows,error:injuryError},{data:gymHours}] = await Promise.all([
@@ -87,15 +87,14 @@ export default async function CoachClientPage({ params, searchParams }: { params
   const contexts=[...(bookings??[]).map(booking=>({id:`booking:${booking.id}`,label:`Session · ${new Date(booking.starts_at).toLocaleString("en-US",{timeZone:booking.timezone})}`})),...assignedWorkouts.filter(workout=>["assigned","in_progress"].includes(workout.status)).map(workout=>({id:`workout:${workout.id}`,label:`${workout.title} · ${workout.scheduled_date}`}))];
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coachProfile?.full_name ?? "Coach"} role="coach">
     <Link className={styles.backLink} href="/coach">← My Clients</Link>
-    <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhotoForm imageUrl={clientImageUrl} name={clientName} organizationId={membership.organization_id} role="coach" targetUserId={clientId} /><div><p className={styles.eyebrow}>Client · {organization?.name}</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{latestIntake?String(latestIntake.primary_goal).replaceAll("_"," "):"Intake pending"}</p></div></div><div className={styles.bookingActions}><Link className={styles.action} href={`${basePath}?tab=intake`}>Start intake now</Link><Link className={styles.secondaryAction} href={`${basePath}/book?kind=intake`}>Schedule intake</Link><Link className={styles.secondaryAction} href={`${basePath}/book`}>Schedule session</Link></div></div>
-    <TrainingReadinessHistory clientId={clientId}/>
+    <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhotoForm imageUrl={clientImageUrl} name={clientName} organizationId={membership.organization_id} role="coach" targetUserId={clientId} /><div><p className={styles.eyebrow}>Client · {organization?.name}</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{latestIntake?String(latestIntake.primary_goal).replaceAll("_"," "):"Intake pending"}</p></div></div><div className={styles.bookingActions}>{latestIntake?<Link className={styles.action} href={`${basePath}#train-session`}>Train</Link>:<Link className={styles.action} href={`${basePath}?tab=intake`}>Start intake now</Link>}<Link className={styles.secondaryAction} href={`${basePath}/book?kind=intake`}>Schedule intake</Link><Link className={styles.secondaryAction} href={`${basePath}/book`}>Schedule session</Link></div></div>
+
     <OperationsTabs active={tab} basePath={basePath} tabs={[{id:"workouts",label:"Workout Plan"},{id:"progress",label:"Progress"},{id:"intake",label:"Intake"},{id:"metrics",label:"Metrics"},{id:"notes",label:"Notes"}]}/>
     {notice&&noticeMessages[notice]&&<p className={styles.notice} role="status">{noticeMessages[notice]}</p>}
     {tab==="workouts"&&<>
       <div className={styles.summaryNumbers}><span><small>Today’s workout</small><strong>{todayWorkout?.title??"Not scheduled"}</strong></span><span><small>Next session</small><strong>{bookings?.[0]?new Date(bookings[0].starts_at).toLocaleString("en-US",{timeZone:bookings[0].timezone,month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}):"Not booked"}</strong></span><span><small>Current phase</small><strong>{prescriptions.length?"Foundation":"Not started"}</strong></span><span><small>Latest readiness</small><strong>{latestState?`${Math.round(latestState.current_readiness*10)}/10`:"Not assessed"}</strong></span></div>
       {todayWorkout&&<Link className={styles.todayWorkout} href={`${basePath}/workouts/${todayWorkout.id}`}><span><small>TODAY’S WORKOUT</small><strong>{todayWorkout.title}</strong></span><span>Open workout →</span></Link>}
-      <WorkoutGenerationStatus clientId={clientId} readiness={generationReadiness as WorkoutReadiness|null}/>
-      <details className={styles.operationCard}><summary>Update today’s readiness</summary><TrainingReadinessForm role="coach" clientId={clientId}/></details>
+      <TrainSessionForm clientId={clientId} hasIntake={!!latestIntake} intakeReviewRequired={generationReadiness?.needsSafetyReview===true}/>
       <section className={styles.operationCard}><div className={styles.sectionHeading}><h3>Workout plan</h3></div>
       {prescriptions.filter(item=>item.status==="draft").map(item=><Link className={styles.todayWorkout} key={item.id} href={`${basePath}/prescriptions/${item.id}`}><strong>{item.title}</strong><span>Review draft →</span></Link>)}
       {assignedWorkouts.length?<ul className={styles.workoutPlanList}>{assignedWorkouts.map(workout=><li key={workout.id}><Link href={`${basePath}/workouts/${workout.id}`}><div><strong>{workout.title}</strong><small>{workout.scheduled_date} · {workout.workout_exercises.length} exercises</small></div><span className={workout.status==="completed"?styles.successPill:styles.mutedPill}>{workout.status.replaceAll("_"," ")}</span><span aria-hidden="true">→</span></Link></li>)}</ul>:<p className={styles.empty}>No workouts assigned yet. Complete intake or create a plan below.</p>}

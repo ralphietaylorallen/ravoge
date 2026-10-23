@@ -137,3 +137,19 @@ test("one duration repair receives verified aggregate timing, never rejected dra
   }}};
   assert.ok((await generateAssistedWorkout(input,sdk as never)).workout);assert.equal(calls,2);
 });
+
+test("unchanged executable draft is repaired once; changing only title does not bypass it",async()=>{
+  const input=context("muscle_gain");
+  input.intelligence={analysis:analysis("muscle_gain"),method:"openai",cacheHit:false};
+  const prior=validateQualityWorkout(JSON.stringify(output(input)),input);
+  input.recentDrafts=[{exercises:prior.exercises}];
+  let calls=0;
+  const sdk={responses:{create:async(request:{input:{content:string}[]})=>{
+    calls++;
+    const next=output(input);next.title="Another title";
+    if(calls===2){assert.equal(JSON.parse(request.input[0].content).repair.issue,"repeated_session");next.exercises[0].reps=13;}
+    return {status:"completed",output_text:JSON.stringify(next)};
+  }}};
+  const result=await generateAssistedWorkout(input,sdk as never);
+  assert.ok(result.workout);assert.equal(calls,2);assert.equal(result.workout.exercises[0].reps,13);
+});

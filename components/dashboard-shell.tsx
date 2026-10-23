@@ -29,7 +29,7 @@ export async function DashboardShell({
   const { data: profile } = user ? await supabase.from("profiles").select("avatar_path").eq("id", user.id).maybeSingle() : { data: null };
   const photo = await getProfileImageUrl(supabase, profile?.avatar_path);
   const navigation = role === "owner"
-    ? [{ href: "/owner", label: "Overview" }, { href: "/owner/team", label: "Team" }, { href: "/owner/schedule", label: "Schedule" }, { href: "/owner/clients", label: "Clients" }, { href: "/owner/reports", label: "Reports" }, { href: "/owner/revenue", label: "Revenue" }, { href: "/owner/equipment", label: "Equipment" }, { href: "/owner/training-library", label: "Training library" }, { href: "/owner/apps", label: "Apps & access" }]
+    ? [{ href: "/owner", label: "Overview" }, { href: "/owner/team", label: "Team" }, { href: "/owner/schedule", label: "Schedule" }, { href: "/owner/clients", label: "Clients" }, { href: "/owner/reports", label: "Reports" }, { href: "/owner/revenue", label: "Revenue" }, { href: "/owner/equipment", label: "Equipment" }, { href: "/owner/training-library", label: "Training library" }, { href: "/owner/apps", label: "Apps & access" }, { href: "/owner/demo", label: "Demo" }]
     : role === "coach"
       ? [{ href: "/coach", label: "Overview & clients" }, { href: "/coach/schedule", label: "Schedule" }, { href: "/coach/availability", label: "Availability" }, { href: "/coach/profile", label: "Profile" }]
       : [{ href: "/client", label: "Workouts" }, { href: "/client/book", label: "Book session" }, { href: "/client/schedule", label: "Schedule" }, { href: "/client/profile", label: "Profile" }];
