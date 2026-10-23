@@ -594,6 +594,11 @@
 :global([data-ravoge-visual="cinematic"]) .error { background: var(--ui-danger-surface); color: var(--ui-danger); }
 :global([data-ravoge-visual="cinematic"]) .coachClientGrid { grid-template-columns: 1fr; }
 :global([data-ravoge-visual="cinematic"]) .coachClientCard { border-color: var(--ui-border); border-radius: 12px; background: var(--ui-panel-background); padding: 1.25rem; }
+:global([data-ravoge-visual="cinematic"]) .overviewCards:has(.coachClientGrid) > .operationCard:first-child { grid-column: 1 / -1; }
+:global([data-ravoge-visual="cinematic"]) a.coachClientCard { grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; color: var(--ui-text); }
+:global([data-ravoge-visual="cinematic"]) :is(.field label, .choiceField legend) { font-size: .7rem; letter-spacing: .07em; }
+:global([data-ravoge-visual="cinematic"]) .header .logout { white-space: nowrap; }
+:global([data-ravoge-visual="cinematic"]) .header small { max-width: 24rem; overflow-wrap: anywhere; }
 :global([data-ravoge-visual="cinematic"]) .profilePhoto { border: 1px solid #d9b86d; background: #252623; box-shadow: 0 0 0 3px #d7b0600a; }
 :global([data-ravoge-visual="cinematic"]) .profilePhotoSmall { width: 3.1rem; height: 3.1rem; }
 :global([data-ravoge-visual="cinematic"]) .profileHero { padding: 1.25rem; border: 1px solid var(--ui-border); border-radius: 14px; background: var(--ui-panel-background); }
@@ -635,6 +640,8 @@
   :global([data-ravoge-visual="cinematic"]) .role { display: none; }
   :global([data-ravoge-visual="cinematic"]) .pageHeading h2 { font-size: 2rem; }
   :global([data-ravoge-visual="cinematic"]) .reviewFooter .action { width: 100%; }
+  :global([data-ravoge-visual="cinematic"]) a.coachClientCard { grid-template-columns: minmax(0, 1fr) auto; }
+  :global([data-ravoge-visual="cinematic"]) a.coachClientCard > small { grid-column: 1 / -1; }
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .sidebar { position: fixed; inset: auto .5rem max(.5rem, env(safe-area-inset-bottom)); width: auto; border: 1px solid #58513d; border-radius: 22px; box-shadow: 0 -8px 30px #0007; }
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .sidebar nav { justify-content: space-around; overflow: visible; }
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .sidebar nav a { flex: 1 1 0; flex-direction: column; gap: .3rem; padding: .5rem .15rem; font-size: .65rem; border: 0; border-radius: 12px; }
