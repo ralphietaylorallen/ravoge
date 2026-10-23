@@ -4,6 +4,7 @@ import { generatedWeightTextIsLoadFree } from "./equipment-weights.ts";
 import type { GenerationInput, AssistedWorkout } from "./workout-generation.ts";
 import { BLOCKS, FORMATS, estimateWorkoutSeconds, validateProtocol, type WorkoutProtocol } from "./workout-protocol.ts";
 import { programmingEvidence } from "./programming-evidence.ts";
+import { provenanceSchema, validateWorkoutProvenance, type RowProvenance } from "./workout-provenance.ts";
 
 // Fixed application-owned diagnostics only: never retain or echo rejected model
 // text, client information, request bodies or provider exception messages.
@@ -64,10 +65,15 @@ export const qualitySchema = {
 export function qualitySchemaFor(input: GenerationInput) {
   const row = qualitySchema.properties.exercises.items;
   const ceiling = Math.min(input.experience === "beginner" ? 7 : 8, input.intelligence?.analysis.intensityCeiling ?? 8);
+  const reviewText={type:"string",minLength:5,maxLength:500};
   return { ...qualitySchema,
-    required: [...qualitySchema.required,...(input.intelligence?["sourceReferenceKeys"]:[])],
+    required: [...qualitySchema.required,...(input.intelligence?["sourceReferenceKeys"]:[]),...(input.intakeContext?.version===2?["coachReview"]:[])],
     properties: { ...qualitySchema.properties,
-      exercises: { ...qualitySchema.properties.exercises, items: { ...row, properties: { ...row.properties,
+      ...(input.intakeContext?.version===2?{coachReview:{type:"object",additionalProperties:false,required:["goalSupport","weeklyPlan","injuryAdaptations","progression","regression","unresolvedQuestions"],properties:{goalSupport:reviewText,
+        weeklyPlan:{type:"array",minItems:input.frequency,maxItems:input.frequency,items:{type:"object",additionalProperties:false,required:["day","focus"],properties:{day:{type:"integer",minimum:1,maximum:input.frequency},focus:reviewText}}},
+        injuryAdaptations:{type:"array",maxItems:50,items:reviewText},progression:reviewText,regression:reviewText,unresolvedQuestions:{type:"array",maxItems:10,items:reviewText}}}}:{}),
+      exercises: { ...qualitySchema.properties.exercises, items: { ...row, required:[...row.required,...(input.intakeContext?.version===2?["provenance"]:[])], properties: { ...row.properties,
+        ...(input.intakeContext?.version===2?{provenance:provenanceSchema}:{}),
         sets: { ...row.properties.sets, maximum: input.experience === "beginner" ? 3 : 4 },
         protocol: { ...row.properties.protocol, properties: { ...row.properties.protocol.properties,
           targetRpe: { ...row.properties.protocol.properties.targetRpe, maximum: ceiling },
@@ -117,11 +123,12 @@ export function projectQualityContext(input: GenerationInput) {
     trainingAnalysis: input.intelligence?.analysis,
     evidencePrinciples: programmingEvidence().principles,
     evidenceCacheVersion: programmingEvidence().version,
-    liveWebResearch: false,
+    liveWebResearch: !!input.evidence && !input.evidence.cacheHit,
     todayReadiness: input.todayReadiness ? { answers: input.todayReadiness.answers, hasPain: input.todayReadiness.hasPain, coachDecision: input.todayReadiness.coachDecision } : null,
     publishedStructures: input.references.map((r, index) => {
       const groups = new Map<string, string>();
       return { referenceKey: `reference_${index + 1}`, goal: r.goal, durationMinutes: r.duration, sourceKind:r.sourceKind??"structured_template",
+        segments:r.segments?.map(s=>({key:s.key,exerciseKeys:s.exerciseIds.filter(id=>aliases.has(id)).map(id=>aliases.get(id))})),
         ...(r.rawStyle?{rawExample:{protocolsVerified:false,exerciseKeys:r.rawStyle.exerciseIds.filter(id=>aliases.has(id)).map(id=>aliases.get(id)),
           formats:r.rawStyle.formats.filter(f=>(FORMATS as readonly string[]).includes(f)),terms:r.rawStyle.terms.filter(t=>['per side','each side','tempo','ladder','finisher','warmup','strength','conditioning','power','mobility','percentage'].includes(t))}}:{}),
         sequence: r.exercises.filter(e => aliases.has(e.libraryExerciseId ?? "")).map(e => {
@@ -142,15 +149,24 @@ export function projectQualityContext(input: GenerationInput) {
 export function validateQualityWorkout(output: string, input: GenerationInput): AssistedWorkout {
   const value = JSON.parse(output);
   const text = (s: unknown, min: number, max: number): s is string => typeof s === "string" && s.trim().length >= min && s.length <= max && !/(https?:|@|kg\b|kilograms?|\b[0-9a-f]{8}-[0-9a-f-]{27,}\b)/i.test(s);
-  if (!value || Array.isArray(value) || Object.keys(value).some(k => !["title", "rationale", "durationMinutes", "exercises",...(input.intelligence?["sourceReferenceKeys"]:[])].includes(k))
+  if (!value || Array.isArray(value) || Object.keys(value).some(k => !["title", "rationale", "durationMinutes", "exercises",...(input.intelligence?["sourceReferenceKeys"]:[]),...(input.intakeContext?.version===2?["coachReview"]:[])].includes(k))
     || !text(value.title, 2, 120) || !text(value.rationale, 2, 2000) || !Number.isInteger(value.durationMinutes) || value.durationMinutes < 20 || value.durationMinutes > input.duration
     || !Array.isArray(value.exercises) || value.exercises.length < 3 || value.exercises.length > 12) throw new QualityValidationError("header");
   const referenceKeys=input.references.map((_,index)=>`reference_${index+1}`);
+  if(input.intakeContext?.version===2) {
+    const r=value.coachReview;
+    if(!r || !text(r.goalSupport,5,500) || !text(r.progression,5,500) || !text(r.regression,5,500)
+      || !Array.isArray(r.weeklyPlan)||r.weeklyPlan.length!==input.frequency||new Set(r.weeklyPlan.map((d:{day:number})=>d.day)).size!==input.frequency
+      || r.weeklyPlan.some((d:{day:number;focus:string})=>!Number.isInteger(d.day)||d.day<1||d.day>input.frequency||!text(d.focus,5,500))
+      || !Array.isArray(r.injuryAdaptations)||r.injuryAdaptations.length>50||r.injuryAdaptations.some((s:unknown)=>!text(s,5,500))
+      || !Array.isArray(r.unresolvedQuestions)||r.unresolvedQuestions.length>10||r.unresolvedQuestions.some((s:unknown)=>!text(s,5,500))
+      || (input.injurySpots?.length && !r.injuryAdaptations.length)) throw new QualityValidationError("header");
+  }
   if(input.intelligence && (!Array.isArray(value.sourceReferenceKeys) || value.sourceReferenceKeys.length>(input.references.length?5:0) || (input.references.length && !value.sourceReferenceKeys.length)
     || new Set(value.sourceReferenceKeys).size!==value.sourceReferenceKeys.length || value.sourceReferenceKeys.some((key:unknown)=>typeof key!=="string"||!referenceKeys.includes(key)))) throw new QualityValidationError("references");
   const groups = new Map<string, string>();
   const exercises = value.exercises.map((raw: Record<string, unknown>) => {
-    if (!raw || Object.keys(raw).some(k => !["exerciseKey", "sets", "reps", "restSeconds", "notes", "reason", "protocol"].includes(k))) throw new QualityValidationError("row_shape");
+    if (!raw || Object.keys(raw).some(k => !["exerciseKey", "sets", "reps", "restSeconds", "notes", "reason", "protocol",...(input.intakeContext?.version===2?["provenance"]:[])].includes(k))) throw new QualityValidationError("row_shape");
     const index = typeof raw.exerciseKey === "string" && /^exercise_[1-9]\d*$/.test(raw.exerciseKey) ? Number(raw.exerciseKey.slice(9)) - 1 : -1;
     const e = input.candidates[index];
     let p: WorkoutProtocol;
@@ -179,6 +195,11 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
       targetRpe: p.targetRpe, notes: raw.notes, reason: raw.reason, protocol: p };
   });
   const seconds = estimateWorkoutSeconds(exercises);
+  let provenanceAudit;
+  if(input.intakeContext?.version===2) {
+    try { provenanceAudit=validateWorkoutProvenance(exercises,value.exercises.map((r:{provenance:RowProvenance})=>r.provenance),input); }
+    catch { throw new QualityValidationError("references"); }
+  }
   if(input.intelligence && input.references.some(r=>r.sourceKind==='raw_reference')) {
     const used=input.references.filter((_,i)=>value.sourceReferenceKeys.includes(`reference_${i+1}`));
     const sourceIds=new Set(used.flatMap(r=>r.rawStyle?.exerciseIds??r.exercises.map(e=>e.libraryExerciseId??'')));
@@ -188,5 +209,7 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
   if (exercises.reduce((sum: number, e: { sets: number }) => sum + e.sets, 0) > 28) throw new QualityValidationError("volume");
   if (seconds > input.duration * 60 + 180 || seconds < Math.min(15, input.duration * 0.4) * 60) throw new QualityValidationError("duration",{timing:{estimatedSeconds:Math.ceil(seconds),minimumSeconds:Math.min(15,input.duration*0.4)*60,maximumSeconds:input.duration*60+180}});
   return { title: value.title, rationale: value.rationale, durationMinutes: Math.max(20, Math.min(input.duration, Math.ceil(seconds / 60))), exercises,
+    ...(provenanceAudit?{provenanceAudit}:{}),
+    ...(input.intakeContext?.version===2?{coachReview:value.coachReview}:{}),
     ...(input.intelligence?{sourceReviewIds:value.sourceReferenceKeys.map((key:string)=>input.references[referenceKeys.indexOf(key)].id)}:{}) };
 }

@@ -17,6 +17,7 @@ import { IntakeForm } from "@/components/intake-form";
 import { WorkoutForm } from "@/components/workout-form";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
+import type { InjurySpot } from "@/lib/intake-history";
 
 type WorkoutExercise = { exercise_name: string; id: string; load: number | null; load_unit: string | null; reps: number; sets: number; sort_order: number };
 type WorkoutAssignment = { id: string; scheduled_date: string; status: string; title: string; workout_exercises: WorkoutExercise[] };
@@ -62,6 +63,11 @@ export default async function CoachClientPage({ params, searchParams }: { params
     supabase.rpc("get_workout_generation_readiness",{target_client_user_id:clientId}),
   ]);
   const latestIntake = (intakeRows?.[0] ?? null) as IntakeRow | null;
+  const [{data:injuryRows,error:injuryError},{data:gymHours}] = await Promise.all([
+    supabase.from("client_injury_spots").select("details").eq("organization_id",membership.organization_id).eq("client_user_id",clientId).is("removed_at",null).order("created_at"),
+    supabase.from("organization_hours").select("day_of_week,is_closed").eq("organization_id",membership.organization_id),
+  ]);
+  const availableDays=gymHours?.length ? gymHours.filter(h=>!h.is_closed).length : 7;
   const baselineByIntake = new Map((baselineRows ?? []).map((row) => [row.intake_id, row]));
   const baselineRecords = (intakeRows ?? []).flatMap((intake) => {
     const baseline = baselineByIntake.get(intake.id);
@@ -95,7 +101,7 @@ export default async function CoachClientPage({ params, searchParams }: { params
       {assignedWorkouts.length?<ul className={styles.workoutPlanList}>{assignedWorkouts.map(workout=><li key={workout.id}><Link href={`${basePath}/workouts/${workout.id}`}><div><strong>{workout.title}</strong><small>{workout.scheduled_date} · {workout.workout_exercises.length} exercises</small></div><span className={workout.status==="completed"?styles.successPill:styles.mutedPill}>{workout.status.replaceAll("_"," ")}</span><span aria-hidden="true">→</span></Link></li>)}</ul>:<p className={styles.empty}>No workouts assigned yet. Complete intake or create a plan below.</p>}
       </section><details className={styles.operationCard}><summary>Manual workout builder</summary><WorkoutForm clientId={clientId}/></details>
     </>}
-    {tab==="intake"&&<><div className={styles.sectionHeading}><div><h3>Intake evaluation</h3><p className={styles.profileMeta}>{latestIntake?`New assessment · previous version ${latestIntake.version}`:"Build the Client’s first baseline"}</p></div></div><IntakeForm clientId={clientId} defaults={(latestIntake??{}) as never} checkin={<CoachCheckin clientId={clientId} contexts={contexts} questions={questions??[]}/>}/><details className={styles.operationCard}><summary>Previous assessments</summary><BaselineSummary records={baselineRecords}/></details></>}
+    {tab==="intake"&&<><div className={styles.sectionHeading}><div><h3>Intake evaluation</h3><p className={styles.profileMeta}>{latestIntake?`New assessment · previous version ${latestIntake.version}`:"Build the Client’s first baseline"}</p></div></div>{injuryError?<p role="alert">Injury history could not be loaded. Do not save an incomplete assessment; reload or contact your Owner.</p>:<IntakeForm clientId={clientId} defaults={(latestIntake??{}) as never} injurySpots={(injuryRows??[]).map(r=>r.details as InjurySpot)} availableDays={availableDays} checkin={<CoachCheckin clientId={clientId} contexts={contexts} questions={questions??[]}/>}/>}<details className={styles.operationCard}><summary>Previous assessments</summary><BaselineSummary records={baselineRecords}/></details></>}
     {tab==="progress"&&<><ProgressChart metrics={[{label:"Weight",unit:"lb",points:(inbodyRows??[]).filter(row=>row.weight_kg!==null).map(row=>({date:row.measured_at,value:kilogramsToPounds(row.weight_kg)!}))},{label:"Body fat",unit:"%",points:(inbodyRows??[]).filter(row=>row.body_fat_percentage!==null).map(row=>({date:row.measured_at,value:Number(row.body_fat_percentage)}))}]}/><BaselineSummary records={baselineRecords}/></>}
     {tab==="metrics"&&<><section className={styles.operationCard}><h3>Latest assessment state</h3>{latestState?<div className={styles.stateGrid}><article><span>Training level</span><strong>{level(latestState.training_experience)}</strong></article><article><span>Recovery</span><strong>{level(latestState.recovery_capacity)}</strong></article><article><span>Readiness</span><strong>{level(latestState.current_readiness)}</strong></article><article><span>Movement tolerance</span><strong>{level(latestState.movement_tolerance)}</strong></article><article><span>Volume tolerance</span><strong>{level(latestState.volume_tolerance)}</strong></article><article><span>Confidence</span><strong>{latestState.confidence.overall??"Low"}</strong></article></div>:<p className={styles.empty}>Complete the intake to establish the Client’s state.</p>}</section><BaselineSummary records={baselineRecords}/></>}
     {tab==="notes"&&<section className={styles.operationCard}><h3>Coach notes</h3><p className={styles.empty}>{String(latestIntake?.coach_notes||"No intake notes recorded.")}</p><h3>About the Client</h3><p className={styles.empty}>{clientProfile.bio||"No About section yet."}</p><p className={styles.formHint}>Session notes are recorded within each workout.</p></section>}

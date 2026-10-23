@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
+import { completeGoalsPage } from "./helpers/intake";
 
 test.use({ trace: "off", actionTimeout: 25_000 });
 type Account = { email: string; password: string; name: string; id: string; role: string };
@@ -169,14 +170,13 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   await expect(photo.getByRole("status")).toContainText("Profile photo updated"); await expect(photo.locator("button img")).toBeVisible();
   await coach.getByRole("link", { name: "Start intake now", exact: true }).click();
   await expect(coach.getByRole("heading", { name: "Beta New Client", exact: true }), await coach.locator("body").innerText()).toBeVisible();
-  await coach.getByLabel("Session duration", { exact: true }).fill("45");
-  await coach.getByLabel("Secondary goal").selectOption("body_recomposition");
+  await completeGoalsPage(coach,{targetWeight:"80"});
   await coach.getByRole("button", { name: "Continue →", exact: true }).click();
   for (const [id, value] of Object.entries({ squatLoadLb: "40", squatReps: "5", squatOneRmLb: "45", benchLoadLb: "25", benchReps: "5", benchOneRmLb: "30", pullupStrictReps: "0" })) await coach.locator(`#${id}`).fill(value);
   await coach.getByRole("button", { name: "Continue →", exact: true }).click(); await coach.locator("#rowerDistanceM").fill("500"); await coach.locator("#rowerTimeSeconds").fill("120");
   await coach.getByRole("button", { name: "Continue →", exact: true }).click();
   await coach.getByLabel("Assessment status").selectOption("completed"); await coach.locator("#inbodyTestDate").fill(new Date().toISOString().slice(0, 10));
-  for (const [id, value] of Object.entries({ weightLb: "85", bodyFatPercentage: "24", skeletalMuscleMassLb: "33", goalWeightLb: "80", goalBodyFatPercentage: "18", goalSkeletalMuscleMassLb: "35" })) await coach.locator(`#${id}`).fill(value);
+  for (const [id, value] of Object.entries({ weightLb: "85", bodyFatPercentage: "24", skeletalMuscleMassLb: "33", goalBodyFatPercentage: "18" })) await coach.locator(`#${id}`).fill(value);
   await coach.getByRole("button", { name: "Continue →", exact: true }).click();
   await coach.getByRole("button", { name: "Save intake", exact: true }).click(); await expect(coach.getByRole("status").filter({ hasText: "Intake saved" })).toBeVisible();
   await coach.goto(new URL(`/coach/clients/${actualClientId}`, coach.url()).href);
@@ -188,8 +188,7 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   await expect(coach.getByText("Source: reviewed_organization_references.", { exact: true })).toBeVisible();
   await expect(coach.getByRole("region", { name: "Generation evidence" })).toBeVisible();
   const generatedTitle = await coach.getByLabel("Workout name", { exact: true }).inputValue();
-  if (process.env.RAVOGE_LIVE_WORKOUT_QA !== "yes") await expect(coach.getByText("Ravoge used safe fallback generation for this workout.", { exact: true })).toBeVisible();
-  else await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status")).toHaveText("OpenAI-assisted draft, validated against approved exercises and current gym equipment.");
+  await expect(coach.getByRole("region", { name: "Generation evidence" }).getByRole("status")).toHaveText("OpenAI-assisted draft, validated against approved exercises and current gym equipment.");
   await client.goto(new URL("/client", client.url()).href); await expect(client).toHaveURL(/\/client$/);
   await client.screenshot({ path: testInfo.outputPath("client-before-approval.png"), fullPage: true });
   await expect(client.getByRole("navigation", { name: "client navigation" }), await client.locator("body").innerText()).toBeVisible();

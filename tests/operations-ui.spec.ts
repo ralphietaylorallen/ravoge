@@ -1,5 +1,6 @@
 import {expect as baseExpect,test,type Page} from "@playwright/test";
 import sharp from "sharp";
+import { completeGoalsPage } from "./helpers/intake";
 
 const expect=baseExpect.configure({timeout:15_000});
 test.use({trace:"off",actionTimeout:20_000,launchOptions:process.env.RAVOGE_QA_HTTP1==='yes'?{args:['--disable-http2']}:undefined});
@@ -67,6 +68,7 @@ test("Owner to Coach to Client operations, outcomes, intake, photos and responsi
   await coach.setViewportSize({width:820,height:1180});await noOverflow(coach);await coach.screenshot({path:testInfo.outputPath("workout-ipad.png"),fullPage:true});
   await coach.getByLabel("Session duration (minutes)").fill("45");await coach.getByLabel("Coach notes",{exact:true}).fill("QA verification session");await coach.getByRole("button",{name:"Complete workout",exact:true}).click();await expect(coach.getByRole("heading",{name:"Workout complete",exact:true})).toBeVisible();
   await coach.goto(`/coach/clients/${clientId}?tab=intake`);
+  await completeGoalsPage(coach);
   await coach.getByLabel("Session or workout").selectOption({index:1});
   for(let i=1;i<=8;i++)await coach.getByRole("button",{name:`Question ${i}: 6`,exact:true}).click();
   await coach.getByRole("button",{name:"Save check-in",exact:true}).click();await expect(coach.locator('p[role="status"]')).toContainText("All eight responses saved");

@@ -1,0 +1,10 @@
+.goals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; border:0; padding:0; min-width:0; }
+.goals legend { margin-bottom:.75rem; font-weight:600; }
+.goals label { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.75rem; position:relative; min-height:135px; padding:1rem .5rem; background:#151716; border:1px solid #65665e; border-radius:12px; cursor:pointer; text-align:center; }
+.goals input { position:absolute; top:.75rem; right:.75rem; accent-color:#edc56f; width:20px; height:20px; }
+.goals label:has(:focus-visible) { outline:2px solid #ffe3a1; outline-offset:4px; }
+.goals label.selected { border-color:#edc56f; background:linear-gradient(135deg,#342b1c,#151716); }
+.goals label>span { font-size:2rem; color:#efd08a; }
+.check { display:flex; align-items:center; gap:.5rem; min-height:44px; }
+.check input { width:20px; height:20px; accent-color:#edc56f; }
+@media(max-width:380px) { .goals{gap:.35rem;} .goals label{font-size:.85rem;} }

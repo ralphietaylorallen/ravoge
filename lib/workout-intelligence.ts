@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { configuredWorkoutModel, deidentifiedGenerationInput, generateAssistedWorkout, type GenerationInput } from "./workout-generation.ts";
 import { BLOCKS, FORMATS } from "./workout-protocol.ts";
 import { referenceFallback } from "./reference-fallback.ts";
+import { retrieveExerciseEvidence } from "./exercise-evidence.ts";
 
 export const ANALYSIS_OBJECTIVES = ["strength","hypertrophy","aerobic_endurance","running_economy","general_fitness","fat_loss_support"] as const;
 export const PROGRESSION_FOCUS = ["technique_then_reps","gradual_volume","recovery_first","maintain_consistency"] as const;
@@ -18,6 +19,7 @@ const CACHE_TTL = 5*60_000;
 export function planningProjection(input: GenerationInput) {
   const p=deidentifiedGenerationInput(input);
   return {goal:p.goal,secondaryGoal:p.secondaryGoal,trainingFocus:p.trainingFocus,experience:p.experience,
+    ...(input.intakeContext?.version===2?{savedIntake:p.savedIntake,injurySpots:p.injurySpots,assessments:p.assessments,evidence:p.evidence}:{}),
     weeklyFrequency:p.weeklyFrequency,requestedDurationMinutes:p.requestedDurationMinutes,bodyComposition:p.bodyComposition,
     optionalTargets:p.optionalTargets,restrictions:p.restrictions,weightUnit:p.weightUnit,equipment:p.equipment,
     availableFacilities:input.facilities?.map(f=>({type:f.type,length:f.length,unit:f.unit})),
@@ -110,16 +112,21 @@ export function retrieveGymKnowledge(input:GenerationInput,analysis:TrainingAnal
 }
 export async function generateIntelligentWorkout(input:GenerationInput,client?:Client) {
   if(input.schemaVersion!==2) return {...await generateAssistedWorkout(input,client),intelligence:undefined};
-  const sdk=client??(process.env.OPENAI_API_KEY?new OpenAI({maxRetries:0,timeout:16000}):undefined);
+  const sdk=client??(process.env.OPENAI_API_KEY?new OpenAI({maxRetries:0,timeout:input.intakeContext?.version===2?22000:16000}):undefined);
+  if(input.intakeContext?.version===2) {
+    try { input={...input,evidence:await retrieveExerciseEvidence(input,sdk)}; }
+    catch { return {workout:null,reason:"unavailable" as const,intelligence:undefined,method:undefined,blocker:"Verified exercise guidance could not be retrieved. Try again shortly; no workout was generated or assigned."}; }
+  }
   const intelligence=await analyzeTrainingIntent(input,sdk);
   const references=retrieveGymKnowledge(input,intelligence.analysis);
+  if(input.intakeContext?.version===2 && !references.some(r=>r.segments?.some(s=>s.exerciseIds.length))) return {workout:null,reason:"invalid_output" as const,intelligence,method:undefined,blocker:"Gym library gap: no compatible gym-reference segments support this intake. Ask your Owner to add appropriate programming; no workout was assigned."};
   const prepared={...input,candidates:referenceCandidates(input,references,intelligence.analysis),references,intelligence};
   const result=await generateAssistedWorkout(prepared,sdk);
-  if(!result.workout && references.length) {
+  if(!result.workout && references.length && input.intakeContext?.version!==2) {
     const fallback=referenceFallback(prepared);
     if(fallback) return {workout:fallback,model:"deterministic-reference-v1",intelligence,method:"deterministic_reference_fallback" as const,providerIssue:result.reason,reason:undefined};
   }
-  return {...result,intelligence,method:undefined};
+  return {...result,intelligence,method:undefined,evidence:input.evidence};
 }
 
 export function requiresReviewedGymRetry(input: GenerationInput) {

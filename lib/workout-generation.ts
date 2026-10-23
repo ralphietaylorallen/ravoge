@@ -7,11 +7,14 @@ import type { WorkoutProtocol } from "./workout-protocol.ts";
 import { QUALITY_RULES, QUALITY_REPAIR_HINTS, QualityValidationError, projectQualityContext, qualitySchemaFor, validateQualityWorkout, type QualityRepairContext } from "./workout-generation-quality.ts";
 import type { TrainingFocus } from "./training-focus.ts";
 import type { TrainingAnalysis } from "./workout-intelligence.ts";
+import type { InjurySpot, IntakeContext } from "./intake-history.ts";
+import type { EvidenceCollection } from "./exercise-evidence.ts";
+import type { ProvenanceAudit } from "./workout-provenance.ts";
 
 export const PROGRAMMING_RULES_VERSION = "ravoge-reviewed-2026.1";
 export const FALLBACK_MESSAGE = "Ravoge used safe fallback generation for this workout.";
 
-type Candidate = { id: string; name: string; pattern: string; equipment: string[]; difficulty: string; quality: string; canonicalName?: string | null; measurement?: "reps" | "time" | "distance"; laterality?: string; primaryMuscles?: string[]; secondaryMuscles?: string[]; purposes?: string[]; repMin?: number; repMax?: number };
+type Candidate = { id: string; name: string; pattern: string; equipment: string[]; difficulty: string; quality: string; canonicalName?: string | null; measurement?: "reps" | "time" | "distance"; laterality?: string; primaryMuscles?: string[]; secondaryMuscles?: string[]; purposes?: string[]; repMin?: number; repMax?: number; loadRuleSupported?:boolean };
 type SourceExercise = { libraryExerciseId?: string; id?: string; sets: number; reps: number; restSeconds: number | null; load?: number | null; protocol?: WorkoutProtocol; performance?: { recorded: number; problematic: number; averageReps: number | null; averageLoad: number | null; averageRpe: number | null; averageWorkSeconds: number | null; averageDistance: number | null } };
 export type GenerationInput = {
   snapshot: string; intakeId: string; goal: string; secondaryGoal: string | null; experience: string;
@@ -20,7 +23,7 @@ export type GenerationInput = {
   weightCapabilities?: WeightCapability[];
   equipment: string[]; candidates: Candidate[];
   references: { id: string; title: string; revision: number; goal: string; duration: number; exercises: SourceExercise[];
-    sourceKind?: "raw_reference"; rawStyle?: {exerciseIds:string[];formats:string[];terms:string[];rawProtocolsUnverified:boolean} }[];
+    sourceKind?: "raw_reference"; segments?:{key:string;exerciseIds:string[]}[]; rawStyle?: {exerciseIds:string[];formats:string[];terms:string[];rawProtocolsUnverified:boolean} }[];
   history: { status: string; exercises: SourceExercise[] }[];
   schemaVersion?: number; facilities?: { type: string; length: number; unit: string }[]; publishedCount?: number;
   gymProfile?: { id: string; version: number; summary: string; preferences: { formats: string[]; emphasis: string[] }; statistics: { formats?: Record<string, number>; emphasis?: Record<string, number>; sets?: number[]; reps?: number[]; restSeconds?: number[]; terminology?: string[]; progressionPatterns?: string[]; resourceUse?: Record<string, number> } } | null;
@@ -29,11 +32,17 @@ export type GenerationInput = {
   knowledgeCatalog?: GenerationInput["references"];
   knowledgeCounts?: { total: number; approved: number; eligible: number; referenceEnabled?:number };
   intelligence?: { analysis: TrainingAnalysis; method: "openai" | "rules_fallback"; cacheHit: boolean };
+  intakeContext?: IntakeContext;
+  injurySpots?: InjurySpot[];
+  evidence?: EvidenceCollection;
+  intakeAssessment?: { movementObservations:Record<string,unknown>; strengthAssessments:Record<string,unknown>; recovery:Record<string,number|null>; preferences:string[]; dislikes:string[] };
 };
 export type AssistedWorkout = {
   title: string; rationale: string; durationMinutes: number;
   exercises: { libraryExerciseId: string; name: string; sets: number; reps: number; restSeconds: number; load: null; loadUnit?: "lb"; targetRpe: number; notes: string; reason: string; protocol?: WorkoutProtocol }[];
   sourceReviewIds?: string[];
+  provenanceAudit?: ProvenanceAudit;
+  coachReview?: {goalSupport:string;weeklyPlan:{day:number;focus:string}[];injuryAdaptations:string[];progression:string;regression:string;unresolvedQuestions:string[]};
 };
 type FallbackReason = "not_configured" | "invalid_output" | "timeout" | "unavailable";
 type ResponsesClient = Pick<OpenAI, "responses">;
@@ -60,6 +69,7 @@ export function deidentifiedGenerationInput(input: GenerationInput) {
     sets: exercise.sets, reps: exercise.reps, restSeconds: exercise.restSeconds,
   })).filter((exercise) => exercise.exerciseKey);
   const numbers = (values: Record<string, number | null>, allowed: string[]) => Object.fromEntries(allowed.filter(key => typeof values[key] === "number" && Number.isFinite(values[key])).map(key => [key.replace(/Kg$/, "Lb"), key.endsWith("Kg") ? kilogramsToPounds(values[key]) : values[key]]));
+  const strengthAssessments=input.intakeAssessment?Object.fromEntries(Object.entries(input.intakeAssessment.strengthAssessments??{}).map(([key,value])=>[key.replace(/_kg$/,"_lb"),key.endsWith("_kg")&&typeof value==="number"?kilogramsToPounds(value):value])):undefined;
   // Explicit projection: never serialize input wholesale. No names, notes,
   // emails, dates, gym/account IDs, library IDs or source titles go to OpenAI.
   return {
@@ -68,6 +78,10 @@ export function deidentifiedGenerationInput(input: GenerationInput) {
     goal: input.goal, secondaryGoal: input.secondaryGoal, experience: input.experience,
     trainingFocus: input.trainingFocus ?? null,
     weeklyFrequency: input.frequency, requestedDurationMinutes: input.duration,
+    ...(input.intakeContext?.version===2 ? {savedIntake:input.intakeContext, injurySpots:input.injurySpots?.map((spot,index)=>({...spot,id:undefined,spotKey:`spot_${index+1}`})), assessments:input.intakeAssessment?{...input.intakeAssessment,strengthAssessments}:undefined,
+      evidence:input.evidence?.sources.map(s=>({id:s.id,title:s.title,recommendations:s.recommendations,limitations:s.limitations,applicability:s.applicability})),
+      evidenceRetrieval:input.evidence?{retrieved:true,cacheHit:input.evidence.cacheHit}:null,
+      requirements:["Use every saved restriction; no diagnosis, rehabilitation treatment or inferred surgical clearance.","Explain the goal, weekly structure for planned gym days, recovery, adaptations, missing information, and progression/regression criteria in the coach rationale.","At least 90% of main-work sets/station efforts must have valid gym-reference segment provenance. Exclude warm-up/cooldown/rest. Never pad work to meet the ratio. Substitutions need specific constraint/goal reasons and verified evidence IDs."]}:{}),
     bodyComposition: numbers(input.bodyComposition, ["weightKg", "bodyFatPercentage", "skeletalMuscleMassKg"]),
     optionalTargets: numbers(input.targets, ["weightKg", "bodyFatPercentage", "skeletalMuscleMassKg"]),
     restrictions: { tags: input.restrictions.tags, hasInjuries: input.restrictions.hasInjuries, hasPain: input.restrictions.hasPain,

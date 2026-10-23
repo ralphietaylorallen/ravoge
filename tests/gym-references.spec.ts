@@ -1,5 +1,6 @@
 import {test,expect as baseExpect,type Page} from '@playwright/test';
 import {createClient} from '@supabase/supabase-js';
+import {completeGoalsPage} from './helpers/intake';
 const expect=baseExpect.configure({timeout:15000});
 type Account={id:string;email:string;password:string;role:string};
 const accounts:Account[]=JSON.parse(process.env.BETA_QA_USERS??'[]');
@@ -40,7 +41,7 @@ test('raw references: all 124 pages, reversible enable, immediate new import, so
  expect((await oa.from('training_library_items').select('id').eq('reference_enabled',true)).data).toHaveLength(125);
  await coach.goto(`/coach/clients/${clientAccount.id}?tab=intake`);
  if(process.env.RAVOGE_CINEMATIC_QA==='yes')for(const [width,height]of [[390,844],[820,1180],[1440,1000]]){await coach.setViewportSize({width,height});expect(await coach.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await coach.screenshot({path:info.outputPath(`cinematic-intake-${width}.png`),fullPage:true,style:'[data-netlify-deploy-id] { visibility: hidden !important; }'});}
- await coach.getByLabel('Experience',{exact:true}).selectOption('intermediate');await coach.getByLabel('Years training',{exact:true}).fill('2');await coach.getByLabel('Session duration',{exact:true}).fill('45');
+ await completeGoalsPage(coach);
  await coach.getByRole('button',{name:'Continue →',exact:true}).click();
  await coach.locator('#squatOneRmMethod').selectOption('not_tested');await coach.locator('#benchOneRmMethod').selectOption('not_tested');await coach.getByLabel('Strict pull-ups',{exact:true}).fill('0');
  await coach.getByRole('button',{name:'Continue →',exact:true}).click();await coach.getByLabel('Distance (m)',{exact:true}).fill('500');await coach.getByLabel('Time (seconds)',{exact:true}).fill('120');
@@ -54,7 +55,9 @@ test('raw references: all 124 pages, reversible enable, immediate new import, so
  expect(draft!.generation_context.sourceType).toBe('gym_reference_examples');expect(draft!.generation_context.trainingSnapshot.knowledgeCounts.referenceEnabled).toBe(125);expect(draft!.generation_context.trainingSnapshot.knowledgeCounts.approved).toBe(0);
  expect(draft!.generation_context.referenceVersions.length).toBeGreaterThan(0);expect(draft!.generation_context.referenceVersions.length).toBeLessThanOrEqual(5);expect(draft!.generation_context.trainingSnapshot.knowledgeCatalog).toBeUndefined();
  expect(draft!.generation_context.loadEngine).toBe('deterministic-v1');expect(draft!.original_recommendation.every((e:{loadUnit:string})=>e.loadUnit==='lb')).toBe(true);
- if(process.env.RAVOGE_LIVE_WORKOUT_QA==='yes')expect(draft!.engine_version,`Provider outcome: ${draft!.generation_context.fallbackReason??'none'}; issue: ${new URL(coach.url()).searchParams.get('generationIssue')??'none'}`).toBe('prescription-v0.4-openai');else expect(draft!.engine_version).toBe('prescription-v0.4-fallback');
+ expect(draft!.engine_version,`Provider outcome: ${draft!.generation_context.fallbackReason??'none'}; issue: ${new URL(coach.url()).searchParams.get('generationIssue')??'none'}`).toBe('prescription-v0.4-openai');
+ expect(draft!.generation_context.provenanceAudit.gymPercentage).toBeGreaterThanOrEqual(90);
+ expect(draft!.generation_context.evidence.sources.length).toBeGreaterThan(0);
  await expect(coach.getByRole('region',{name:'Generation evidence'})).toContainText(/Raw style QA|New immediate QA/);
  await expect(coach.getByLabel('Coach-confirmed 1RM (lb, only for a percentage target)').first()).not.toBeVisible();await expect(coach.getByText('Advanced: programming details and evidence',{exact:true})).toBeVisible();await expect(coach.getByText(/Gym-profile version:/)).not.toBeVisible();
  expect((await ua.from('generated_prescriptions').select('id')).data).toEqual([]);expect((await ua.from('workout_assignments').select('id')).data).toEqual([]);
