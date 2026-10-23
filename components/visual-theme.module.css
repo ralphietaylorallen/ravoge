@@ -28,8 +28,9 @@
 }
 
 .theme :is(button, a, input, select, textarea, summary):focus-visible {
-  outline: 2px solid #ffe0a0;
-  outline-offset: 4px;
+  /* Keep the shared accessible ring above legacy component-specific resets. */
+  outline: 2px solid #ffe0a0 !important;
+  outline-offset: 4px !important;
 }
 
 .theme input::placeholder, .theme textarea::placeholder { color: #999b96; opacity: 1; }
