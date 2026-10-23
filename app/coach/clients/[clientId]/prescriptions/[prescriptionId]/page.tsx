@@ -6,10 +6,12 @@ import { DashboardShell, dashboardStyles as styles } from "@/components/dashboar
 import { PrescriptionReviewForm, type RecommendationExercise } from "@/components/prescription-review-form";
 import { requireRole } from "@/lib/auth";
 import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
-import { FALLBACK_MESSAGE, type GenerationInput } from "@/lib/workout-generation";
+import { FALLBACK_MESSAGE, type GenerationInput, type AssistedWorkout } from "@/lib/workout-generation";
 import { TRAINING_FOCUS } from "@/lib/training-focus";
 import { programmingEvidence } from "@/lib/programming-evidence";
 import { GenerateWorkoutForm } from "@/components/generate-workout-form";
+import type { EvidenceCollection } from "@/lib/exercise-evidence";
+import type { ProvenanceAudit } from "@/lib/workout-provenance";
 
 export default async function PrescriptionReviewPage({ params }: { params: Promise<{ clientId: string; prescriptionId: string }> }) {
   const { clientId, prescriptionId } = await params;
@@ -26,6 +28,9 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
   if (!client || !prescription) notFound();
   const recommendation = prescription.original_recommendation as RecommendationExercise[];
   const snapshot = prescription.generation_context?.trainingSnapshot as GenerationInput | undefined;
+  const evidence=prescription.generation_context?.evidence as EvidenceCollection|undefined;
+  const provenance=prescription.generation_context?.provenanceAudit as ProvenanceAudit|undefined;
+  const coachReview=prescription.generation_context?.coachReview as AssistedWorkout["coachReview"];
   const currentRules = new Map<string, NonNullable<typeof loadRules>[number]>();
   for (const rule of loadRules ?? []) {
     const previous = currentRules.get(rule.exercise_id);
@@ -39,6 +44,10 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
     <section className={styles.rationalePanel}><div><span>Objective</span><strong>{prescription.objective}</strong></div><div><span>Duration</span><strong>{prescription.estimated_duration_minutes} minutes</strong></div><div><span>Volume intent</span><strong>{prescription.volume_intent}</strong></div><p>{poundsInText(prescription.rationale)}</p></section>
     <section className={styles.operationCard} aria-label="Generation evidence">
       <h3>Why this draft</h3>
+      {coachReview&&<><p>{coachReview.goalSupport}</p><h4>Your weekly structure</h4><ul>{coachReview.weeklyPlan.map(d=><li key={d.day}>Session {d.day}: {d.focus}</li>)}</ul><h4>Adaptations and next steps</h4><ul>{coachReview.injuryAdaptations.map(a=><li key={a}>{a}</li>)}</ul><p>Progress when: {coachReview.progression}</p><p>Reduce or stop when: {coachReview.regression}</p>{coachReview.unresolvedQuestions.length>0&&<><h4>Review with the Client</h4><ul>{coachReview.unresolvedQuestions.map(q=><li key={q}>{q}</li>)}</ul></>}</>}
+      {prescription.generation_context?.intakeReviewRequired && <p role="alert">The intake or injury history changed. Create a fresh workout before assigning this draft.</p>}
+      {provenance&&<><p>Gym programming: <strong>{provenance.gymPercentage}%</strong> · {provenance.gymBouts} of {provenance.totalBouts} main-work bouts. Warm-up and cooldown are excluded.</p><ul>{provenance.rows.map((r,index)=><li key={index}>{recommendation[index]?.name}: {r.referenceId?`Gym reference · ${r.segmentKey}`:"External substitution"}. {r.adaptation}{r.substitutionReason&&` Reason: ${r.substitutionReason}`}</li>)}</ul></>}
+      {evidence&&<><h4>Verified exercise guidance</h4><p>{evidence.cacheHit?"Reused applicable retrieved evidence; no new search was claimed.":"Evidence retrieved for this training context."} Population guidance is not personal medical clearance.</p><ul>{evidence.sources.map(s=><li key={s.id}><a href={s.url} target="_blank" rel="noreferrer">{s.title}</a><p>{s.applicability}</p><p>Retrieved {new Date(s.retrievedAt).toLocaleDateString("en-US")}{s.publishedAt?` · Published ${s.publishedAt}`:" · Publication date not established"}</p><ul>{s.recommendations.map(r=><li key={r}>{r}</li>)}</ul><p>Limitations: {s.limitations.join(" ")}</p></li>)}</ul></>}
       <p role="status">{prescription.engine_version.endsWith("-fallback") ? FALLBACK_MESSAGE : prescription.engine_version.endsWith("-openai") ? "OpenAI-assisted draft, validated against approved exercises and current gym equipment." : "Deterministic intake-based generation."}</p>
       {snapshot && <><p>Goal: {snapshot.goal.replaceAll("_", " ")}{snapshot.secondaryGoal ? ` · ${snapshot.secondaryGoal.replaceAll("_", " ")}` : ""}. {snapshot.experience} experience · {snapshot.frequency} sessions/week · {snapshot.duration}-minute preference.</p>
         {snapshot.trainingFocus && <p>Client focus: {TRAINING_FOCUS[snapshot.trainingFocus]}.</p>}
@@ -56,7 +65,7 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
       <p>Weight context: current weight {canonicalPounds(snapshot.bodyComposition.weightKg)} lb · current muscle {canonicalPounds(snapshot.bodyComposition.skeletalMuscleMassKg)} lb · goal weight {canonicalPounds(snapshot.targets.weightKg)} lb · goal muscle {canonicalPounds(snapshot.targets.skeletalMuscleMassKg)} lb.</p>
       <p>Available equipment weights (lb): {snapshot.weightCapabilities?.map(c=>`${c.type}: ${c.minLb??"unknown"}–${c.maxLb??"unknown"}; exact sizes ${c.sizesLb?.join(", ")||"unknown"}`).join(" · ")||"Not confirmed"}. Facilities: {snapshot.facilities?.map(f=>`${f.type} · ${f.length} ${f.unit}`).join(", ")||"None confirmed"}.</p></>}
       <p>Rules: {prescription.generation_context?.rulesVersion}. Starting weights use saved measurements and results, not AI guesses.</p>
-      <h3>Programming evidence</h3><p>Cached source summaries · {programmingEvidence().reviewedAt}. No live web research occurred during generation.{programmingEvidence().reviewDue?' Source-cache review is due.':''}</p><ul>{programmingEvidence().sources.map(source=><li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.title}</a></li>)}</ul><p>Population-level guidance, not individual medical clearance or a promise of results.</p>
+      {!evidence&&<><h3>Programming evidence</h3><p>Cached source summaries · {programmingEvidence().reviewedAt}. No live web research occurred during generation.{programmingEvidence().reviewDue?' Source-cache review is due.':''}</p><ul>{programmingEvidence().sources.map(source=><li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.title}</a></li>)}</ul><p>Population-level guidance, not individual medical clearance or a promise of results.</p></>}
     </details>
   </DashboardShell>;
 }

@@ -10,9 +10,9 @@ import { poundsToKilograms } from "@/lib/weight-units";
 import { validTrainingFocus } from "@/lib/training-focus";
 import { protocolsFromForm } from "@/lib/workout-protocol";
 import { optionalStrengthAnchors } from "@/lib/starting-load";
+import { INTAKE_GOALS, parseIntakeContext } from "@/lib/intake-history";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const GOALS = new Set(["strength", "muscle_gain", "general_fitness", "conditioning", "fat_loss", "athletic_performance", "body_recomposition"]);
 const EXPERIENCE_LEVELS = new Set(["beginner", "intermediate", "advanced"]);
 const CONSISTENCY_LEVELS = new Set(["inconsistent", "building", "consistent"]);
 
@@ -156,15 +156,22 @@ export async function saveClientIntakeAction(
   if (!UUID_PATTERN.test(clientId)) return { message: "That client is not available.", status: "error" };
 
   const primaryGoal = String(formData.get("primaryGoal") ?? "");
+  let intakeContext;
+  try { intakeContext = parseIntakeContext(formData); } catch(error) { return {status:"error",message:error instanceof Error?error.message:"Review your goals."}; }
+  if (!INTAKE_GOALS.some(([g])=>g===primaryGoal) || intakeContext.age === null || intakeContext.recentWorkoutDays === null) return {status:"error",message:"Choose one goal and enter age and recent workout frequency."};
   const bodyCompositionGoals = parsePoundBodyCompositionGoals(formData);
   if (!bodyCompositionGoals) return { message: "Review the optional body-composition targets and ranges.", status: "error" };
-  const secondaryGoal = String(formData.get("secondaryGoal") ?? "");
-  const trainingFocus = String(formData.get("trainingFocus") ?? "");
+  // Only targets relevant to the selected goal enter the new version. Earlier
+  // immutable versions retain their original targets and surgical history.
+  if(primaryGoal!=="fat_loss") { delete bodyCompositionGoals.weightKg; delete bodyCompositionGoals.bodyFatPercentage; }
+  if(primaryGoal!=="muscle_gain") delete bodyCompositionGoals.skeletalMuscleMassKg;
+  const secondaryGoal = "";
+  const trainingFocus = "";
   const experienceLevel = String(formData.get("experienceLevel") ?? "");
-  const recentConsistency = String(formData.get("recentConsistency") ?? "");
+  const recentConsistency = intakeContext.recentWorkoutDays===0?"inconsistent":intakeContext.recentWorkoutDays<3?"building":"consistent";
   const trainingFrequencyGoal = boundedNumber(formData.get("trainingFrequencyGoal"), 1, 7);
-  const trainingYears = boundedNumber(formData.get("trainingYears"), 0, 80);
-  const birthYear = boundedNumber(formData.get("birthYear"), 1900, 2100, true);
+  const trainingYears = boundedNumber(formData.get("trainingYears"), 0, 80, true);
+  const birthYear = new Date().getFullYear()-intakeContext.age;
   const sessionDurationMinutes = boundedNumber(formData.get("sessionDurationMinutes"), 20, 180);
   const sleepQuality = boundedNumber(formData.get("sleepQuality"), 1, 5);
   const stressLevel = boundedNumber(formData.get("stressLevel"), 1, 5);
@@ -175,7 +182,7 @@ export async function saveClientIntakeAction(
   const mobilityBaseline = boundedNumber(formData.get("mobilityBaseline"), 1, 5, true);
 
   if (
-    !GOALS.has(primaryGoal) || (secondaryGoal && !GOALS.has(secondaryGoal)) || !validTrainingFocus(trainingFocus) ||
+    !INTAKE_GOALS.some(([g])=>g===primaryGoal) || !validTrainingFocus(trainingFocus) ||
     !EXPERIENCE_LEVELS.has(experienceLevel) || !CONSISTENCY_LEVELS.has(recentConsistency) ||
     [trainingFrequencyGoal, trainingYears, birthYear, sessionDurationMinutes, sleepQuality,
       stressLevel, recoveryPerception, sorenessFatigue, strengthBaseline,
@@ -196,7 +203,7 @@ export async function saveClientIntakeAction(
     conditioningBaseline: conditioningBaseline ?? "",
     constraintTags: getStrings(formData, "constraintTags"),
     currentInjuries: text("currentInjuries"),
-    customFields: { bodyCompositionGoals, ...(trainingFocus?{trainingFocus}:{}) },
+    customFields: { bodyCompositionGoals, intakeContext },
     experienceLevel,
     medicalCoachNotes: text("medicalCoachNotes"),
     mobilityBaseline: mobilityBaseline ?? "",

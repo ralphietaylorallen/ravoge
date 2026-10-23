@@ -34,7 +34,7 @@ export function GenerateWorkoutForm({ clientId, ready }: { clientId: string; rea
 
   return <div aria-busy={pending} className={styles.form}>
     <button className={styles.action} disabled={!ready || pending} onClick={createWorkout} type="button">{pending ? "Creating workout…" : message ? "Retry Create workout" : "Create workout"}</button>
-    {pending && <p role="status">Checking your saved intake, safe exercises and gym programming. This can take up to 45 seconds; a safe fallback is available.</p>}
+    {pending && <p role="status">Checking your saved intake, restrictions, gym programming and exercise guidance. This can take about a minute. Nothing is assigned until you review it.</p>}
     {message && <p className={`${styles.notice} ${styles.error}`} role="alert">{message}</p>}
   </div>;
 }

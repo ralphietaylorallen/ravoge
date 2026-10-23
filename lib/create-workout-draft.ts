@@ -57,6 +57,10 @@ export async function createGeneratedWorkoutDraft({
   const result = countError || (count ?? 4) > 3
     ? { workout: null, reason: "unavailable" as const, intelligence: undefined }
     : await generateIntelligentWorkout(input as GenerationInput);
+  if((input as GenerationInput).intakeContext?.version===2 && !result.workout) {
+    await supabase.rpc("discard_incomplete_quality_draft",{target_prescription_id:data});
+    return {ok:false,status:409,message:"blocker" in result && result.blocker ? result.blocker : "A verified workout within the 90% gym-library requirement could not be created. Review intake restrictions and compatible gym programming, then try again. Nothing was assigned."};
+  }
   // The legacy deterministic fallback reads exact-goal references. If the
   // wider reviewed catalog has compatible sources but that older shortlist
   // is empty, do not silently call global programming a gym-informed fallback.
@@ -77,6 +81,7 @@ export async function createGeneratedWorkoutDraft({
       ...(result.workout ? { model: result.model } : { reason: result.reason }),
       ...("method" in result && result.method ? {method:result.method,providerIssue:result.providerIssue}:{}),
       ...(result.intelligence ? { intelligence: result.intelligence, sourceReviewIds: result.workout?.sourceReviewIds ?? [] } : {}),
+      ...("evidence" in result && result.evidence ? {evidence:result.evidence,provenanceAudit:result.workout?.provenanceAudit,coachReview:result.workout?.coachReview}:{}),
     },
   }).abortSignal(AbortSignal.timeout(5000));
 

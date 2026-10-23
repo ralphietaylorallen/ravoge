@@ -408,7 +408,7 @@
 .workoutPlanList a { display:flex; align-items:center; gap:1rem; padding:1.1rem 0.5rem; border-bottom: 1px solid var(--ui-divider, #e6e1d8); color: var(--ui-text, #242a24); text-decoration:none; }
 .workoutPlanList a > div { display:grid; gap:0.45rem; flex:1; }
 .workoutPlanList small { color: var(--ui-muted, #757b72); font-size:0.72rem; }
-.intakeSteps { display:flex; gap:0.5rem; margin-bottom:1.4rem; overflow-x:auto; padding:0.2rem 0 0.8rem; }
+.intakeSteps { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.4rem; padding:0.2rem 0 0.8rem; }
 .intakeSteps button { display:flex; align-items:center; gap:0.6rem; flex:1 0 auto; min-height:52px; padding:0.8rem; border: 1px solid var(--ui-divider, #ded6c8); border-radius: 4px; background: var(--ui-input, #faf8f3); color: var(--ui-muted, #63695f); cursor:pointer; font:inherit; font-size:0.75rem; }
 .intakeSteps button[aria-current="step"] { background: #362d20; color: var(--ui-gold, #fff1d5); border-color: var(--ui-gold, #927043); }
 .intakeSteps button span { display:grid; width:24px; height:24px; place-items:center; border: 1px solid currentColor; border-radius: 50%; font-size:0.65rem; }

@@ -5,12 +5,14 @@ import { useActionState, useRef, useState, type ReactNode } from "react";
 import { saveClientIntakeAction } from "@/app/coach/actions";
 
 import { poundsInputFromCanonical } from "@/lib/weight-units";
-import { TRAINING_FOCUS } from "@/lib/training-focus";
+import { IntakeGoals } from "./intake-goals";
+import { InjuryMap } from "./injury-map";
+import type { InjurySpot, IntakeContext } from "@/lib/intake-history";
 import type { StrengthAnchor } from "@/lib/starting-load";
 import styles from "./dashboard.module.css";
 
 type IntakeDefaults = Partial<{
-  custom_fields: { trainingFocus?: string; strengthAnchors?: Record<string, StrengthAnchor>; bodyCompositionGoals?: { weightKg?: number; bodyFatPercentage?: number; skeletalMuscleMassKg?: number } };
+  custom_fields: { intakeContext?: IntakeContext; trainingFocus?: string; strengthAnchors?: Record<string, StrengthAnchor>; bodyCompositionGoals?: { weightKg?: number; bodyFatPercentage?: number; skeletalMuscleMassKg?: number } };
   avoided_exercises: string[];
   birth_year: number;
   coach_notes: string;
@@ -38,12 +40,6 @@ type IntakeDefaults = Partial<{
   training_years: number;
 }>;
 
-const goals = [
-  ["strength", "Strength"], ["muscle_gain", "Gain muscle"],
-  ["general_fitness", "General fitness"], ["conditioning", "Conditioning"],
-  ["fat_loss", "Lose fat"], ["athletic_performance", "Athletic performance"],
-  ["body_recomposition", "Body recomposition"],
-];
 const constraints = [
   ["knee_flexion", "Knee flexion"], ["hinge", "Hip hinge"],
   ["axial_load", "Axial loading"], ["horizontal_push", "Horizontal pressing"],
@@ -77,47 +73,29 @@ function ScaleSelect({ defaultValue, id, label, required = true }: { defaultValu
   );
 }
 
-export function IntakeForm({ clientId, defaults = {}, checkin }: { clientId: string; defaults?: IntakeDefaults; checkin?: ReactNode }) {
+export function IntakeForm({ clientId, defaults = {}, checkin, injurySpots = [], availableDays = 7 }: { clientId: string; defaults?: IntakeDefaults; checkin?: ReactNode; injurySpots?: InjurySpot[]; availableDays?:number }) {
   const [step,setStep]=useState(0);
   const [tests,setTests]=useState({rower:true,versa:false});
   const [review,setReview]=useState<[string,string][]>([]);
   const formRef=useRef<HTMLFormElement>(null);
-  const steps=["Pre-workout check-in","Strength tests","Conditioning","InBody","Review & save"];
-  function go(next:number) { if(next===4&&formRef.current) setReview([...new FormData(formRef.current).entries()].filter(([key,value])=>typeof value==="string"&&value!==""&&!key.startsWith("$")).map(([key,value])=>[key,String(value)])); setStep(next); }
+  const steps=["Your goals","Body map","Movement review","Strength tests","Conditioning","InBody","Review & save"];
+  function go(next:number) { if(next===6&&formRef.current) setReview([...new FormData(formRef.current).entries()].filter(([key,value])=>typeof value==="string"&&value!==""&&!key.startsWith("$")).map(([key,value])=>[key,String(value)])); setStep(next); }
   function validate(event:React.FormEvent<HTMLFormElement>) { if(!event.currentTarget.checkValidity()){ event.preventDefault(); const invalid=event.currentTarget.querySelector(":invalid") as HTMLInputElement|null; const container=invalid?.closest("[data-step]") as HTMLElement|null; if(container) setStep(Number(container.dataset.step)); requestAnimationFrame(()=>invalid?.reportValidity()); } }
   const saveForClient = saveClientIntakeAction.bind(null, clientId);
   const [state, action, pending] = useActionState(saveForClient, { status: "idle" as const });
   const [inbodyStatus, setInbodyStatus] = useState("pending");
   return (
-    <><nav aria-label="Intake steps" className={styles.intakeSteps}>{steps.map((label,index)=><button aria-current={step===index?"step":undefined} key={label} onClick={()=>go(index)} type="button"><span>{index+1}</span>{label}</button>)}</nav>{step===0&&checkin}<form action={action} className={styles.intakeForm} noValidate onSubmit={validate} ref={formRef}>
-      <details className={styles.formSection} data-step={0} hidden={step!==0} open>
-        <summary><span>01</span> Goals &amp; context</summary>
+    <><nav aria-label="Intake steps" className={styles.intakeSteps}>{steps.map((label,index)=><button aria-current={step===index?"step":undefined} key={label} onClick={()=>go(index)} type="button"><span>{index+1}</span>{label}</button>)}</nav>{step===2&&checkin}<form action={action} className={styles.intakeForm} noValidate onSubmit={validate} ref={formRef}>
+      <div data-step={0} hidden={step!==0}>
+        <IntakeGoals initialGoal={defaults.primary_goal} initial={defaults.custom_fields?.intakeContext} birthYear={defaults.birth_year} experience={defaults.experience_level} frequency={defaults.training_frequency_goal} duration={defaults.session_duration_minutes} targetWeightKg={defaults.custom_fields?.bodyCompositionGoals?.weightKg} availableDays={availableDays}/>
         <div className={styles.sectionFields}>
-          <div className={styles.formColumns}>
-            <div className={styles.field}><label htmlFor="birthYear">Birth year <span>optional</span></label><input defaultValue={defaults.birth_year} id="birthYear" max={2100} min={1900} name="birthYear" type="number" /></div>
-            <div className={styles.field}><label htmlFor="trainingFrequencyGoal">Weekly frequency goal</label><input defaultValue={defaults.training_frequency_goal ?? 3} id="trainingFrequencyGoal" max={7} min={1} name="trainingFrequencyGoal" required type="number" /></div>
-          </div>
-          <div className={styles.formColumns}>
-            <div className={styles.field}><label htmlFor="primaryGoal">Primary goal</label><select defaultValue={defaults.primary_goal ?? "strength"} id="primaryGoal" name="primaryGoal">{goals.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-            <div className={styles.field}><label htmlFor="secondaryGoal">Secondary goal <span>optional</span></label><select defaultValue={defaults.secondary_goal ?? ""} id="secondaryGoal" name="secondaryGoal"><option value="">None</option>{goals.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-          </div>
-          <div className={styles.field}><label htmlFor="trainingFocus">Training focus <span>optional</span></label><select defaultValue={defaults.custom_fields?.trainingFocus ?? ""} id="trainingFocus" name="trainingFocus"><option value="">Use the saved goals</option>{Object.entries(TRAINING_FOCUS).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select><p className={styles.formHint}>Choose an explicit Client objective. Private notes and injury descriptions are not sent to OpenAI.</p></div>
-        </div>
-      </details>
-
-      <details className={styles.formSection} data-step={0} hidden={step!==0} open>
-        <summary><span>02</span> Training history</summary>
-        <div className={styles.sectionFields}>
-          <div className={styles.formColumns}>
-            <div className={styles.field}><label htmlFor="trainingYears">Years training</label><input defaultValue={defaults.training_years ?? 0} id="trainingYears" max={80} min={0} name="trainingYears" required step="0.5" type="number" /></div>
-            <div className={styles.field}><label htmlFor="experienceLevel">Experience</label><select defaultValue={defaults.experience_level ?? "beginner"} id="experienceLevel" name="experienceLevel"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
-          </div>
-          <div className={styles.field}><label htmlFor="recentConsistency">Recent consistency</label><select defaultValue={defaults.recent_consistency ?? "building"} id="recentConsistency" name="recentConsistency"><option value="inconsistent">Inconsistent</option><option value="building">Building</option><option value="consistent">Consistent</option></select></div>
+          <label className={styles.field}>Years strength training (optional)<input defaultValue={defaults.training_years} name="trainingYears" min={0} max={80} step="0.5" type="number"/></label>
           <fieldset className={styles.choiceField}><legend>Preferred training days</legend><div className={styles.choiceGrid}>{days.map((day) => <label key={day}><input defaultChecked={defaults.preferred_training_days?.includes(day)} name="preferredTrainingDays" type="checkbox" value={day} />{day.slice(0, 3)}</label>)}</div></fieldset>
         </div>
-      </details>
+      </div>
+      <div data-step={1} hidden={step!==1}><InjuryMap clientId={clientId} initialSpots={injurySpots} noInjuryReport={defaults.custom_fields?.intakeContext?.noInjuryReport}/></div>
 
-      <details className={styles.formSection} data-step={0} hidden={step!==0} open>
+      <details className={styles.formSection} data-step={2} hidden={step!==2} open>
         <summary><span>03</span> Limitations &amp; movement</summary>
         <div className={styles.sectionFields}>
           <div className={styles.field}><label htmlFor="currentInjuries">Current injuries</label><textarea defaultValue={defaults.current_injuries} id="currentInjuries" maxLength={4000} name="currentInjuries" rows={3} /></div>
@@ -141,11 +119,11 @@ export function IntakeForm({ clientId, defaults = {}, checkin }: { clientId: str
             <ScaleSelect defaultValue={defaults.mobility_baseline} id="mobilityBaseline" label="Mobility baseline" required={false} />
           </div>
           <div className={styles.threeColumns}>
-            <ScaleSelect defaultValue={defaults.sleep_quality ?? 3} id="sleepQuality" label="Sleep quality" />
-            <ScaleSelect defaultValue={defaults.stress_level ?? 3} id="stressLevel" label="Stress level" />
-            <ScaleSelect defaultValue={defaults.recovery_perception ?? 3} id="recoveryPerception" label="Recovery perception" />
+            <ScaleSelect defaultValue={defaults.sleep_quality} id="sleepQuality" label="Sleep quality" />
+            <ScaleSelect defaultValue={defaults.stress_level} id="stressLevel" label="Stress level" />
+            <ScaleSelect defaultValue={defaults.recovery_perception} id="recoveryPerception" label="Perceived recovery" />
           </div>
-          <ScaleSelect defaultValue={defaults.soreness_fatigue ?? 3} id="sorenessFatigue" label="Soreness / fatigue" />
+          <ScaleSelect defaultValue={defaults.soreness_fatigue} id="sorenessFatigue" label="Soreness / fatigue" />
         </div>
       </details>
 
@@ -156,12 +134,11 @@ export function IntakeForm({ clientId, defaults = {}, checkin }: { clientId: str
             <div className={styles.field}><label htmlFor="preferredExercises">Preferred exercises <span>comma separated</span></label><input defaultValue={defaults.preferred_exercises?.join(", ")} id="preferredExercises" name="preferredExercises" /></div>
             <div className={styles.field}><label htmlFor="avoidedExercises">Avoided exercises <span>comma separated</span></label><input defaultValue={defaults.avoided_exercises?.join(", ")} id="avoidedExercises" name="avoidedExercises" /></div>
           </div>
-          <div className={styles.field}><label htmlFor="sessionDurationMinutes">Session duration</label><input defaultValue={defaults.session_duration_minutes ?? 60} id="sessionDurationMinutes" max={180} min={20} name="sessionDurationMinutes" required type="number" /></div>
           <div className={styles.field}><label htmlFor="coachNotes">Other coach notes</label><textarea defaultValue={defaults.coach_notes} id="coachNotes" maxLength={4000} name="coachNotes" rows={3} /></div>
         </div>
       </details>
 
-      <details className={styles.formSection} data-step={1} hidden={step!==1} open>
+      <details className={styles.formSection} data-step={3} hidden={step!==3} open>
         <summary><span>02</span> Measured strength baseline</summary>
         <div className={styles.sectionFields}>
           <p className={styles.formHint}>Record measured values in pounds (lb). Mark each 1RM as tested or estimated; do not fabricate a test.</p>
@@ -183,7 +160,7 @@ export function IntakeForm({ clientId, defaults = {}, checkin }: { clientId: str
         </div>
       </details>
 
-      <details className={styles.formSection} data-step={2} hidden={step!==2} open>
+      <details className={styles.formSection} data-step={4} hidden={step!==4} open>
         <summary><span>03</span> Conditioning baseline</summary>
         <div className={styles.sectionFields}><p className={styles.formHint}>Complete at least one test. Both may be recorded.</p>
           <div className={styles.choiceGrid}><label><input checked={tests.rower} onChange={event=>setTests({...tests,rower:event.target.checked})} type="checkbox"/>Rower</label><label><input checked={tests.versa} onChange={event=>setTests({...tests,versa:event.target.checked})} type="checkbox"/>Versa Climber</label></div><fieldset className={styles.conditioningTest} disabled={!tests.rower} hidden={!tests.rower}><legend>Rower</legend><div className={styles.threeColumns}><div className={styles.field}><label htmlFor="rowerDistanceM">Distance (m)</label><input id="rowerDistanceM" min={1} name="rowerDistanceM" type="number" /></div><div className={styles.field}><label htmlFor="rowerTimeSeconds">Time (seconds)</label><input id="rowerTimeSeconds" min={1} name="rowerTimeSeconds" type="number" /></div><div className={styles.field}><label htmlFor="rowerCalories">Calories <span>optional</span></label><input id="rowerCalories" min={0} name="rowerCalories" type="number" /></div></div>
@@ -193,27 +170,26 @@ export function IntakeForm({ clientId, defaults = {}, checkin }: { clientId: str
         </div>
       </details>
 
-      <details className={styles.formSection} data-step={3} hidden={step!==3} open>
+      <details className={styles.formSection} data-step={5} hidden={step!==5} open>
         <summary><span>04</span> InBody baseline</summary>
         <div className={styles.sectionFields}><div className={styles.field}><label htmlFor="inbodyStatus">Assessment status</label><select id="inbodyStatus" name="inbodyStatus" onChange={(event) => setInbodyStatus(event.target.value)} value={inbodyStatus}><option value="pending">Pending InBody — baseline incomplete</option><option value="completed">Completed InBody</option></select></div>
           {inbodyStatus === "completed" && <><div className={styles.field}><label htmlFor="inbodyTestDate">Test date</label><input id="inbodyTestDate" name="inbodyTestDate" required type="date" /></div><div className={styles.threeColumns}>{[["weightLb","Current weight (lb)"],["bodyFatPercentage","Current percent body fat (%)"],["skeletalMuscleMassLb","Current skeletal muscle mass (lb)"],["inbodyScore","InBody Score (optional)"],["bodyFatMassLb","Body fat mass (lb, optional)"],["bmi","BMI (optional)"],["visceralFatLevel","Visceral fat level (optional)"],["ecwTbw","ECW/TBW (optional)"],["bmrKcal","BMR (kcal, optional)"]].map(([key, label]) => <div className={styles.field} key={key}><label htmlFor={key}>{label}</label><input id={key} min={0} name={key} required={["weightLb", "bodyFatPercentage", "skeletalMuscleMassLb"].includes(key)} step={key === "bmrKcal" ? "1" : "0.001"} type="number" /></div>)}</div></>}
         </div>
       </details>
 
-      <details className={styles.formSection} data-step={3} hidden={step!==3} open>
+      <details className={styles.formSection} data-step={5} hidden={step!==5} open>
         <summary>Body-composition goals · optional</summary>
         <div className={styles.sectionFields}><p className={styles.formHint}>Targets are optional. Skeletal muscle mass is a weight measurement, not a percentage. Current measurements above are saved as a new assessment; earlier measurements are preserved.</p>
           <div className={styles.threeColumns}>
-            <div className={styles.field}><label htmlFor="goalWeightLb">Goal weight (lb)</label><input defaultValue={poundsInputFromCanonical(defaults.custom_fields?.bodyCompositionGoals?.weightKg)} id="goalWeightLb" min={0.01} max={1102.311310925} name="goalWeightLb" step="any" type="number" /></div>
             <div className={styles.field}><label htmlFor="goalBodyFatPercentage">Goal body-fat percentage (%)</label><input defaultValue={defaults.custom_fields?.bodyCompositionGoals?.bodyFatPercentage} id="goalBodyFatPercentage" min={0} max={75} name="goalBodyFatPercentage" step="0.01" type="number" /></div>
             <div className={styles.field}><label htmlFor="goalSkeletalMuscleMassLb">Goal skeletal muscle mass (lb)</label><input defaultValue={poundsInputFromCanonical(defaults.custom_fields?.bodyCompositionGoals?.skeletalMuscleMassKg)} id="goalSkeletalMuscleMassLb" min={0.01} max={440.92452437} name="goalSkeletalMuscleMassLb" step="any" type="number" /></div>
           </div>
         </div>
       </details>
 
-      {step===4&&<section className={styles.operationCard}><h3>Review your evaluation</h3><p className={styles.formHint}>Measurements use pounds (lb). Saving creates a new baseline version and preserves earlier assessments.</p><dl className={styles.reviewValues}>{review.map(([key,value])=><div key={key+value}><dt>{key.replace(/Lb$/, " (lb)").replace(/([A-Z])/g," $1")}</dt><dd>{value.replaceAll("_"," ")}</dd></div>)}</dl></section>}
-      <div className={styles.stepActions}>{step>0&&<button className={styles.secondaryAction} onClick={()=>go(step-1)} type="button">← Back</button>}{step<4&&<button className={styles.action} onClick={()=>go(step+1)} type="button">Continue →</button>}</div>
-      <button className={styles.action} hidden={step!==4} disabled={pending} type="submit">{pending ? "Saving intake…" : "Save intake"}</button>
+      {step===6&&<section className={styles.operationCard}><h3>Review your evaluation</h3><p className={styles.formHint}>Measurements use pounds (lb). Saving creates a new baseline version and preserves earlier assessments. Body-map spots are saved individually.</p><dl className={styles.reviewValues}>{review.map(([key,value])=><div key={key+value}><dt>{key.replace(/Lb$/, " (lb)").replace(/([A-Z])/g," $1")}</dt><dd>{value.replaceAll("_"," ")}</dd></div>)}</dl></section>}
+      <div className={styles.stepActions}>{step>0&&<button className={styles.secondaryAction} onClick={()=>go(step-1)} type="button">← Back</button>}{step<6&&<button className={styles.action} onClick={()=>go(step+1)} type="button">Continue →</button>}</div>
+      <button className={styles.action} hidden={step!==6} disabled={pending} type="submit">{pending ? "Saving intake…" : "Save intake"}</button>
       {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
     </form></>
   );
