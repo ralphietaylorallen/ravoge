@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import OpenAI from "openai";
 import { configuredWorkoutModel, deidentifiedGenerationInput, generateAssistedWorkout, type GenerationInput } from "./workout-generation.ts";
 import { BLOCKS, FORMATS } from "./workout-protocol.ts";
+import { referenceFallback } from "./reference-fallback.ts";
 
 export const ANALYSIS_OBJECTIVES = ["strength","hypertrophy","aerobic_endurance","running_economy","general_fitness","fat_loss_support"] as const;
 export const PROGRESSION_FOCUS = ["technique_then_reps","gradual_volume","recovery_first","maintain_consistency"] as const;
@@ -69,8 +70,18 @@ export async function analyzeTrainingIntent(input:GenerationInput,client?:Client
 // embeddings, bulk reclassification, raw-import processing or new datastore.
 export function retrieveGymKnowledge(input:GenerationInput,analysis:TrainingAnalysis) {
   const candidates=new Map(input.candidates.map(c=>[c.id,c]));
+  const performance=new Map(input.history.flatMap(w=>w.exercises.filter(e=>e.id&&e.performance).map(e=>[e.id!,e.performance!] as const)));
   const objectives:Record<string,string[]>={strength:["strength"],muscle_gain:["hypertrophy"],conditioning:["aerobic_endurance"],athletic_performance:["running_economy","aerobic_endurance"],general_fitness:["general_fitness"],fat_loss:["fat_loss_support"],body_recomposition:["hypertrophy","fat_loss_support"]};
   const ranked = (input.knowledgeCatalog??input.references).map(reference=>{
+    if(reference.sourceKind==="raw_reference" && reference.rawStyle) {
+      const ids=reference.rawStyle.exerciseIds.filter(id=>candidates.has(id));
+      const patterns=[...new Set(ids.map(id=>candidates.get(id)!.pattern))];
+      const score=10+(reference.goal===input.goal?100:0)+patterns.reduce((n,p)=>{const rank=analysis.priorityPatterns.indexOf(p);return n+(rank<0?3:24-rank*3);},0)
+        +ids.reduce((n,id)=>{const p=performance.get(id);return n+(p?Math.max(-10,Math.min(6,p.recorded*2-p.problematic*5)):0);},0)
+        +reference.rawStyle.formats.filter(f=>analysis.preferredFormats.includes(f)).length*10
+        -(reference.duration?Math.min(30,Math.abs(reference.duration-input.duration)/2):0);
+      return {reference:{...reference,rawStyle:{...reference.rawStyle,exerciseIds:ids}},score};
+    }
     // Defense in depth: never turn a circuit with an unavailable movement into
     // a different, partially reconstructed circuit, even for a stale caller.
     const blockKey=(e:typeof reference.exercises[number],i:number)=>e.protocol?.group ? `${e.protocol.block}:${e.protocol.format}:${e.protocol.group}` : `row:${i}`;
@@ -91,8 +102,8 @@ export function retrieveGymKnowledge(input:GenerationInput,analysis:TrainingAnal
   const selected: GenerationInput["references"] = [];
   let minutes = 0;
   for (const item of ranked) {
-    if (selected.length >= 3) break;
-    if (selected.length && minutes + item.reference.duration > input.duration) continue;
+    if (selected.length >= 5) break;
+    if (item.reference.sourceKind!=="raw_reference" && selected.length && minutes + item.reference.duration > input.duration) continue;
     selected.push(item.reference); minutes += item.reference.duration;
   }
   return selected;
@@ -103,7 +114,12 @@ export async function generateIntelligentWorkout(input:GenerationInput,client?:C
   const intelligence=await analyzeTrainingIntent(input,sdk);
   const references=retrieveGymKnowledge(input,intelligence.analysis);
   const prepared={...input,references,intelligence};
-  return {...await generateAssistedWorkout(prepared,sdk),intelligence};
+  const result=await generateAssistedWorkout(prepared,sdk);
+  if(!result.workout && references.length) {
+    const fallback=referenceFallback(prepared);
+    if(fallback) return {workout:fallback,model:"deterministic-reference-v1",intelligence,method:"deterministic_reference_fallback" as const,providerIssue:result.reason,reason:undefined};
+  }
+  return {...result,intelligence,method:undefined};
 }
 
 export function requiresReviewedGymRetry(input: GenerationInput) {

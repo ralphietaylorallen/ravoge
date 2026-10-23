@@ -3,6 +3,7 @@ import { kilogramsToPounds } from "./weight-units.ts";
 import { generatedWeightTextIsLoadFree } from "./equipment-weights.ts";
 import type { GenerationInput, AssistedWorkout } from "./workout-generation.ts";
 import { BLOCKS, FORMATS, estimateWorkoutSeconds, validateProtocol, type WorkoutProtocol } from "./workout-protocol.ts";
+import { programmingEvidence } from "./programming-evidence.ts";
 
 // Fixed application-owned diagnostics only: never retain or echo rejected model
 // text, client information, request bodies or provider exception messages.
@@ -72,7 +73,7 @@ export function qualitySchemaFor(input: GenerationInput) {
           targetRpe: { ...row.properties.protocol.properties.targetRpe, maximum: ceiling },
         } },
       } } },
-      ...(input.intelligence ? { sourceReferenceKeys: { type:"array",minItems:input.references.length?1:0,maxItems:Math.min(3,input.references.length),items:{type:"string",enum:input.references.length ? input.references.map((_,i)=>`reference_${i+1}`) : ["none"]} } } : {}),
+      ...(input.intelligence ? { sourceReferenceKeys: { type:"array",minItems:input.references.length?1:0,maxItems:Math.min(5,input.references.length),items:{type:"string",enum:input.references.length ? input.references.map((_,i)=>`reference_${i+1}`) : ["none"]} } } : {}),
     },
   };
 }
@@ -85,8 +86,9 @@ export const QUALITY_RULES = [
   "For strength prioritize relevant compound work early with more recovery and fewer reps. Hypertrophy uses manageable accessory volume. Beginners use simple formats, modest volume and RPE at most 7. Athletic goals may use low-volume power and conditioning only when compatible.",
   "Use 3–12 movement rows, at most 28 total sets, at most 4 sets per row (3 for beginners), 1–20 reps bounded by each exercise's repMax, RPE 4–8 (7 beginner). Use low-repetition power work, not fatiguing high-rep throws. Preserve recovery; never prescribe failure as a target.",
   "When trainingAnalysis is supplied, its intensityCeiling is an additional hard RPE maximum. Use the lower of that ceiling and the experience limit on every row, not just the main exercises.",
-  "Use supplied published gym references as compatible stylistic/structural examples, adapted to this client, not copied unchanged. Draft/unpublished sources are never provided. If none, state general-library fallback honestly.",
+  "Use supplied Owner-enabled gym references as compatible stylistic/structural examples, adapted to this Client, not copied unchanged. Raw examples need no structured publication; only records labeled structured_template have verified protocols. Excluded or foreign sources are never provided. If none, state general-library fallback honestly.",
   "Retrieved references are alternative examples, not complete workouts to concatenate. Select a coherent subset, budget warm-up/transitions/recovery inside timingBudget, and calculate the actual work/rest total before returning. Do not stack full reference sessions or merely label a shorter/longer session with the requested duration.",
+  "Raw gym examples are authorized style references, NOT verified templates. Prefer their recognized exercise combinations, sequencing and format signals as the session identity; adapt to this Client. Add only one or two canonical movements when materially helpful. Unknown names and missing source quantities are not executable targets. Never claim a raw source supplied a verified protocol. Choose conservative explicit adapted targets, not invented historical values. No source prose or numerical loads are provided.",
   "Supported formats: straight, superset, circuit, stations, rounds, intervals, EMOM and AMRAP. Rows sharing a group must share format, block, set/round count and block duration. Use distinct group labels for distinct blocks.",
   "Reps are actual reps only for measurement=reps. For time/distance set reps=1 as a compatibility sentinel; prescribe actual workSeconds or distance. Unilateral work must say perSide=true. Never turn carries or ergs into arbitrary repetitions.",
   "EMOM uses explicit intervalSeconds and sets=number of visits per movement; timed work must leave recovery in the slot. AMRAP uses sets=1 and blockDurationSeconds shared by the group; do not invent a fixed round count. Rounds/circuits use sets=rounds per movement.",
@@ -113,10 +115,16 @@ export function projectQualityContext(input: GenerationInput) {
     publishedCount: input.publishedCount ?? 0,
     timingBudget: { requestedSeconds:input.duration*60, minimumEstimatedSeconds:Math.min(15,input.duration*0.4)*60, maximumEstimatedSeconds:input.duration*60+180 },
     trainingAnalysis: input.intelligence?.analysis,
+    evidencePrinciples: programmingEvidence().principles,
+    evidenceCacheVersion: programmingEvidence().version,
+    liveWebResearch: false,
     todayReadiness: input.todayReadiness ? { answers: input.todayReadiness.answers, hasPain: input.todayReadiness.hasPain, coachDecision: input.todayReadiness.coachDecision } : null,
     publishedStructures: input.references.map((r, index) => {
       const groups = new Map<string, string>();
-      return { referenceKey: `reference_${index + 1}`, goal: r.goal, durationMinutes: r.duration, sequence: r.exercises.filter(e => aliases.has(e.libraryExerciseId ?? "")).map(e => {
+      return { referenceKey: `reference_${index + 1}`, goal: r.goal, durationMinutes: r.duration, sourceKind:r.sourceKind??"structured_template",
+        ...(r.rawStyle?{rawExample:{protocolsVerified:false,exerciseKeys:r.rawStyle.exerciseIds.filter(id=>aliases.has(id)).map(id=>aliases.get(id)),
+          formats:r.rawStyle.formats.filter(f=>(FORMATS as readonly string[]).includes(f)),terms:r.rawStyle.terms.filter(t=>['per side','each side','tempo','ladder','finisher','warmup','strength','conditioning','power','mobility','percentage'].includes(t))}}:{}),
+        sequence: r.exercises.filter(e => aliases.has(e.libraryExerciseId ?? "")).map(e => {
         if (e.protocol?.group && !groups.has(e.protocol.group)) groups.set(e.protocol.group, `reference_${index + 1}_group_${groups.size + 1}`);
         return { exerciseKey: aliases.get(e.libraryExerciseId ?? ""), sets: e.sets, reps: e.reps, restSeconds: e.restSeconds,
           protocol: e.protocol ? { ...cleanProtocol(e.protocol), group: groups.get(e.protocol.group) ?? "" } : undefined };
@@ -138,7 +146,7 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
     || !text(value.title, 2, 120) || !text(value.rationale, 2, 2000) || !Number.isInteger(value.durationMinutes) || value.durationMinutes < 20 || value.durationMinutes > input.duration
     || !Array.isArray(value.exercises) || value.exercises.length < 3 || value.exercises.length > 12) throw new QualityValidationError("header");
   const referenceKeys=input.references.map((_,index)=>`reference_${index+1}`);
-  if(input.intelligence && (!Array.isArray(value.sourceReferenceKeys) || value.sourceReferenceKeys.length>(input.references.length?3:0) || (input.references.length && !value.sourceReferenceKeys.length)
+  if(input.intelligence && (!Array.isArray(value.sourceReferenceKeys) || value.sourceReferenceKeys.length>(input.references.length?5:0) || (input.references.length && !value.sourceReferenceKeys.length)
     || new Set(value.sourceReferenceKeys).size!==value.sourceReferenceKeys.length || value.sourceReferenceKeys.some((key:unknown)=>typeof key!=="string"||!referenceKeys.includes(key)))) throw new QualityValidationError("references");
   const groups = new Map<string, string>();
   const exercises = value.exercises.map((raw: Record<string, unknown>) => {
@@ -171,6 +179,12 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
       targetRpe: p.targetRpe, notes: raw.notes, reason: raw.reason, protocol: p };
   });
   const seconds = estimateWorkoutSeconds(exercises);
+  if(input.intelligence && input.references.some(r=>r.sourceKind==='raw_reference')) {
+    const used=input.references.filter((_,i)=>value.sourceReferenceKeys.includes(`reference_${i+1}`));
+    const sourceIds=new Set(used.flatMap(r=>r.rawStyle?.exerciseIds??r.exercises.map(e=>e.libraryExerciseId??'')));
+    for(const r of used) if(r.rawStyle?.exerciseIds.length && !exercises.some((e:{libraryExerciseId:string})=>r.rawStyle!.exerciseIds.includes(e.libraryExerciseId))) throw new QualityValidationError('references');
+    if(sourceIds.size>=3 && exercises.filter((e:{libraryExerciseId:string})=>!sourceIds.has(e.libraryExerciseId)).length>2) throw new QualityValidationError('references');
+  }
   if (exercises.reduce((sum: number, e: { sets: number }) => sum + e.sets, 0) > 28) throw new QualityValidationError("volume");
   if (seconds > input.duration * 60 + 180 || seconds < Math.min(15, input.duration * 0.4) * 60) throw new QualityValidationError("duration",{timing:{estimatedSeconds:Math.ceil(seconds),minimumSeconds:Math.min(15,input.duration*0.4)*60,maximumSeconds:input.duration*60+180}});
   return { title: value.title, rationale: value.rationale, durationMinutes: Math.max(20, Math.min(input.duration, Math.ceil(seconds / 60))), exercises,

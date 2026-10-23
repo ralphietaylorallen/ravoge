@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import {
   parseTrainingHistoryAction,
@@ -13,6 +13,8 @@ export function TrainingHistoryImport() {
   const [parseState, parseAction, parsing] = useActionState(parseTrainingHistoryAction, { status: "idle" as const });
   const [saveState, saveAction, saving] = useActionState(saveTrainingHistoryAction, { status: "idle" as const });
   const previewRows = parseState.data?.rows.slice(0, 20) ?? [];
+  const [original,setOriginal]=useState<{url:string;name:string}|null>(null);
+  useEffect(()=>()=>{if(original)URL.revokeObjectURL(original.url);},[original]);
 
   return (
     <>
@@ -25,6 +27,7 @@ export function TrainingHistoryImport() {
             name="trainingHistory"
             required
             type="file"
+            onChange={event=>{const file=event.target.files?.[0];if(file)setOriginal({url:URL.createObjectURL(file),name:file.name});}}
           />
         </div>
         <p className={styles.formHint}>CSV or XLSX, up to 5 MB, 500 rows, and 40 columns. The first row is used as column headings.</p>
@@ -32,6 +35,7 @@ export function TrainingHistoryImport() {
           {parsing ? "Parsing…" : "Parse and preview"}
         </button>
       </form>
+      {original&&<p>Your original file is retained in this browser while this page stays open, including if parsing or saving fails. <a href={original.url} download={original.name}>Download original file</a></p>}
 
       {parseState.message && (
         <p className={`${styles.notice} ${parseState.status === "error" ? styles.error : ""}`} role={parseState.status === "error" ? "alert" : "status"}>

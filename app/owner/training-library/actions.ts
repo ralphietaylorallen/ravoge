@@ -5,6 +5,16 @@ import { requireRole } from "@/lib/auth";
 import { protocolsFromForm } from "@/lib/workout-protocol";
 
 export type ReviewState = { status: "idle" | "error" | "success"; message?: string };
+export async function setGymReferences(_state: ReviewState, form: FormData): Promise<ReviewState> {
+  const { supabase } = await requireRole("owner");
+  const intent=String(form.get("intent"));
+  const ids=[...new Set(form.getAll("itemId").map(String))];
+  if (!['enable','exclude','delete','restore','refresh'].includes(intent) || ids.some(id=>!/^[0-9a-f-]{36}$/i.test(id))) return {status:"error",message:"Choose an available library action."};
+  const {data,error}=await supabase.rpc("set_gym_references",{item_ids:ids,all_matching:form.get("allMatching")==="yes",search_text:String(form.get("search")??""),operation:intent,confirmed:form.get("confirmed")==="yes"});
+  if(error) return {status:"error",message:"Nothing changed. Select workouts in your gym and confirm the requested action."};
+  revalidatePath("/owner/training-library");
+  return {status:"success",message:`${data} workout(s) ${intent==='enable'?'enabled as gym references':intent==='exclude'?'excluded from generation':intent==='delete'?'moved to Deleted; original rows preserved':intent==='restore'?'restored (still excluded until enabled)':'reference excerpts refreshed'}.`};
+}
 export async function saveLoadRule(_state: ReviewState, form: FormData): Promise<ReviewState> {
   const { supabase } = await requireRole("owner");
   const number = (key: string) => String(form.get(key) ?? "").trim() ? Number(form.get(key)) : null;

@@ -35,7 +35,7 @@ test("independent Owner Coach Client: measured pounds, edit, final-set reduction
   const csv = 'Title,Duration,Description\nDisposable load QA source — NOT Pitt,16,"Goblet Squat 3 x 8\nBand Row 3 x 8\nDead Bug 3 x 8\nRest 60 seconds"\n';
   await owner.getByLabel("Workout history file").setInputFiles({ buffer: Buffer.from(csv), name: "disposable-load-qa.csv", mimeType: "text/csv" });
   await owner.getByRole("button", { name: "Parse and preview" }).click(); await owner.getByRole("button", { name: "Save import", exact: true }).click();
-  await expect(owner.getByRole("status").filter({ hasText: "saved as draft" })).toBeVisible();
+  await expect(owner.getByRole("status").filter({ hasText: "Added to your gym" })).toBeVisible();
   const { data: source } = await ownerApi.from("training_library_items").select("id").eq("organization_id", gym!.organization_id).eq("title", "Disposable load QA source — NOT Pitt").single();
   expect(source).toBeTruthy();
   expect((await ownerApi.rpc("review_structured_training_item", { target_item_id: source!.id, review_title: "Disposable load QA source — NOT Pitt", review_status: "published", goal: "strength", duration_minutes: 16,

@@ -60,7 +60,7 @@ create temporary table load_ids(kind text primary key,id uuid); grant select,ins
 set local role authenticated;
 select set_config('request.jwt.claim.sub','bd100000-0000-4000-8000-000000000001',true);
 select pg_temp.assert_load((select count(*)>=55 from exercise_load_rules),'Active Owner must read global rules');
-select pg_temp.assert_load(public.get_training_catalog_counts()='{"imported":0,"approved":0,"eligible":0}'::jsonb,'Owner catalog counts must exclude unreviewed sources');
+select pg_temp.assert_load(public.get_training_catalog_counts()='{"imported":0,"approved":0,"eligible":0,"referenceEnabled":0,"archived":0}'::jsonb,'Empty Owner catalog must distinguish references, templates and archived records');
 select public.add_equipment_checklist(array['bench','squat_rack','bands']);
 select public.save_gym_resource_lb(null,'equipment','barbell','QA bar',null,null,'yards',true,null,45,45,array[45]::numeric[],false);
 select public.save_gym_resource_lb(null,'equipment','plates','QA plates',null,null,'yards',true,null,2.5,25,array[2.5,5,10,25]::numeric[],true);

@@ -158,7 +158,7 @@ export async function saveTrainingHistoryAction(
     revalidatePath("/owner/training-library");
     return {
       importedCount: Number(importedCount ?? data.rows.length),
-      message: `${Number(importedCount ?? data.rows.length)} row${Number(importedCount ?? data.rows.length) === 1 ? "" : "s"} saved as draft training-library records.`,
+      message: `Added to your gym’s programming library. ${Number(importedCount ?? data.rows.length)} workout reference(s) available immediately; original rows preserved.`,
       status: "success",
     };
   } catch (error) {
