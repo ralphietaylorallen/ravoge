@@ -34,7 +34,7 @@ export async function DashboardShell({
       ? [{ href: "/coach", label: "Overview & clients" }, { href: "/coach/schedule", label: "Schedule" }, { href: "/coach/availability", label: "Availability" }, { href: "/coach/profile", label: "Profile" }]
       : [{ href: "/client", label: "Workouts" }, { href: "/client/book", label: "Book session" }, { href: "/client/schedule", label: "Schedule" }, { href: "/client/profile", label: "Profile" }];
   return (
-    <VisualTheme><main className={styles.shell}>
+    <VisualTheme><main className={styles.shell} data-account-role={role}>
       <aside className={styles.sidebar}>
         <Logo />
         <DashboardNavigation items={navigation} role={role} />
