@@ -6,7 +6,7 @@ import { approvePrescriptionAction } from "@/app/coach/actions";
 
 import { loadInPounds, poundsInText } from "@/lib/weight-units";
 import styles from "./dashboard.module.css";
-import { defaultProtocol, type WorkoutProtocol } from "@/lib/workout-protocol";
+import { defaultProtocol, protocolTarget, type WorkoutProtocol } from "@/lib/workout-protocol";
 import { WorkoutProtocolFields } from "./workout-protocol-fields";
 import { roundedPercentageLoad, type WeightCapability } from "@/lib/equipment-weights";
 import { startingLoadLabel, type LoadPrescription } from "@/lib/starting-load";
@@ -97,7 +97,10 @@ export function PrescriptionReviewForm({
   }
 
   return (
-    <form action={action} className={styles.reviewForm}>
+    <form action={action} className={styles.reviewForm} onInvalidCapture={event => {
+      let details = event.target instanceof HTMLElement ? event.target.closest("details") : null;
+      while (details) { details.open = true; details = details.parentElement?.closest("details") ?? null; }
+    }}>
       {quality && <input type="hidden" name="quality" value="yes"/>}
       <div className={styles.formColumns}>
         <div className={styles.field}><label htmlFor="review-title">Workout name</label><input defaultValue={title} id="review-title" maxLength={120} name="title" required /></div>
@@ -106,7 +109,7 @@ export function PrescriptionReviewForm({
       <div className={styles.field}><label htmlFor="review-duration">Workout duration (minutes)</label><input defaultValue={duration} id="review-duration" name="estimatedDurationMinutes" min={quality ? 15 : 20} max={180} required type="number" /></div>
       <div className={styles.field}><label htmlFor="review-instructions">Coach instructions</label><textarea id="review-instructions" maxLength={4000} name="instructions" rows={3} /></div>
 
-      <div className={styles.exerciseHeader}><h3>Editable recommendation</h3><button className={styles.textAction} onClick={addExercise} type="button">+ Add exercise</button></div>
+      <div className={styles.exerciseHeader}><h3>Edit workout</h3><button className={styles.textAction} onClick={addExercise} type="button">+ Add exercise</button></div>
       <div className={styles.reviewList}>
         {rows.map((row, index) => (
           <fieldset className={styles.reviewRow} key={row.rowId}>
@@ -125,9 +128,10 @@ export function PrescriptionReviewForm({
             <div className={styles.field}><label htmlFor={`review-sets-${row.rowId}`}>Sets</label><input defaultValue={row.sets} id={`review-sets-${row.rowId}`} max={100} min={1} name="exerciseSets" required type="number" /></div>
             {quality && row.protocol && row.protocol.measurement !== "reps" ? <input type="hidden" name="exerciseReps" value="1"/> : <div className={styles.field}><label htmlFor={`review-reps-${row.rowId}`}>Reps</label><input defaultValue={row.reps} id={`review-reps-${row.rowId}`} max={1000} min={1} name="exerciseReps" required type="number" /></div>}
             <div className={styles.field}><label htmlFor={`review-load-${row.rowId}`}>Load (lb){row.loadPrescription?.semantics === "each_hand" ? " per hand" : ""}</label><input defaultValue={loadInPounds(row.load, row.loadUnit) ?? ""} id={`review-load-${row.rowId}`} max={100000} min={0} name="exerciseLoad" step="any" type="number" />
-              {row.loadPrescription && <div><p>{startingLoadLabel(row.load, row.loadPrescription)}</p><p>Basis: {row.loadPrescription.basis ?? "Coach override"} · rule {row.loadPrescription.ruleVersion ?? "review required"}</p><p>{row.loadPrescription.explanation}</p>{row.loadPrescription.coachReviewRequired && <p role="alert">Pain was recorded. Review before assigning; no automatic progression.</p>}</div>}
+              {row.loadPrescription && <div><p>{startingLoadLabel(row.load, row.loadPrescription)}</p><p>{row.loadPrescription.explanation}</p>{row.loadPrescription.coachReviewRequired && <p role="alert">Pain was recorded. Review before assigning; no automatic progression.</p>}</div>}
             </div>
             {exerciseOptions.find(e => e.id === row.libraryExerciseId)?.equipment_requirements?.includes("bands") ? <label className={styles.field}>Band resistance / level<input name="bandResistance" maxLength={120} required placeholder="Coach-confirmed band level"/></label> : <input type="hidden" name="bandResistance" value=""/>}
+            <div className={styles.reviewReason}><p>Suggested target: {protocolTarget(row.sets, row.reps, row.protocol)}</p><details><summary>Advanced: timing, notes and percentage loads</summary>
             <div className={styles.field}><label htmlFor={`review-reference-${row.rowId}`}>Coach-confirmed 1RM (lb, only for a percentage target)</label><input id={`review-reference-${row.rowId}`} name="referenceLoadLb" type="number" min="0.001" max="100000" step="0.001" />
               <button className={styles.textAction} type="button" onClick={event => {
                 const fieldset = event.currentTarget.closest("fieldset")!;
@@ -144,15 +148,16 @@ export function PrescriptionReviewForm({
             <div className={styles.field}><label htmlFor={`review-rest-${row.rowId}`}>Rest seconds</label><input defaultValue={row.restSeconds ?? ""} id={`review-rest-${row.rowId}`} max={1800} min={quality ? 0 : 10} name="exerciseRest" type="number" /></div>
             <div className={`${styles.field} ${styles.reviewNotes}`}><label htmlFor={`review-notes-${row.rowId}`}>Notes</label><input defaultValue={poundsInText(row.notes ?? "")} id={`review-notes-${row.rowId}`} maxLength={1000} name="exerciseNotes" /></div>
             <div className={`${styles.field} ${styles.reviewReason}`}><label htmlFor={`review-reason-${row.rowId}`}>Why Ravoge selected it</label><input defaultValue={row.reason} id={`review-reason-${row.rowId}`} maxLength={1000} name="exerciseReason" /></div>
-            <p className={styles.reviewReason}>Programming: {row.programmingSources?.length ? row.programmingSources.map(source => `${source.title} (review ${source.revision})`).join("; ") : "Global canonical exercise; see session evidence for any reviewed gym influence."}</p>
+            <p className={styles.reviewReason}>Programming: {row.programmingSources?.length ? row.programmingSources.map(source => source.title).join("; ") : "Adapted from the exercise library; gym influences are listed above."}</p>
             {quality && <div className={styles.reviewProtocol}><WorkoutProtocolFields value={row.protocol} library={exerciseOptions} substitutions onMeasurementChange={measurement => setRows(current => current.map(ex => ex.rowId === row.rowId ? { ...ex, reps: measurement === "reps" ? 8 : 1, protocol: { ...(ex.protocol ?? defaultProtocol()), measurement } } : ex))}/></div>}
-            <button aria-label={`Remove exercise ${index + 1}`} className={styles.removeAction} disabled={rows.length === 1} onClick={() => removeExercise(row.rowId)} type="button">Remove</button>
+            </details></div>
+            <button aria-label={`Remove exercise ${index + 1}`} title={rows.length === 1 ? "Keep at least one exercise in the workout" : undefined} className={styles.removeAction} disabled={rows.length === 1} onClick={() => removeExercise(row.rowId)} type="button">Remove</button>
           </fieldset>
         ))}
       </div>
       <div className={styles.reviewFooter}>
-        <p>Approval creates the client assignment. The original Ravoge recommendation remains preserved.</p>
-        <button className={styles.action} disabled={pending} type="submit">{pending ? "Assigning…" : "Approve & assign"}</button>
+        <p>Assigning approves your changes and makes this workout visible to the client.</p>
+        <button className={styles.action} disabled={pending} type="submit">{pending ? "Assigning…" : "Assign"}</button>
       </div>
       {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
       {loadMessage && <p role="status">{loadMessage}</p>}

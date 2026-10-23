@@ -58,7 +58,7 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   await page.goto("/owner/training-library/import");
   const csv = 'Title,Description\nBeta Gym Strength,"Goblet Squat 3 x 8\nDumbbell RDL 3 x 8\nBand Row 3 x 8"\nComplex EMOM,"EMOM 15 Minutes\nGoblet Squat x8 @ 50-60% Each"\n';
   await page.getByLabel("Workout history file").setInputFiles({ buffer: Buffer.from(csv), name: "beta-safe-and-complex.csv", mimeType: "text/csv" });
-  await page.getByRole("button", { name: "Parse and preview" }).click(); await page.getByRole("button", { name: "Save import" }).click();
+  await page.getByRole("button", { name: "Upload workouts", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Added to your gym" })).toBeVisible();
   await page.goto("/owner/training-library");
   await page.getByRole("link", { name: "Complex EMOM", exact: true }).click();
@@ -178,12 +178,13 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   await coach.getByLabel("Assessment status").selectOption("completed"); await coach.locator("#inbodyTestDate").fill(new Date().toISOString().slice(0, 10));
   for (const [id, value] of Object.entries({ weightLb: "85", bodyFatPercentage: "24", skeletalMuscleMassLb: "33", goalWeightLb: "80", goalBodyFatPercentage: "18", goalSkeletalMuscleMassLb: "35" })) await coach.locator(`#${id}`).fill(value);
   await coach.getByRole("button", { name: "Continue →", exact: true }).click();
-  await coach.getByRole("button", { name: "Save versioned intake & baseline" }).click(); await expect(coach.getByRole("status").filter({ hasText: "Versioned intake and baseline saved" })).toBeVisible();
+  await coach.getByRole("button", { name: "Save intake", exact: true }).click(); await expect(coach.getByRole("status").filter({ hasText: "Intake saved" })).toBeVisible();
   await coach.goto(new URL(`/coach/clients/${actualClientId}`, coach.url()).href);
   await coach.getByRole("checkbox", { name: /I reviewed the latest intake/ }).check(); await coach.getByRole("button", { name: "Confirm intake safety review" }).click();
   await expect(coach.getByRole("button", { name: "Create workout", exact: true })).toBeEnabled();
   await coach.getByRole("button", { name: "Create workout", exact: true }).click();
   await expect(coach).toHaveURL(/\/prescriptions\/[0-9a-f-]+$/, { timeout: 50_000 });
+  await coach.getByText("Advanced: programming details and evidence", { exact: true }).click();
   await expect(coach.getByText("Source: reviewed_organization_references.", { exact: true })).toBeVisible();
   await expect(coach.getByRole("region", { name: "Generation evidence" })).toBeVisible();
   const generatedTitle = await coach.getByLabel("Workout name", { exact: true }).inputValue();
@@ -194,7 +195,7 @@ test("complete beta intake, published gym generation, approval, Client visibilit
   await expect(client.getByRole("navigation", { name: "client navigation" }), await client.locator("body").innerText()).toBeVisible();
   await expect(client.getByRole("link", { name: generatedTitle, exact: false })).toHaveCount(0);
   await responsive(coach, "prescription", testInfo);
-  await coach.getByRole("button", { name: "Approve & assign" }).click(); await expect(coach.getByRole("status")).toContainText("now assigned");
+  await coach.getByRole("button", { name: "Assign", exact: true }).click(); await expect(coach.getByRole("status")).toContainText("now assigned");
   await client.reload(); await expect(client).toHaveURL(/\/client$/);
   await client.screenshot({ path: testInfo.outputPath("client-after-approval.png"), fullPage: true });
   await expect(client.getByRole("link", { name: generatedTitle, exact: false })).toBeVisible();

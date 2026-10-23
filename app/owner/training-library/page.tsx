@@ -37,18 +37,17 @@ export default async function TrainingLibraryPage({ searchParams }: { searchPara
         <div><p className={styles.eyebrow}>Owner workspace</p><h2>Training library</h2></div>
         <Link className={styles.action} href="/owner/training-library/import">Import workout history</Link>
       </div>
-      <p role="status">{catalogCounts?.referenceEnabled ?? 0} gym references enabled · {catalogCounts?.approved ?? 0} fully structured templates · {catalogCounts?.imported ?? count ?? 0} original source records preserved</p>
-      <Link className={styles.secondaryAction} href="/owner/training-library/load-rules">Review starting-load rules</Link>
-      <details><summary>Optional gym style preferences and template statistics</summary><ProgrammingProfileForm key={programmingProfile?.version ?? 0} profile={programmingProfile as ProgrammingProfile | undefined} published={published ?? 0} references={catalogCounts?.referenceEnabled??0}/></details>
+      <p role="status">{catalogCounts?.referenceEnabled ?? 0} gym references enabled · {catalogCounts?.imported ?? count ?? 0} workouts saved</p>
+      <details><summary>Advanced: gym style and starting weights</summary><Link className={styles.secondaryAction} href="/owner/training-library/load-rules">Review starting-load rules</Link><ProgrammingProfileForm key={programmingProfile?.version ?? 0} profile={programmingProfile as ProgrammingProfile | undefined} published={published ?? 0} references={catalogCounts?.referenceEnabled??0}/></details>
       <section className={`${styles.panel} ${styles.libraryShell}`}>
-        <span className={styles.statusPill}>{count ?? 0} source records</span>
-        <h3>Historical workout imports</h3>
-        <p>Owner uploads immediately guide your gym’s programming style. Mapping and structured template publication are optional. Assigned exercises still require canonical safety validation and Coach approval.</p>
+        <span className={styles.statusPill}>{count ?? 0} workouts</span>
+        <h3>{archived ? "Deleted workouts" : "Your gym’s workouts"}</h3>
+        <p>Uploaded workouts guide your gym’s programming immediately. Ravoge adapts them to each client; the Coach reviews and assigns the result.</p>
         <form className={styles.accessActions}><label className={styles.field}>Search workout titles<input name="search" defaultValue={search} maxLength={160}/></label>{archived&&<input type="hidden" name="archived" value="1"/>}<button className={styles.secondaryAction}>Search</button></form>
         <Link href={archived?"/owner/training-library":"/owner/training-library?archived=1"}>{archived?"Back to library":"Deleted workouts (restore)"}</Link>
         {libraryItems?.length ? (
           <TrainingPublishingControls key={`${page}:${search}:${archived}`} matching={count??0} search={search} archived={archived} items={libraryItems.map(item => ({ ...item, title: reviewedTitles.get(item.id) ?? item.title }))}/>
-        ) : <p className={styles.empty}>No workout history has been imported yet.</p>}
+        ) : <p className={styles.empty}>{archived ? "No deleted workouts." : search ? "No workouts match this search. Try another title." : "Upload your first workout to get started."}</p>}
       </section>
       <nav aria-label="Training library pages" className={styles.accessActions}>
         {page > 1 && <Link className={styles.secondaryAction} href={`/owner/training-library?page=${page - 1}&search=${encodeURIComponent(search)}${archived?'&archived=1':''}`}>Previous</Link>}

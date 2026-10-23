@@ -158,7 +158,7 @@ export async function saveTrainingHistoryAction(
     revalidatePath("/owner/training-library");
     return {
       importedCount: Number(importedCount ?? data.rows.length),
-      message: `Added to your gym’s programming library. ${Number(importedCount ?? data.rows.length)} workout reference(s) available immediately; original rows preserved.`,
+      message: `Added to your gym’s programming library. ${Number(importedCount ?? data.rows.length)} workouts available immediately. Your original values are unchanged.`,
       status: "success",
     };
   } catch (error) {
@@ -169,6 +169,17 @@ export async function saveTrainingHistoryAction(
       status: "error",
     };
   }
+}
+
+export async function uploadTrainingHistoryAction(
+  state: TrainingImportActionState,
+  formData: FormData,
+): Promise<TrainingImportActionState> {
+  const parsed = await parseTrainingHistoryAction(state, formData);
+  if (!parsed.data || parsed.status !== "success") return parsed;
+  const save = new FormData();
+  save.set("parsedImport", JSON.stringify(parsed.data));
+  return saveTrainingHistoryAction(state, save);
 }
 
 export async function assignClientCoachAction(

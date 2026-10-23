@@ -264,7 +264,7 @@ export async function saveClientIntakeAction(
   if (error) return { message: "The intake could not be saved. Confirm the client assignment and all required values.", status: "error" };
 
   revalidatePath(`/coach/clients/${clientId}`);
-  return { message: "Versioned intake and baseline saved; client state recalculated.", status: "success" };
+  return { message: "Intake saved. You can now create a workout using these answers.", status: "success" };
 }
 
 export type GenerationActionState = { status: "idle" | "error"; message?: string };

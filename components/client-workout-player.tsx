@@ -86,6 +86,7 @@ export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, 
         {index + 1 < exercises.length && <a className={styles.next} href={`#player-exercise-${index + 1}`}>Next exercise →</a>}
       </article>;
     })}
+    {!locked && recorded !== allSets.length && <p>Record the remaining {allSets.length - recorded} sets before completing this workout. You can mark a set Modified or Missed when needed.</p>}
     <form action={action} className={styles.block}><h3>Finish and reflect</h3><label>How difficult was today’s workout?<select name="difficulty" required defaultValue="" disabled={locked}><option value="" disabled>Choose 1–5</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} — {n === 1 ? "Easy" : n === 5 ? "Very difficult" : "Moderate"}</option>)}</select></label><label>Short feedback (optional)<textarea name="feedback" maxLength={2000} rows={3} disabled={locked}/></label><button className={styles.primary} name="intent" value="finish" disabled={pending || locked || recorded !== allSets.length || allSets.length === 0}>Complete workout</button>{state.message && <p role="status">{state.message}</p>}</form>
   </section>;
 }

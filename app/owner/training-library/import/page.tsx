@@ -16,7 +16,7 @@ export default async function TrainingLibraryImportPage() {
       <Link className={styles.backLink} href="/owner/training-library">← Back to training library</Link>
       <div className={styles.pageHeading}>
         <div><p className={styles.eyebrow}>Owner training library</p><h2>Import workout history</h2></div>
-        <p>Upload CSV or XLSX, preview the source rows, then add them to your gym’s programming library. Successful imports are usable immediately as references; mapping is optional. Your original file and raw values are preserved.</p>
+        <p>Choose a CSV or XLSX file and upload it. Your workouts immediately guide your gym’s programming. No review or mapping is needed, and your original values stay unchanged.</p>
       </div>
       <section className={styles.panel}>
         <TrainingHistoryImport />

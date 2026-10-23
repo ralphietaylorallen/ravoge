@@ -34,7 +34,7 @@ test("independent Owner Coach Client: measured pounds, edit, final-set reduction
   await owner.goto("/owner/training-library/import");
   const csv = 'Title,Duration,Description\nDisposable load QA source — NOT Pitt,16,"Goblet Squat 3 x 8\nBand Row 3 x 8\nDead Bug 3 x 8\nRest 60 seconds"\n';
   await owner.getByLabel("Workout history file").setInputFiles({ buffer: Buffer.from(csv), name: "disposable-load-qa.csv", mimeType: "text/csv" });
-  await owner.getByRole("button", { name: "Parse and preview" }).click(); await owner.getByRole("button", { name: "Save import", exact: true }).click();
+  await owner.getByRole("button", { name: "Upload workouts", exact: true }).click();
   await expect(owner.getByRole("status").filter({ hasText: "Added to your gym" })).toBeVisible();
   const { data: source } = await ownerApi.from("training_library_items").select("id").eq("organization_id", gym!.organization_id).eq("title", "Disposable load QA source — NOT Pitt").single();
   expect(source).toBeTruthy();
@@ -57,7 +57,7 @@ test("independent Owner Coach Client: measured pounds, edit, final-set reduction
   for (const [id, value] of Object.entries({ squatLoadLb: "150", squatReps: "5", squatOneRmLb: "200", benchLoadLb: "100", benchReps: "5", benchOneRmLb: "150", pullupStrictReps: "0" })) await coach.locator(`#${id}`).fill(value);
   await coach.getByRole("button", { name: "Continue →", exact: true }).click(); await coach.locator("#rowerDistanceM").fill("500"); await coach.locator("#rowerTimeSeconds").fill("120");
   await coach.getByRole("button", { name: "Continue →", exact: true }).click(); await coach.getByRole("button", { name: "Continue →", exact: true }).click();
-  await coach.getByRole("button", { name: "Save versioned intake & baseline" }).click(); await expect(coach.getByRole("status")).toContainText("Versioned intake and baseline saved");
+  await coach.getByRole("button", { name: "Save intake", exact: true }).click(); await expect(coach.getByRole("status")).toContainText("Intake saved");
   const { data: intake } = await coachApi.from("client_intakes").select("id").eq("client_user_id", clientAccount.id).order("version", { ascending: false }).limit(1).single();
   expect((await coachApi.rpc("confirm_intake_generation_safety", { target_intake_id: intake!.id })).error).toBeNull();
   async function generate() {
@@ -83,7 +83,7 @@ test("independent Owner Coach Client: measured pounds, edit, final-set reduction
   }
   for (const [width, height] of [[390,844],[820,1180],[1440,1000]]) { await coach.setViewportSize({ width, height }); expect(await coach.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); await coach.screenshot({ path: info.outputPath(`load-review-${width}.png`), fullPage: true }); }
   expect((await clientApi.from("generated_prescriptions").select("id")).data).toEqual([]);
-  await coach.getByRole("button", { name: "Approve & assign" }).click(); await expect(coach).toHaveURL(/notice=prescription-assigned/);
+  await coach.getByRole("button", { name: "Assign", exact: true }).click(); await expect(coach).toHaveURL(/notice=prescription-assigned/);
   const { data: assignment } = await clientApi.from("workout_assignments").select("id").eq("source_prescription_id", first.id).single();
   await client.goto(`/client/workouts/${assignment!.id}`); await expect(client.getByText("40.0 lb total", { exact: true })).toBeVisible();
   const { data: assigned } = await clientApi.from("workout_exercises").select("id,library_exercise_id,reps,load,load_unit,prescription_details,load_prescription,workout_sets(id,set_number)").eq("workout_assignment_id", assignment!.id);

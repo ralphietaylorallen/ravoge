@@ -86,6 +86,7 @@ test("owner can open oversight and distribute role-specific app links", async ({
     mimeType: "text/csv",
     name: "pitt-history.csv",
   });
+  await page.getByText("Advanced: preview before uploading", { exact: true }).click();
   await page.getByRole("button", { name: "Parse and preview" }).click();
   await expect(page.getByRole("heading", { name: "pitt-history.csv" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Back Squat" })).toBeVisible();
