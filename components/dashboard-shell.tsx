@@ -7,6 +7,7 @@ import { DashboardNavigation } from "./dashboard-navigation";
 import { ProfilePhoto } from "./profile-photo";
 import { createClient } from "@/lib/supabase/server";
 import { getProfileImageUrl } from "@/lib/profile-images";
+import { VisualTheme } from "./visual-theme";
 
 import styles from "./dashboard.module.css";
 
@@ -33,7 +34,7 @@ export async function DashboardShell({
       ? [{ href: "/coach", label: "Overview & clients" }, { href: "/coach/schedule", label: "Schedule" }, { href: "/coach/availability", label: "Availability" }, { href: "/coach/profile", label: "Profile" }]
       : [{ href: "/client", label: "Workouts" }, { href: "/client/book", label: "Book session" }, { href: "/client/schedule", label: "Schedule" }, { href: "/client/profile", label: "Profile" }];
   return (
-    <main className={styles.shell}>
+    <VisualTheme><main className={styles.shell} data-account-role={role}>
       <aside className={styles.sidebar}>
         <Logo />
         <DashboardNavigation items={navigation} role={role} />
@@ -46,7 +47,7 @@ export async function DashboardShell({
       </aside>
       <div className={styles.frame}>
         <header className={styles.header}>
-          <div><span className={styles.mobileBrand}>Ravoge</span><small>{gymName}</small></div>
+          <div><span className={styles.mobileBrand}><Logo /></span><small>{gymName}</small></div>
           <div className={styles.headerActions}>
             <span className={styles.role}>{role} access</span>
             <form action={logoutAction}>
@@ -62,7 +63,7 @@ export async function DashboardShell({
         {compact && <div className={styles.operationTopSpace} />}
         {children}
       </div>
-    </main>
+    </main></VisualTheme>
   );
 }
 

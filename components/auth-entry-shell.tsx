@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { GoldAtmosphere } from "@/components/gold-atmosphere";
 import { Logo } from "@/components/logo";
+import { VisualTheme } from "./visual-theme";
 
 import styles from "./auth-entry.module.css";
 
@@ -12,7 +13,7 @@ type AuthEntryShellProps = {
 
 export function AuthEntryShell({ children, wide = false }: AuthEntryShellProps) {
   return (
-    <main className={styles.shell}>
+    <VisualTheme><main className={styles.shell}>
       <div aria-hidden="true" className={styles.atmosphere}>
         <GoldAtmosphere />
       </div>
@@ -33,6 +34,6 @@ export function AuthEntryShell({ children, wide = false }: AuthEntryShellProps) 
           <section className={styles.panel}>{children}</section>
         </div>
       </div>
-    </main>
+    </main></VisualTheme>
   );
 }

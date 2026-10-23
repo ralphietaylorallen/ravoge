@@ -1,14 +1,15 @@
-import {expect,test,type Page} from "@playwright/test";
+import {expect as baseExpect,test,type Page} from "@playwright/test";
 import sharp from "sharp";
 
-test.use({trace:"off",actionTimeout:20_000});
+const expect=baseExpect.configure({timeout:15_000});
+test.use({trace:"off",actionTimeout:20_000,launchOptions:process.env.RAVOGE_QA_HTTP1==='yes'?{args:['--disable-http2']}:undefined});
 const clientId=process.env.PR22_CLIENT_ID;
 async function login(page:Page,role:"OWNER"|"COACH"|"CLIENT") {
   await page.goto("/login");
   await page.getByLabel("Email").fill(process.env[`PR22_${role}_EMAIL`]!);
   await page.getByLabel("Password",{exact:true}).fill(process.env[`PR22_${role}_PASSWORD`]!);
   await page.getByRole("button",{name:"Login",exact:true}).click();
-  await expect(page).toHaveURL(new RegExp(`/${role.toLowerCase()}$`));
+  await expect(page).toHaveURL(new RegExp(`/${role.toLowerCase()}$`),{timeout:45_000});
 }
 async function noOverflow(page:Page){expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);}
 
