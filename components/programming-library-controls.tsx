@@ -38,8 +38,8 @@ export function TrainingPublishingControls({ items, matching, search, archived=f
     {selectionMessage && <p role="alert">{selectionMessage}</p>}
     {state.message && <p className={styles.notice} role="status">{state.message}</p>}
     <ul className={styles.activityList}>{items.map(item => <li key={item.id}>
-    <label className={styles.checkboxLabel}><input type="checkbox" name="itemId" value={item.id} disabled={all} aria-label={`Select ${item.title}`}/><span><Link href={`/owner/training-library/${item.id}`}><strong>{item.title}</strong></Link><small>{item.source_filename ?? "Manual entry"}</small></span></label>
-    <span>{archived?"Deleted":item.reference_enabled?"Used in new workouts":"Not used in new workouts"}<Link href={`/owner/training-library/${item.id}`}>Advanced edit →</Link></span>
+    <label className={styles.checkboxLabel}><input type="checkbox" name="itemId" value={item.id} disabled={all} aria-label={`Select ${item.title}`}/><span><Link prefetch={false} href={`/owner/training-library/${item.id}`}><strong>{item.title}</strong></Link><small>{item.source_filename ?? "Manual entry"}</small></span></label>
+    <span>{archived?"Deleted":item.reference_enabled?"Used in new workouts":"Not used in new workouts"}<Link prefetch={false} href={`/owner/training-library/${item.id}`}>Advanced edit →</Link></span>
   </li>)}</ul>
     <dialog className={styles.photoDialog} ref={dialog} aria-labelledby="library-confirmation-heading" onClose={()=>submitter.current?.focus()}>
       <h3 id="library-confirmation-heading">{confirmIntent === 'delete' ? 'Delete selected workouts?' : 'Use these workouts as examples of this gym’s programming style?'}</h3>

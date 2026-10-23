@@ -84,3 +84,8 @@ draft and verifies that completed results reached its history snapshot. Assertio
 may read stored state; workflow mutations do not use test routes or direct RPCs.
 Disposable QA proof must never be described as real Pitt/Ralphie acceptance.
 This usability change requires no database migration, data rewrite or new service.
+Safety confirmation now shows its saving state; the existing server guard still
+decides readiness. Library edit links do not speculatively load every source.
+For Windows networks reporting HTTP/2 stream resets, the focused browser suite
+accepts `RAVOGE_QA_HTTP1=yes` as a transport diagnostic. HTTPS certificate checks,
+application assertions and production networking remain unchanged.

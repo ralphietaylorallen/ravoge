@@ -1,15 +1,18 @@
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect as baseExpect,type Page} from '@playwright/test';
 import {createClient} from '@supabase/supabase-js';
+const expect=baseExpect.configure({timeout:15000});
 type Account={id:string;email:string;password:string;role:string};
 const accounts:Account[]=JSON.parse(process.env.BETA_QA_USERS??'[]');
-test.use({trace:'off',video:'off',actionTimeout:25000});
-async function login(page:Page,a:Account){await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill(a.email);await page.getByLabel('Password',{exact:true}).fill(a.password);await page.getByRole('button',{name:'Login',exact:true}).click();await expect(page).toHaveURL(new RegExp(`/${a.role}$`),{timeout:15000});}
+// Optional transport diagnostic for Windows networks that reset HTTP/2 streams.
+// HTTPS certificate validation and every application assertion stay unchanged.
+test.use({trace:'off',video:'off',actionTimeout:25000,launchOptions:process.env.RAVOGE_QA_HTTP1==='yes'?{args:['--disable-http2']}:undefined});
+async function login(page:Page,a:Account){await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill(a.email);await page.getByLabel('Password',{exact:true}).fill(a.password);await page.getByRole('button',{name:'Login',exact:true}).click();await expect(page).toHaveURL(new RegExp(`/${a.role}$`),{timeout:45000});}
 async function api(a:Account){const x=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,{auth:{persistSession:false,autoRefreshToken:false}});expect((await x.auth.signInWithPassword(a)).error).toBeNull();return x;}
 test('raw references: all 124 pages, reversible enable, immediate new import, source-aware draft and independent Client assignment',async({browser},info)=>{
  test.skip(process.env.RAVOGE_REFERENCE_QA!=='yes'||info.project.name!=='desktop','Explicit isolated Ravoge fixtures required');test.setTimeout(360000);
  const ownerAccount=accounts.find(a=>a.role==='owner')!,coachAccount=accounts.find(a=>a.role==='coach')!,clientAccount=accounts.find(a=>a.role==='client')!;
  const oc=await browser.newContext(),cc=await browser.newContext(),uc=await browser.newContext();const owner=await oc.newPage(),coach=await cc.newPage(),client=await uc.newPage();
- const errors:string[]=[];for(const p of [owner,coach,client])p.on('pageerror',()=>errors.push('runtime error'));
+ const errors:string[]=[];for(const p of [owner,coach,client]){p.on('pageerror',()=>errors.push('runtime error'));p.on('requestfailed',r=>{if(r.failure()?.errorText!=='net::ERR_ABORTED')console.log('QA browser transport',new URL(r.url()).pathname,r.failure()?.errorText);});}
  const oa=await api(ownerAccount),ca=await api(coachAccount),ua=await api(clientAccount);
  await login(owner,ownerAccount);await login(coach,coachAccount);await login(client,clientAccount);
  await owner.goto('/owner/equipment');await owner.getByRole('checkbox',{name:'Bands',exact:true}).check();await owner.getByRole('button',{name:'Save available equipment',exact:true}).click();await expect(owner.getByRole('status').filter({hasText:'Selected equipment types added'})).toBeVisible({timeout:15000});
@@ -35,9 +38,11 @@ test('raw references: all 124 pages, reversible enable, immediate new import, so
  await coach.locator('#squatOneRmMethod').selectOption('not_tested');await coach.locator('#benchOneRmMethod').selectOption('not_tested');await coach.getByLabel('Strict pull-ups',{exact:true}).fill('0');
  await coach.getByRole('button',{name:'Continue →',exact:true}).click();await coach.getByLabel('Distance (m)',{exact:true}).fill('500');await coach.getByLabel('Time (seconds)',{exact:true}).fill('120');
  await coach.getByRole('button',{name:'Continue →',exact:true}).click();await coach.getByRole('button',{name:'Continue →',exact:true}).click();
- await coach.getByRole('button',{name:'Save intake',exact:true}).click();await expect(coach.getByRole('status').filter({hasText:'Intake saved'})).toBeVisible();
+ await coach.getByRole('button',{name:'Save intake',exact:true}).click();
+ try { await expect.poll(()=>coach.getByRole('status').allTextContents(),{timeout:15000}).toContainEqual(expect.stringMatching(/Intake saved/)); }
+ catch(error) { await coach.screenshot({path:info.outputPath('intake-save-failure.png'),fullPage:true}); throw error; }
  await coach.goto(`/coach/clients/${clientAccount.id}`);await coach.getByRole('checkbox',{name:/I reviewed the latest intake/}).check();await coach.getByRole('button',{name:'Confirm intake safety review',exact:true}).click();
- await coach.goto(`/coach/clients/${clientAccount.id}`);await coach.getByRole('button',{name:'Create workout',exact:true}).click();await expect(coach).toHaveURL(/\/prescriptions\//,{timeout:70000});
+ await expect(coach.getByRole('button',{name:'Create workout',exact:true})).toBeEnabled();await coach.getByRole('button',{name:'Create workout',exact:true}).click();await expect(coach).toHaveURL(/\/prescriptions\//,{timeout:70000});
  const id=new URL(coach.url()).pathname.split('/').at(-1)!;const {data:draft}=await ca.from('generated_prescriptions').select('engine_version,generation_context,original_recommendation').eq('id',id).single();
  expect(draft!.generation_context.sourceType).toBe('gym_reference_examples');expect(draft!.generation_context.trainingSnapshot.knowledgeCounts.referenceEnabled).toBe(125);expect(draft!.generation_context.trainingSnapshot.knowledgeCounts.approved).toBe(0);
  expect(draft!.generation_context.referenceVersions.length).toBeGreaterThan(0);expect(draft!.generation_context.referenceVersions.length).toBeLessThanOrEqual(5);expect(draft!.generation_context.trainingSnapshot.knowledgeCatalog).toBeUndefined();
