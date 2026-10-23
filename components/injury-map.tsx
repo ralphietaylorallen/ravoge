@@ -4,30 +4,23 @@ import { useRef, useState } from "react";
 import { saveInjurySpotAction, removeInjurySpotAction } from "@/app/coach/intake-actions";
 import { BODY_REGIONS, HISTORY_CATEGORIES, emptySpot, type InjurySpot } from "@/lib/intake-history";
 import styles from "./injury-map.module.css";
+import { useDemo } from "./demo-context";
 
 const regionLabel = (s: Pick<InjurySpot, "region" | "side" | "view">) => `${s.side === "midline" ? "" : s.side + " "}${s.region.replaceAll("_", " ")} · ${s.view}`;
 const touchSpots: { region: InjurySpot["region"]; x: number; y: number; side: InjurySpot["side"] }[] = [
-  { region: "neck", x: 50, y: 18, side: "midline" }, { region: "shoulder", x: 35, y: 24, side: "right" },
-  { region: "shoulder", x: 65, y: 24, side: "left" }, { region: "elbow", x: 27, y: 40, side: "right" }, { region: "elbow", x: 73, y: 40, side: "left" },
-  { region: "hip", x: 41, y: 53, side: "right" }, { region: "hip", x: 59, y: 53, side: "left" },
-  { region: "knee", x: 41, y: 72, side: "right" }, { region: "knee", x: 59, y: 72, side: "left" },
-  { region: "ankle", x: 41, y: 91, side: "right" }, { region: "ankle", x: 59, y: 91, side: "left" },
+  { region: "head", x: 55.5, y: 9, side: "midline" },
+  { region: "wrist", x: 18, y: 47, side: "right" }, { region: "wrist", x: 91, y: 47, side: "left" },
+  { region: "thigh", x: 43, y: 58, side: "right" }, { region: "thigh", x: 67, y: 58, side: "left" },
+  { region: "calf", x: 43, y: 78, side: "right" }, { region: "calf", x: 67, y: 78, side: "left" },
+  { region: "neck", x: 55.5, y: 16, side: "midline" }, { region: "shoulder", x: 39, y: 22, side: "right" },
+  { region: "shoulder", x: 72, y: 22, side: "left" }, { region: "elbow", x: 28, y: 36, side: "right" }, { region: "elbow", x: 82, y: 36, side: "left" },
+  { region: "hip", x: 43, y: 47, side: "right" }, { region: "hip", x: 67, y: 47, side: "left" },
+  { region: "knee", x: 43, y: 67, side: "right" }, { region: "knee", x: 67, y: 67, side: "left" },
+  { region: "ankle", x: 43, y: 87, side: "right" }, { region: "ankle", x: 67, y: 87, side: "left" },
 ];
 
-function Skeleton({ back }: { back: boolean }) {
-  return <svg aria-hidden="true" viewBox="0 0 200 360" className={styles.skeleton}>
-    <g fill="none" stroke="#b4ac9b" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-      <ellipse cx="100" cy="34" rx="17" ry="23" fill="#282824"/>
-      <path d="M94 55V69M106 55V69M100 67V175M65 77Q100 60 135 77M69 83L61 135L48 179M132 83L140 135L153 179M59 136L54 137M140 136L146 138M48 179L40 196M153 179L161 196M72 164Q100 150 128 164L119 191L100 185L81 191Z"/>
-      {[80,90,100,110,120,130].map((y,i)=><path key={y} d={`M98 ${y} Q${68+i*2} ${y-7} ${72+i*2} ${y+8} Q87 ${y+16} 98 ${y+8} M102 ${y} Q${132-i*2} ${y-7} ${128-i*2} ${y+8} Q113 ${y+16} 102 ${y+8}`}/>)}
-      <path d="M83 190L81 254M90 191L86 254M117 190L119 254M110 191L114 254M81 264L80 327M87 264L85 327M119 264L120 327M113 264L115 327M80 327L72 341H89L85 327M120 327L128 341H111L115 327"/>
-      <circle cx="83" cy="259" r="5"/><circle cx="117" cy="259" r="5"/>
-      {back ? <path d="M77 78L91 111L79 115ZM123 78L109 111L121 115Z"/> : <path d="M92 34H94M106 34H108M97 43H103"/>}
-    </g>
-  </svg>;
-}
-
 export function InjuryMap({ clientId, initialSpots, noInjuryReport=false }: { clientId: string; initialSpots: InjurySpot[]; noInjuryReport?:boolean }) {
+  const demo=useDemo();
   const [spots, setSpots] = useState(initialSpots);
   const [editing, setEditing] = useState<InjurySpot>(emptySpot);
   const [pending, setPending] = useState(false);
@@ -43,7 +36,7 @@ export function InjuryMap({ clientId, initialSpots, noInjuryReport=false }: { cl
   async function save() {
     setPending(true); setError("");
     try {
-      const result = await saveInjurySpotAction(clientId, editing);
+      const result = demo ? await demo.saveSpot(editing) : await saveInjurySpotAction(clientId, editing);
       if (!result.ok) { setError(result.message); return; }
       setSpots(s => [...s.filter(x => x.id !== result.spot.id), result.spot]);
       setMessage(`${regionLabel(result.spot)} saved.`); dialog.current?.close(); opener.current?.focus();
@@ -53,26 +46,26 @@ export function InjuryMap({ clientId, initialSpots, noInjuryReport=false }: { cl
   async function remove(s: InjurySpot) {
     setPending(true); setError("");
     try {
-      const result = await removeInjurySpotAction(clientId, s.id);
+      const result = demo ? await demo.removeSpot(s.id) : await removeInjurySpotAction(clientId, s.id);
       if (!result.ok) { setMessage(result.message); return; }
       setSpots(all => all.filter(x => x.id !== s.id)); setMessage("Spot removed from the current report. Earlier history is preserved.");
     } catch { setMessage("The spot could not be removed. Please try again."); } finally { setPending(false); }
   }
   return <section className={styles.root} aria-label="Body map and injury history">
-    <h3>How does your body feel?</h3><p>Tap a spot to add its history and symptoms. Each spot keeps its own answers.</p>
-    <p className={styles.hint}>Left and right are from the client’s perspective. A pain score of zero does not mean an old injury or surgery is cleared.</p>
+    <h3>How does your body feel?</h3><p>Tap a spot, add the details, then save.</p>
+    <p className={styles.hint}>Left and right are from the client’s perspective.</p>
     <div className={styles.maps}>{(["front", "back"] as const).map(view => <div className={styles.map} key={view}>
-      <strong>{view.toUpperCase()}</strong><div className={styles.figure}><Skeleton back={view === "back"}/>
-        {[...touchSpots, { region: view === "back" ? "lower_back" as const : "abdomen" as const, x: 50, y: 47, side: "midline" as const }].map((p,i) => {
+      <strong>{view.toUpperCase()}</strong><div className={styles.figure}><div aria-hidden="true" className={styles.anatomy} data-view={view}/>
+        {[...touchSpots, {region:view === "back" ? "upper_back" as const : "chest" as const,x:55.5,y:29,side:"midline" as const}, { region: view === "back" ? "lower_back" as const : "abdomen" as const, x: 55.5, y: 42, side: "midline" as const }].map((p,i) => {
           const side = view === "back" && p.side !== "midline" ? p.side === "left" ? "right" : "left" : p.side;
           const selected = spots.filter(s => s.region === p.region && s.side === side && s.view === view);
-          return <button type="button" key={i} className={`${styles.hotspot} ${selected.length ? styles.saved : ""}`} style={{left:`${p.x}%`,top:`${p.y}%`}}
+          return <button type="button" key={i} className={`${styles.hotspot} ${selected.length ? styles.saved : ""}`} style={{left:`${view === "back" ? p.x - 8 : p.x}%`,top:`${p.y}%`}}
             aria-label={`${selected.length ? "Edit saved" : "Add"} ${side} ${p.region.replaceAll("_", " ")} ${view}`}
             onClick={e => open(selected[0] ?? {...emptySpot(), region:p.region, side, view}, e.currentTarget)}><span aria-hidden="true">{selected.length || "+"}</span></button>;
         })}
       </div>
     </div>)}</div>
-    <button type="button" className={styles.add} disabled={pending} onClick={e => open(emptySpot(), e.currentTarget)}>＋ Add another spot / choose a region</button>
+    <button type="button" className={styles.add} disabled={pending} onClick={e => open(emptySpot(), e.currentTarget)}>+ Add another spot / choose a region</button>
     <ul className={styles.savedList}>{spots.map(s => <li key={s.id}><button type="button" onClick={e => open(s,e.currentTarget)} disabled={pending}>{regionLabel(s)} · {s.pain === null ? "Pain unknown" : `Pain ${s.pain}/10`}{s.categories.includes("surgery") ? " · Surgery history" : ""} — Edit</button><button aria-label={`Remove ${regionLabel(s)}`} disabled={pending} type="button" onClick={()=>remove(s)}>Remove</button></li>)}</ul>
     <label className={styles.noReport}><input type="checkbox" name="noInjuryReport" defaultChecked={noInjuryReport&&initialSpots.length===0} disabled={spots.length > 0}/>No pain, injuries, or restrictions to report</label>
     {spots.length > 0 && <p className={styles.hint}>Saved history remains active until individually updated or removed; “no current pain” never deletes surgical history.</p>}

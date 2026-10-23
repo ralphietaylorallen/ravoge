@@ -1,4 +1,5 @@
 import "server-only";
+import { repeatsRecentDraft } from "./session-programming.ts";
 
 import { kilogramsToPounds } from "./weight-units.ts";
 import { generatedWeightTextIsLoadFree, type WeightCapability } from "./equipment-weights.ts";
@@ -25,6 +26,8 @@ export type GenerationInput = {
   references: { id: string; title: string; revision: number; goal: string; duration: number; exercises: SourceExercise[];
     sourceKind?: "raw_reference"; segments?:{key:string;exerciseIds:string[]}[]; rawStyle?: {exerciseIds:string[];formats:string[];terms:string[];rawProtocolsUnverified:boolean} }[];
   history: { status: string; exercises: SourceExercise[] }[];
+  age?: number | null;
+  recentDrafts?: { exercises: { libraryExerciseId:string; sets:number; reps:number; restSeconds?:number; targetRpe?:number; protocol?:WorkoutProtocol }[] }[];
   schemaVersion?: number; facilities?: { type: string; length: number; unit: string }[]; publishedCount?: number;
   gymProfile?: { id: string; version: number; summary: string; preferences: { formats: string[]; emphasis: string[] }; statistics: { formats?: Record<string, number>; emphasis?: Record<string, number>; sets?: number[]; reps?: number[]; restSeconds?: number[]; terminology?: string[]; progressionPatterns?: string[]; resourceUse?: Record<string, number> } } | null;
   todayReadiness?: { answers: number[]; hasPain: boolean; coachDecision: string } | null;
@@ -78,6 +81,10 @@ export function deidentifiedGenerationInput(input: GenerationInput) {
   return {
     rulesVersion: input.schemaVersion === 2 ? "ravoge-quality-2026.2" : PROGRAMMING_RULES_VERSION,
     rules: input.schemaVersion === 2 ? QUALITY_RULES : RULES,
+    age: input.intakeContext?.age ?? input.age ?? null,
+    todayReadiness: input.todayReadiness ?? null,
+    previousDrafts: (input.recentDrafts ?? []).map(d=>({sequence:d.exercises.filter(e=>keys.has(e.libraryExerciseId)).map(e=>({exerciseKey:keys.get(e.libraryExerciseId),sets:e.sets,reps:e.reps,restSeconds:e.restSeconds,targetRpe:e.targetRpe,protocol:e.protocol?{block:e.protocol.block,format:e.protocol.format,measurement:e.protocol.measurement,workSeconds:e.protocol.workSeconds,distance:e.protocol.distance,distanceUnit:e.protocol.distanceUnit,perSide:e.protocol.perSide,targetRpe:e.protocol.targetRpe,intervalSeconds:e.protocol.intervalSeconds,blockDurationSeconds:e.protocol.blockDurationSeconds}:undefined}))})),
+    sessionPlanning: "Plan the next session using actual recorded outcomes and today’s readiness. Preserve useful main lifts for skill/progression; rotate compatible accessory patterns or training emphasis across the planned weekly days. Completed sets are evidence; unrecorded sets and unperformed drafts are not. Previous drafts show alternatives already offered, not completed work. Do not reproduce the same draft unchanged or vary only its title/rationale/order. Make a purposeful change to main-work targets, emphasis or compatible accessory selection, with a short factual reason. Do not increase effort when pain, failed reps or poor recovery suggest regression. Unknown effort does not justify increasing load. Never swap exercises merely for novelty.",
     goal: input.goal, secondaryGoal: input.secondaryGoal, experience: input.experience,
     trainingFocus: input.trainingFocus ?? null,
     weeklyFrequency: input.frequency, requestedDurationMinutes: input.duration,
@@ -137,6 +144,7 @@ export function validateAssistedWorkout(output: string, input: GenerationInput):
       targetRpe: row.targetRpe, notes: row.notes, reason: row.reason };
   });
   if (exercises.reduce((sum, exercise) => sum + exercise.sets, 0) > 24) throw new Error("invalid_output");
+  if(repeatsRecentDraft({exercises},input))throw new QualityValidationError("repeated_session");
   return { title: value.title, rationale: value.rationale, durationMinutes: Number(value.durationMinutes), exercises };
 }
 

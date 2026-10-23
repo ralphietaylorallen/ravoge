@@ -3,10 +3,12 @@
 .hint { font-size:.85rem; color:#bbbcb7; line-height:1.5; }
 .maps { display:grid; grid-template-columns:1fr 1fr; background:linear-gradient(135deg,#151615,#080909); border:1px solid #48402d; border-radius:14px; padding:1rem; }
 .map { text-align:center; min-width:0; }
-.figure { position:relative; margin:auto; max-width:240px; aspect-ratio:200/360; }
-.skeleton { width:100%; height:100%; }
+.figure { position:relative; margin:auto; max-width:290px; aspect-ratio:1/2; }
+.anatomy { position:absolute; inset:0; background:url("/images/intake-anatomy.png") left top / 200% 100% no-repeat; }
+.anatomy[data-view="back"] { background-position:right top; }
 .hotspot { position:absolute; transform:translate(-50%,-50%); width:44px; height:44px; display:grid; place-items:center; border:0; background:transparent; color:#efd08a; cursor:pointer; }
-.hotspot span { display:grid; place-items:center; width:20px; height:20px; border:1px solid #b4ac9b88; border-radius:50%; background:#05060688; }
+.hotspot span { opacity:0; display:grid; place-items:center; width:20px; height:20px; border:1px solid #b4ac9b88; border-radius:50%; background:#05060688; }
+.hotspot:hover span,.hotspot:focus-visible span,.saved span { opacity:1; }
 .saved span { background:#c04b40; border-color:#ffb2a6; color:#fff; box-shadow:0 0 12px #c04b4066; }
 .root button:focus-visible { outline:2px solid #ffe3a1; outline-offset:3px; }
 .add,.savedList button,.dialog button { min-height:44px; border:1px solid #665330; border-radius:10px; background:#161714; color:#f6f5f1; padding:.65rem 1rem; cursor:pointer; }
@@ -27,4 +29,4 @@
 .columns { display:grid; grid-template-columns:2fr 1fr 1fr; gap:.5rem; }
 .dialog footer { border-top:1px solid #48402d; }
 .dialog footer button:last-child { flex:1; background:linear-gradient(125deg,#ffe3a1,#edc56f,#bd8734); color:#080909; font-weight:600; }
-@media(max-width:480px) { .maps{padding:.5rem 0;} .columns{grid-template-columns:1fr;} .dialog{width:calc(100vw - 16px);} }
+@media(max-width:480px) { .maps{padding:.5rem 0;grid-template-columns:1fr;gap:1rem;} .columns{grid-template-columns:1fr;} .dialog{width:calc(100vw - 16px);} }

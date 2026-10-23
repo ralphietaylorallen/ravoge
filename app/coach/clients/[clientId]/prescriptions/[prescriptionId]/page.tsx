@@ -9,7 +9,7 @@ import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezo
 import { FALLBACK_MESSAGE, type GenerationInput, type AssistedWorkout } from "@/lib/workout-generation";
 import { TRAINING_FOCUS } from "@/lib/training-focus";
 import { programmingEvidence } from "@/lib/programming-evidence";
-import { GenerateWorkoutForm } from "@/components/generate-workout-form";
+
 import type { EvidenceCollection } from "@/lib/exercise-evidence";
 import type { ProvenanceAudit } from "@/lib/workout-provenance";
 
@@ -38,10 +38,11 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
   }
   const exerciseOptions = (library ?? []).filter(e => !snapshot || snapshot.candidates.some(c => c.id === e.id)).map(e => ({ ...e,
     weight_semantics: currentRules.get(e.id)?.weight_semantics, prescription_type: currentRules.get(e.id)?.prescription_type }));
-  return <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={coach?.full_name ?? "Coach"} role="coach">
+  return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coach?.full_name ?? "Coach"} role="coach">
     <Link className={styles.backLink} href={`/coach/clients/${clientId}`}>← Back to {client.full_name}</Link>
     <div className={styles.pageHeading}><div><p className={styles.eyebrow}>{client.full_name}’s workout</p><h2>Review and assign</h2></div><p>Edit anything below, then assign it to the client.</p></div>
-    <section className={styles.rationalePanel}><div><span>Objective</span><strong>{prescription.objective}</strong></div><div><span>Duration</span><strong>{prescription.estimated_duration_minutes} minutes</strong></div><div><span>Volume intent</span><strong>{prescription.volume_intent}</strong></div><p>{poundsInText(prescription.rationale)}</p></section>
+    {prescription.generation_context?.intakeReviewRequired&&<p role="alert">Intake updated. Generate a new workout before assigning.</p>}
+    <details className={styles.operationCard}><summary>Plan details</summary><section className={styles.rationalePanel}><div><span>Objective</span><strong>{prescription.objective}</strong></div><div><span>Duration</span><strong>{prescription.estimated_duration_minutes} minutes</strong></div><div><span>Volume intent</span><strong>{prescription.volume_intent}</strong></div><p>{poundsInText(prescription.rationale)}</p></section>
     <section className={styles.operationCard} aria-label="Generation evidence">
       <h3>Why this draft</h3>
       {coachReview&&<><p>{coachReview.goalSupport}</p><h4>Your weekly structure</h4><ul>{coachReview.weeklyPlan.map(d=><li key={d.day}>Session {d.day}: {d.focus}</li>)}</ul><h4>Adaptations and next steps</h4><ul>{coachReview.injuryAdaptations.map(a=><li key={a}>{a}</li>)}</ul><p>Progress when: {coachReview.progression}</p><p>Reduce or stop when: {coachReview.regression}</p>{coachReview.unresolvedQuestions.length>0&&<><h4>Review with the Client</h4><ul>{coachReview.unresolvedQuestions.map(q=><li key={q}>{q}</li>)}</ul></>}</>}
@@ -57,7 +58,8 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
         <p>Added movements: {((prescription.generation_context?.addedExerciseIds??[]) as string[]).map(id=>exerciseOptions.find(e=>e.id===id)?.name??'approved exercise').join(', ')||'None'}.</p>
         {snapshot.weightCapabilities?.some(c=>!c.sizesLb?.length) && <p>Some equipment weights are unconfirmed. Confirm any starting load marked for review before assigning.</p>}</>}
     </section>
-    {prescription.engine_version.endsWith('-fallback')&&<section className={styles.operationCard}><p>The AI service did not complete. The visible fallback remains a draft and requires Coach review. Retry does not change this saved draft.</p><GenerateWorkoutForm clientId={clientId} ready/></section>}
+    </details>
+    {prescription.engine_version.endsWith('-fallback')&&<section className={styles.operationCard}><p>The AI service did not complete. The visible fallback remains a draft and requires Coach review. Retry does not change this saved draft.</p><Link className={styles.action} href={`/coach/clients/${clientId}#train-session`}>Generate another workout</Link></section>}
     <PrescriptionReviewForm weightCapabilities={snapshot?.weightCapabilities} quality={prescription.engine_version.startsWith("prescription-v0.4-")} clientId={clientId} duration={prescription.estimated_duration_minutes} exerciseOptions={exerciseOptions} exercises={recommendation} prescriptionId={prescriptionId} scheduledDate={localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={prescription.title} />
     <details className={styles.operationCard}><summary>Advanced: programming details and evidence</summary>
       <p>Source: {prescription.generation_context?.sourceType ?? "global_library"}.</p>
