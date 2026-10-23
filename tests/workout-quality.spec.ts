@@ -92,7 +92,7 @@ test("three-client quality generation, Owner programming review and mobile worko
     await page.getByRole("button", { name: "Publish reviewed workout" }).click(); await expect(page.getByRole("status")).toContainText("Published for your gym");
     if(source.title === "Quality Strength") { await page.reload(); await expect(page.getByRole("group",{name:"Exercise 1",exact:true}).getByLabel("Load (lb), if specified")).toHaveValue("95"); }
   }
-  await page.goto("/owner/training-library"); await expect(page.getByText(/4 gym references enabled · 3 fully structured templates/)).toBeVisible();
+  await page.goto("/owner/training-library"); await expect(page.getByRole('status').filter({hasText:/4 gym references enabled · 3 fully structured templates/})).toBeVisible();
   await expect(page.getByRole("link", { name: "Unresolved source", exact: true })).toBeVisible();
   const coachApi = await scoped(coachAccount);
   const { data: originalRows } = await api.from("training_library_items").select("id,normalized_content").order("id");

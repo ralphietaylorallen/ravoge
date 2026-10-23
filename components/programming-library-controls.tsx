@@ -9,7 +9,7 @@ import styles from "./dashboard.module.css";
 export function TrainingPublishingControls({ items, matching, search, archived=false }: { items: { id: string; title: string; status: string; source_filename: string | null; reference_enabled: boolean }[]; matching:number;search:string;archived?:boolean }) {
   const [state, action, pending] = useActionState<ReviewState, FormData>(setGymReferences, { status: "idle" });
   const [all,setAll]=useState(false);
-  return <form action={action} className={styles.form} onSubmit={event=>{
+  return <form action={action} className={styles.form} onReset={()=>setAll(false)} onSubmit={event=>{
     const intent=(event.nativeEvent as SubmitEvent).submitter?.getAttribute("value");
     if(intent==='enable'&&!window.confirm("Use these workouts as examples of this gym’s programming style?")) event.preventDefault();
     if(intent==='delete'&&!window.confirm("Move selected workouts to Deleted and exclude them from generation? Original source rows are preserved and can be restored.")) event.preventDefault();

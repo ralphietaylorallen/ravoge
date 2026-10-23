@@ -20,6 +20,7 @@ test('raw references: all 124 pages, reversible enable, immediate new import, so
  await owner.goto('/owner/training-library');await expect(owner.getByRole('status').filter({hasText:'124 gym references enabled'})).toBeVisible();
  await owner.getByRole('checkbox',{name:/Select all workouts/}).check();await expect(owner.getByText('All 124 matching workouts selected, including other pages.')).toBeVisible();
  await owner.getByRole('button',{name:'Exclude from generation',exact:true}).click();await expect(owner.getByRole('status').filter({hasText:'124 workout(s) excluded'})).toBeVisible();
+ await owner.getByRole('checkbox',{name:/Select all workouts/}).check();
  let confirmations=0;owner.on('dialog',async d=>{expect(d.message()).toBe('Use these workouts as examples of this gym’s programming style?');confirmations++;await d.accept();});
  await owner.getByRole('button',{name:'Use as gym references',exact:true}).click();await expect(owner.getByRole('status').filter({hasText:'124 workout(s) enabled'})).toBeVisible();expect(confirmations).toBe(1);
  expect((await oa.from('training_library_items').select('id,normalized_content').order('id')).data).toEqual(before);
