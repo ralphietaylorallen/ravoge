@@ -44,7 +44,7 @@
 .field { display: grid; min-width: 0; gap: 0.4rem; }
 .field label, .choiceField legend { color: var(--ui-muted, #62655f); font-size: 0.62rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; }
 .field label span { color: var(--ui-muted, #a39d91); font-weight: 500; letter-spacing: 0; text-transform: none; }
-.field input, .field select, .field textarea { min-height: 2.8rem; width: 100%; padding: 0.65rem 0.75rem; border: 1px solid var(--ui-divider, #d8d4ca); border-radius: 1px; outline: none; background: var(--ui-input, #fff); color: var(--ui-success, #171a18); font: inherit; font-size: 0.82rem; }
+.field input, .field select, .field textarea { min-height: 2.8rem; width: 100%; padding: 0.65rem 0.75rem; border: 1px solid var(--ui-divider, #d8d4ca); border-radius: 1px; outline: none; background: var(--ui-input, #fff); color: var(--ui-text, #171a18); font: inherit; font-size: 0.82rem; }
 .field textarea { resize: vertical; }
 .field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible { border-color: var(--ui-gold, #9a7948); box-shadow: 0 0 0 3px rgb(169 135 85 / 0.12); }
 .action { display: inline-flex; min-height: 2.85rem; align-items: center; justify-content: center; padding: 0.7rem 1.15rem; border: 1px solid var(--ui-gold, #866331); border-radius: 4px; background: linear-gradient(110deg,#896734,#a47d46); color: #fff; cursor: pointer; font: inherit; font-size: 0.78rem; font-weight: 650; letter-spacing: 0.01em; text-decoration: none; }
@@ -320,7 +320,7 @@
 .sidebar, .frame { min-width:0; }
 .srOnly { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .operationTopSpace { height:1.6rem; }
-.navGlyph { width:1rem; color: var(--ui-gold, #d4bd92); font-size:1rem; text-align:center; }
+.navGlyph { width:1rem; height:1rem; flex-shrink:0; color: var(--ui-gold, #d4bd92); font-size:1rem; text-align:center; }
 .tabs a[aria-current="page"] { border-color: var(--ui-gold, #9c763f); color: var(--ui-text, #171918); }
 .detailHeader .profileHero { margin-bottom:0; }
 .detailHeader .detailTitle { font-size:clamp(1.8rem,3vw,2.6rem); }
@@ -356,7 +356,7 @@
 .factList { margin:0; }
 .factList > div { display:flex; gap:1rem; align-items:center; justify-content:space-between; padding:0.7rem 0; border-bottom: 1px solid var(--ui-divider, #eeebe4); font-size:0.78rem; }
 .factList dt { color: var(--ui-muted, #71766e); }
-.factList dd { margin:0; text-align:right; color: var(--ui-success, #30362f); }
+.factList dd { margin:0; text-align:right; color: var(--ui-text, #30362f); }
 .coachIdentity { display:flex; align-items:center; gap:0.75rem; padding:1.2rem 0; }
 .coachDialog { margin:auto; width:min(34rem,calc(100vw - 2rem)); max-height:90svh; padding:1.5rem; border: 1px solid var(--ui-border, #c8b99c); border-radius: 7px; color: var(--ui-text, #171918); background: var(--ui-input, #fffefa); box-shadow:0 24px 90px #0006; }
 .coachDialog::backdrop { background: #0d100eb3; }
@@ -400,12 +400,12 @@
 .completedSummary { margin-bottom:1.2rem; padding:1.25rem; border: 1px solid var(--ui-divider, #b1d6be); background: var(--ui-surface, #f0f9f2); }
 .summaryNumbers { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; margin:0 0 1.25rem; }
 .summaryNumbers > span { display:grid; gap:0.5rem; padding:1rem; border: 1px solid var(--ui-divider, #e1dcd2); border-radius: 5px; background: var(--ui-input, #fffefa); font-size:0.75rem; color: var(--ui-muted, #777b73); }
-.summaryNumbers strong { color: var(--ui-success, #262c26); font-size:1.05rem; font-weight:600; }
+.summaryNumbers strong { color: var(--ui-text, #262c26); font-size:1.05rem; font-weight:600; }
 .todayWorkout { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; padding:1.3rem; border: 1px solid var(--ui-border, #c5ad85); border-radius: 5px; background: var(--ui-surface, #f3ecde); color: var(--ui-gold, #65451d); text-decoration:none; }
 .todayWorkout > span:first-child { display:grid; gap:0.4rem; }
 .todayWorkout small { font-size:0.64rem; letter-spacing:0.1em; }
 .workoutPlanList { list-style:none; padding:0; margin:0; }
-.workoutPlanList a { display:flex; align-items:center; gap:1rem; padding:1.1rem 0.5rem; border-bottom: 1px solid var(--ui-divider, #e6e1d8); color: var(--ui-success, #242a24); text-decoration:none; }
+.workoutPlanList a { display:flex; align-items:center; gap:1rem; padding:1.1rem 0.5rem; border-bottom: 1px solid var(--ui-divider, #e6e1d8); color: var(--ui-text, #242a24); text-decoration:none; }
 .workoutPlanList a > div { display:grid; gap:0.45rem; flex:1; }
 .workoutPlanList small { color: var(--ui-muted, #757b72); font-size:0.72rem; }
 .intakeSteps { display:flex; gap:0.5rem; margin-bottom:1.4rem; overflow-x:auto; padding:0.2rem 0 0.8rem; }
@@ -432,7 +432,7 @@
 .tapScale button { min-height:44px; border: 1px solid var(--ui-divider, #e3dccf); border-radius: 3px; background: var(--ui-input, #fff); color: var(--ui-muted, #62695c); cursor:pointer; font:inherit; font-size:0.8rem; }
 .tapScale button[aria-pressed="true"] { background: #826235; color: #fff; border-color: var(--ui-gold, #826235); }
 .coachClientGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(15rem,1fr)); gap:1rem; margin:1rem 0 0; padding:0; list-style:none; }
-.coachClientCard { display:grid; align-content:start; gap:0.8rem; padding:1.2rem; border: 1px solid var(--ui-divider, #ded9cd); border-radius: 5px; background: var(--ui-input, #fffefa); color: var(--ui-success, #242924); text-decoration:none; }
+.coachClientCard { display:grid; align-content:start; gap:0.8rem; padding:1.2rem; border: 1px solid var(--ui-divider, #ded9cd); border-radius: 5px; background: var(--ui-input, #fffefa); color: var(--ui-text, #242924); text-decoration:none; }
 .coachClientCard:hover,.coachClientCard:focus-visible { border-color: var(--ui-gold, #a88653); background: var(--ui-surface, #f8f1e6); }
 .coachClientCard > div { display:flex; align-items:center; gap:0.8rem; }
 .coachClientCard small { color: var(--ui-muted, #777d72); font-size:0.72rem; }
@@ -569,7 +569,7 @@
 .reviewForm .reviewRow { align-items: start; }
 .reviewForm .reviewRow > .reviewReason { grid-column: 1 / -1; }
 
-/* Cinematic presentation. All selectors are gated during the six-screen preview. */
+/* Shared cinematic presentation, verified first on the six-screen preview. */
 :global([data-ravoge-visual="cinematic"]) .shell {
   grid-template-columns: var(--ui-sidebar-width) minmax(0, 1fr);
   background: radial-gradient(ellipse at 68% 0%, #40301a30, transparent 42rem), var(--ui-canvas);
@@ -618,6 +618,12 @@
 :global([data-ravoge-visual="cinematic"]) .intakeSteps button { border-radius: 10px; }
 :global([data-ravoge-visual="cinematic"]) .intakeSteps button[aria-current="step"] { border-color: #efd08a; background: #9f772726; }
 :global([data-ravoge-visual="cinematic"]) .photoPicker img, :global([data-ravoge-visual="cinematic"]) .photoPicker > span { border: 2px solid #edc56f; }
+:global([data-ravoge-visual="cinematic"]) :is(.slotGrid input:checked + span, .dateCardActive, .metricSwitch button[aria-pressed="true"], .tapScale button[aria-pressed="true"]) { border-color: #edc56f; background: var(--ui-button-background); color: #100d07; }
+:global([data-ravoge-visual="cinematic"]) :is(.slotGrid span, .dateCard, .metricSwitch button, .quickActions a, .executionExercise) { border-radius: 10px; }
+:global([data-ravoge-visual="cinematic"]) .frame:has(> .profileHero) > .hero { display: none; }
+:global([data-ravoge-visual="cinematic"]) .frame > .profileHero { margin-top: 2rem; }
+:global([data-ravoge-visual="cinematic"]) .onboardingShell { background: radial-gradient(ellipse at 50% 0, #c69c3a10, transparent 45rem), var(--ui-canvas); }
+:global([data-ravoge-visual="cinematic"]) .onboardingHeader > a { color: var(--ui-text) !important; }
 @media (min-width: 1200px) {
   :global([data-ravoge-visual="cinematic"]) .frame:has(> .reviewForm) { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(17rem, .9fr); gap: 1rem; align-content: start; align-items: start; }
   :global([data-ravoge-visual="cinematic"]) .frame:has(> .reviewForm) > * { grid-column: 1 / -1; min-width: 0; }

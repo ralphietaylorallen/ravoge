@@ -4,6 +4,7 @@ import { ProfileDetailsForm, ProfilePhotoForm } from "@/components/profile-forms
 import { ProfilePhoto } from "@/components/profile-photo";
 import { requireUnaffiliatedRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
+import { VisualTheme } from "./visual-theme";
 
 import styles from "./dashboard.module.css";
 
@@ -18,7 +19,7 @@ export async function UnaffiliatedOnboarding({ role }: { role: "coach" | "client
   const name = profile?.preferred_name || profile?.full_name || (role === "coach" ? "Coach" : "Client");
 
   return (
-    <main className={styles.onboardingShell}>
+    <VisualTheme><main className={styles.onboardingShell}>
       <header className={styles.onboardingHeader}>
         <Logo />
         <form action={logoutAction}>
@@ -52,6 +53,6 @@ export async function UnaffiliatedOnboarding({ role }: { role: "coach" | "client
           This profile does not grant gym access. A secure, email-bound invitation creates organization membership.
         </p>
       </section>
-    </main>
+    </main></VisualTheme>
   );
 }
