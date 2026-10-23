@@ -16,7 +16,7 @@ test('raw references: all 124 pages, reversible enable, immediate new import, so
  const oa=await api(ownerAccount),ca=await api(coachAccount),ua=await api(clientAccount);
  await login(owner,ownerAccount);await login(coach,coachAccount);await login(client,clientAccount);
  if(process.env.RAVOGE_CINEMATIC_QA==='yes'){
-  for(const [actor,label,path]of [[coach,'coach-clients','/coach'],[coach,'profile','/coach/profile'],[client,'client-home','/client']]as const){
+  for(const [actor,label,path]of [[owner,'owner-home','/owner'],[owner,'owner-team','/owner/team'],[owner,'owner-apps','/owner/apps'],[owner,'owner-equipment','/owner/equipment'],[owner,'owner-schedule','/owner/schedule'],[coach,'coach-clients','/coach'],[coach,'coach-schedule','/coach/schedule'],[coach,'profile','/coach/profile'],[client,'client-home','/client'],[client,'client-profile','/client/profile'],[client,'client-book','/client/book']]as const){
    await actor.goto(path);await expect(actor.locator('[data-ravoge-visual="cinematic"]')).toBeVisible();
    for(const [width,height]of [[390,844],[820,1180],[1440,1000]]){await actor.setViewportSize({width,height});expect(await actor.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await actor.screenshot({path:info.outputPath(`cinematic-${label}-${width}.png`),fullPage:true});}
   }
