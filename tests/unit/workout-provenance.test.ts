@@ -5,8 +5,11 @@ import { defaultProtocol } from "../../lib/workout-protocol.ts";
 import type { AssistedWorkout, GenerationInput } from "../../lib/workout-generation.ts";
 import { allowedEvidenceUrl, researchContext, verifiedEvidenceSources } from "../../lib/exercise-evidence.ts";
 import type OpenAI from "openai";
-import { deidentifiedGenerationInput } from "../../lib/workout-generation.ts";
+import { deidentifiedGenerationInput, generateAssistedWorkout } from "../../lib/workout-generation.ts";
 import { retrieveExerciseEvidence } from "../../lib/exercise-evidence.ts";
+import { validateQualityWorkout } from "../../lib/workout-generation-quality.ts";
+import { generateIntelligentWorkout } from "../../lib/workout-intelligence.ts";
+import { emptySpot } from "../../lib/intake-history.ts";
 
 const input={goal:"fat_loss",experience:"beginner",intakeContext:{version:2,age:68},injurySpots:[],candidates:[{id:"a",loadRuleSupported:true},{id:"b",loadRuleSupported:true}],references:[{id:"real-gym-source",segments:[{key:"cell_2",exerciseIds:["a"]}]}],evidence:{sources:[{id:"evidence_1"}]}} as unknown as GenerationInput;
 const row=(id:string,sets:number,block="strength")=>({libraryExerciseId:id,sets,protocol:{...defaultProtocol(),block}}) as AssistedWorkout["exercises"][number];
@@ -54,4 +57,33 @@ test("retrieval uses current supported domain-filtered search, validates citatio
   assert.deepEqual((calls[0].tools as {filters:{allowed_domains:string[]}}[])[0].filters.allowed_domains.includes("acsm.org"),true);
   assert.equal(calls[0].store,false); assert.doesNotMatch(String(calls[0].input),/secret|@/);
   const b=await retrieveExerciseEvidence(input,client); assert.equal(b.cacheHit,true); assert.equal(calls.length,2);
+});
+test("new intake provider contract carries all saved context and rejects forged provenance/citations",async()=>{
+  const candidates=["squat","horizontal_pull","hinge"].map((pattern,i)=>({id:`canonical-${i}`,name:`Canonical exercise ${i}`,pattern,equipment:["dumbbells"],difficulty:"beginner",quality:"strength",measurement:"reps" as const,loadRuleSupported:true}));
+  const ctx={...input,schemaVersion:2,snapshot:"private",intakeId:"private",secondaryGoal:null,frequency:3,duration:45,targets:{},bodyComposition:{},equipment:["dumbbells"],candidates,history:[],
+    restrictions:{tags:[],hasInjuries:true,hasPain:false,hasLimitations:true,hasAvoidedExercises:false,coachReviewed:true},
+    intakeContext:{...input.intakeContext!,age:40,success:"Walk comfortably",recentWorkoutDays:2,sleepHours:7,goalTarget:"Gradual progress"},
+    injurySpots:[{...emptySpot(),region:"knee",categories:["surgery"],pain:0,clinicianInstructions:"unsure",clinicianDetails:"Recorded restriction"}],
+    references:[{id:"actual-source",title:"Private source title",revision:1,goal:"fat_loss",duration:0,exercises:[],sourceKind:"raw_reference",rawStyle:{exerciseIds:candidates.map(c=>c.id),formats:[],terms:[],rawProtocolsUnverified:true},segments:[{key:"cell_1",exerciseIds:candidates.map(c=>c.id)}]}],
+    intelligence:{method:"openai",cacheHit:false,analysis:{objectives:["strength"],priorityPatterns:["squat"],methods:["strength"],preferredFormats:["straight"],progression:"technique_then_reps",intensityCeiling:6}},
+  } as GenerationInput;
+  const output={title:"Gym-based adapted session",rationale:"Uses saved goals, restrictions, recovery and gym movements.",durationMinutes:30,sourceReferenceKeys:["reference_1"],coachReview:{goalSupport:"Gradual training for the recorded goal.",weeklyPlan:[1,2,3].map(day=>({day,focus:"Conservative training with recovery"})),injuryAdaptations:["Respect the saved restriction without inferring surgical clearance."],progression:"Progress only after successful recorded work.",regression:"Stop for pain and review with the Coach.",unresolvedQuestions:["Confirm current clinician restrictions."]},
+    exercises:candidates.map((_,i)=>({exerciseKey:`exercise_${i+1}`,sets:3,reps:8,restSeconds:120,notes:"Controlled technique.",reason:"Adapted compatible gym movement.",protocol:defaultProtocol(),provenance:{...gym,segmentKey:"cell_1"}}))};
+  let called=false;
+  const client={responses:{create:async(request:Record<string,unknown>)=>{
+    called=true;const payload=JSON.parse((request.input as {content:string}[])[0].content);
+    assert.equal(payload.savedIntake.success,"Walk comfortably");assert.equal(payload.injurySpots[0].pain,0);assert.equal(payload.injurySpots[0].clinicianDetails,"Recorded restriction");
+    assert.equal(payload.publishedStructures[0].segments[0].key,"cell_1");assert.deepEqual(request.tools,[]);
+    return {status:"completed",output_text:JSON.stringify(output)};
+  }}};
+  const result=await generateAssistedWorkout(ctx,client as never);assert.ok(called);assert.equal(result.workout?.provenanceAudit?.gymPercentage,100);
+  const forged=structuredClone(output);forged.exercises[0].provenance.evidenceIds=["fabricated-source"];
+  assert.throws(()=>validateQualityWorkout(JSON.stringify(forged),ctx));
+  forged.exercises[0].provenance={...gym,segmentKey:"invented-cell"};assert.throws(()=>validateQualityWorkout(JSON.stringify(forged),ctx));
+  assert.throws(()=>validateQualityWorkout(JSON.stringify(output),{...ctx,equipment:[]}));
+});
+test("new intake never becomes a canned fallback when evidence retrieval fails",async()=>{
+  const context={...input,schemaVersion:2,intakeContext:{...input.intakeContext!,age:42}} as GenerationInput;
+  const result=await generateIntelligentWorkout(context,{responses:{create:async()=>{throw new Error("Provider unavailable");}}} as never);
+  assert.equal(result.workout,null);assert.equal(result.method,undefined);assert.ok("blocker" in result);
 });

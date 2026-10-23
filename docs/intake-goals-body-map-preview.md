@@ -29,11 +29,13 @@ Additive spot/history tables with RLS and RPC-only writes; injury-review digests
 
 ## Verification and remaining gates
 
-- `npm run lint`, `npm run typecheck`, `npm run test:unit` (82 passed, zero failed) and `npm run build` passed locally.
+- `npm run lint`, `npm run typecheck`, `npm run test:unit` (84 passed, zero failed) and `npm run build` passed locally.
+- Initial draft CI run `40025531935` passed application, secret scanning, migration application, local database lint and all **26 SQL suites**, including ordinary-role injury-history access tests. The subsequently expanded saved-intake/provenance SQL assertions require a fresh CI run; this is not a hosted preview migration apply.
 - `npm run test:e2e -- --workers=1 --global-timeout=180000`, using the repository's explicit noncredential CI environment placeholders: **202 passed, 58 explicit fixture/credential-dependent skips, zero failures, 1.4 minutes**. This is public/unauthenticated regression coverage, not proof of the new authenticated intake.
 - A plain Playwright run cannot start without Supabase environment configuration. Public-only checks use the repository CI placeholders, never as real credentials. Authenticated fixtures must use the isolated preview database and real server-only OpenAI configuration.
 - Required before ready: database migration/lint/all RLS suites; authenticated first-page and multi-spot tests (reload/login, edit, Cancel, failed save and removal); phone/iPad/desktop visual/focus/overflow checks; real evidence retrieval and an inspectable generated draft; restriction/library-gap/ratio/evidence rejection tests; Coach edit/approval and Client completion/next-workout learning.
 - Existing end-to-end intake selectors were updated for the new first two steps. New-intake generation assertions require an actual OpenAI result, not a deterministic fallback.
+- `tests/intake-history.spec.ts` adds isolated-only ordinary-browser coverage for goal replacement, all first-page questions, modal Save visibility/focus/Escape at phone/iPad/desktop widths, independent surgery/unknown spots, cancel, a failed network save retaining values, reload and logout/login persistence. It requires `INTAKE_PREVIEW_CLIENT_ID`, `INTAKE_PREVIEW_COACH_EMAIL` and `INTAKE_PREVIEW_COACH_PASSWORD` for synthetic `.example.test` fixtures, and explicitly rejects the production database/site. **Not executed** while isolation is unavailable.
 - No live sources or generated workout have been claimed verified in this draft. No Netlify preview is claimed working. No production merge/deploy is authorized for this feature.
 
 ## Changed files
@@ -62,6 +64,7 @@ tests/helpers/intake.ts
 tests/beta-readiness.spec.ts
 tests/gym-references.spec.ts
 tests/operations-ui.spec.ts
+tests/intake-history.spec.ts
 tests/unit/intake-history.test.ts
 tests/unit/workout-provenance.test.ts
 docs/intake-goals-body-map-preview.md
