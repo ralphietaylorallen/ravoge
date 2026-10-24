@@ -35,6 +35,19 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Native dropdown popups need solid option colors, not inherited gradients. */
+select,
+select option,
+select optgroup {
+  color-scheme: dark;
+  background-color: #000 !important;
+  color: #fff !important;
+}
+
+select {
+  background-image: none !important;
+}
+
 ::selection {
   background: var(--champagne);
   color: var(--ink);
