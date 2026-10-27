@@ -21,7 +21,7 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
   const program = programs.find(p => p.programming_date === date);
   const dirty = text !== (program?.raw_workout_text ?? ""), days = groupWeek(week), modal = Boolean(leaving || publishing);
   function inform(value: string, isError = false) { setMessage(value); setError(isError); }
-  function merge(rows: GroupProgram[]) { setPrograms(old => [...old.filter(p => !rows.some(row => row.programming_date === p.programming_date)), ...rows]); }
+  function merge(rows: GroupProgram[]) { setPrograms(old => [...old.filter(p => !rows.some(row => row.programming_date === p.programming_date)), ...rows]); setHistory(null); }
   useEffect(() => {
     if (!dirty) return;
     const unload = (event: BeforeUnloadEvent) => { event.preventDefault(); };

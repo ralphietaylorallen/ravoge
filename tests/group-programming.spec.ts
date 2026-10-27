@@ -44,7 +44,7 @@ test("group notepad uses real permission/save/publication paths and never claims
   await coachPage.getByRole("button",{name:"Version history",exact:true}).click(); await expect(coachPage.locator("summary").filter({hasText:"Version 1"})).toContainText("Published");
   await coachPage.getByRole("button",{name:"Republish This Date",exact:true}).click(); await coachPage.getByRole("button",{name:"Publish",exact:true}).click(); await expect(days.nth(0)).toContainText("Published to Ravoge");
   await coachPage.getByRole("button",{name:"Retry Mindbody sync check",exact:true}).click(); await expect(coachPage.getByRole("status").filter({hasText:"Mindbody sync remains unavailable"})).toBeVisible();
-  for (const width of [390,768,820,1024,1440]) { await coachPage.setViewportSize({width,height:1000}); expect(await coachPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true); if ([390,820,1440].includes(width)) await coachPage.screenshot({path:`.temp/group-programming-${width}.png`,fullPage:true}); }
+  for (const width of [390,768,820,1024,1440]) { await coachPage.setViewportSize({width,height:1000}); expect(await coachPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true); if ([390,820,1440].includes(width)) { await coachPage.evaluate(()=>window.scrollTo(0,0)); await coachPage.screenshot({path:`.temp/group-programming-${width}.png`,fullPage:true,style:'[data-netlify-deploy-id] { visibility:hidden!important; }'}); } }
   await coachPage.reload(); await expect(editor).toHaveValue(`${raw}\nUpdated`);
   await coachPage.getByRole("button",{name:"Log out",exact:true}).click(); await login(coachPage,coach);
   await coachPage.goto("/coach/group-programming"); await expect(editor).toHaveValue(`${raw}\nUpdated`);
