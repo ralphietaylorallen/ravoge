@@ -18,7 +18,7 @@ export function ClientDirectory({ clients }: { clients: DirectoryClient[] }) {
       <label className={styles.field}><span className={styles.srOnly}>Search clients</span><input onChange={(event) => setSearch(event.target.value)} placeholder="Search clients…" type="search" value={search} /></label>
       <label className={styles.field}><span className={styles.srOnly}>Client status</span><select onChange={(event) => setStatus(event.target.value)} value={status}><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
       <label className={styles.field}><span className={styles.srOnly}>Assigned coach</span><select onChange={(event) => setCoach(event.target.value)} value={coach}><option value="">All coaches</option><option value="unassigned">Not assigned</option>{coaches.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
-      <Link className={styles.action} href="/owner/apps">+ Invite Client</Link>
+      <Link className={styles.action} href="/owner/clients/invite">+ Invite client</Link>
     </div>
     <div aria-hidden="true" className={styles.directoryHead}><span>Client</span><span>Status</span><span>Coach</span><span>Next session</span><span>Intake</span><span>Latest workout</span><span /></div>
     <ul className={styles.clientRows}>{visible.map((client) => <li key={client.id}><Link aria-label={`Open Client: ${client.name}`} className={styles.clientRow} href={`/owner/clients/${client.id}`}>

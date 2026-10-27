@@ -25,9 +25,10 @@ export default async function LoginPage({
     const legacyEnrollment = await getOrganizationEnrollmentContext(invite);
     redirect(legacyEnrollment ? `/enroll/${legacyEnrollment.role}?token=${encodeURIComponent(invite)}` : "/login?status=invalid-invitation");
   }
+  const handoff = enrollmentToken ? null : await getEnrollmentHandoff();
   const enrollment = enrollmentToken
     ? await getOrganizationEnrollmentContext(enrollmentToken)
-    : (await getEnrollmentHandoff())?.enrollment ?? null;
+    : handoff?.enrollment ?? null;
   return (
     <AuthEntryShell>
       <p className={styles.eyebrow}>Ravoge access</p>
@@ -39,6 +40,8 @@ export default async function LoginPage({
       ) : null}
       {status === "invalid-invitation" && <InvitationRecovery />}
       <LoginForm
+        clientSignupHref={enrollment?.role === "client" && enrollment.enrollmentKind === "email_invitation"
+          ? `/signup/client?enrollment=${encodeURIComponent(enrollmentToken ?? handoff!.token)}` : undefined}
         invitationEmail={enrollment?.email ?? undefined}
         invitationToken={enrollment ? enrollmentToken : undefined}
       />

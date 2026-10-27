@@ -10,6 +10,7 @@ import {
 } from "@/app/auth/actions";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { QrCode } from "@/components/qr-code";
+import { normalizeInvitationEmail } from "@/lib/invitation-input";
 
 import styles from "./dashboard.module.css";
 
@@ -23,6 +24,11 @@ export function InviteForm({ role }: { role: keyof typeof invitationActions }) {
   const emailId = useId();
   const [email, setEmail] = useState("");
   const [state, action, pending] = useActionState<ActionState, FormData>(async (previous, form) => {
+    if (role === "client") {
+      const normalized = normalizeInvitationEmail(String(form.get("email") ?? ""));
+      if (!normalized) return { status: "error", message: "Enter a complete email address, for example name@example.com." };
+      form.set("email", normalized);
+    }
     try {
       const next = await invitationActions[role](previous, form);
       return next.invitationUrl || previous.recipientEmail !== String(form.get("email")).trim().toLowerCase()
@@ -32,10 +38,10 @@ export function InviteForm({ role }: { role: keyof typeof invitationActions }) {
     }
   }, { status: "idle" });
   return (
-    <form action={action} aria-busy={pending} className={styles.form}>
+    <form action={action} aria-busy={pending} className={styles.form} noValidate={role === "client"}>
       <div className={styles.field}>
         <label htmlFor={emailId}>Email</label>
-        <input autoComplete="email" disabled={pending} id={emailId} name="email" onChange={event => setEmail(event.target.value)} required type="email" value={email} />
+        <input autoComplete="email" disabled={pending} id={emailId} inputMode="email" maxLength={320} name="email" onChange={event => setEmail(event.target.value)} required type="email" value={email} />
       </div>
       <button className={styles.action} disabled={pending} type="submit">
         {pending ? "Sending…" : state.emailDeliveryStatus === "failed" || state.emailDeliveryStatus === "not_configured" ? "Retry invitation" : state.invitationUrl ? "Resend invitation" : role === "coach" ? "Send Coach Invite" : role === "client" ? "Send invite" : "Invite owner"}

@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 export default async function OwnerSignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string; status?: string }>;
+  searchParams: Promise<{ enrollment?: string; invite?: string; status?: string }>;
 }) {
-  const { invite, status } = await searchParams;
+  const { enrollment, invite, status } = await searchParams;
   if (invite) {
     const invitation = await getInvitationContext(invite);
     redirect(invitation?.role === "owner" ? `/enroll/owner?token=${encodeURIComponent(invite)}` : "/signup/owner?status=invalid-invitation");
@@ -22,6 +22,7 @@ export default async function OwnerSignupPage({
     <RoleSignupShell
       accountType="Gym Owner"
       description="For operators managing coaches, clients, and private training."
+      enrollmentToken={enrollment}
       invalidInvitation={status === "invalid-invitation"}
       role="owner"
     />

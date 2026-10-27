@@ -8,9 +8,11 @@ import { loginAction } from "@/app/auth/actions";
 import styles from "./auth-entry.module.css";
 
 export function LoginForm({
+  clientSignupHref,
   invitationEmail,
   invitationToken,
 }: {
+  clientSignupHref?: string;
   invitationEmail?: string;
   invitationToken?: string;
 }) {
@@ -62,7 +64,7 @@ export function LoginForm({
 
       <div className={styles.formLinks}>
         <Link href="/reset-password">Forgot password?</Link>
-        <Link href="/signup">
+        <Link href={clientSignupHref ?? "/signup"}>
           Don’t have an account? <strong>Sign up</strong>
         </Link>
       </div>
