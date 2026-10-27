@@ -225,7 +225,6 @@ export async function signupAction(
   const enrollment = await getEnrollmentHandoff();
   const invitationToken = asString(formData.get("invitationToken")) || enrollment?.token || "";
   const hasInvitation = invitationToken.length > 0;
-  let enrollmentKind: "email_invitation" | "organization_qr" | null = null;
 
   if (fullName.length < 2 || fullName.length > 120) {
     return { message: "Enter your full name.", status: "error" };
@@ -267,7 +266,9 @@ export async function signupAction(
     ) {
       return { message: "This enrollment does not match this account type and email.", status: "error" };
     }
-    enrollmentKind = enrollmentContext.enrollment_kind;
+    // The verified invitation record, not the browser's requested route/role,
+    // is the authority for this signup. The acceptance RPC derives the gym too.
+    role = enrollmentContext.role;
     await setSignupCookie(SIGNUP_INVITE_COOKIE, invitationToken);
   } else if (role === "owner") {
     ownerSignupToken = randomBytes(32).toString("base64url");
@@ -324,13 +325,6 @@ export async function signupAction(
           : "Your account is ready, but gym setup needs to be completed.",
         status: "error",
       };
-    }
-    if (
-      role === "client"
-      && provisionedRole === "client"
-      && enrollmentKind !== "organization_qr"
-    ) {
-      redirect("/client/welcome");
     }
     redirect(dashboardForRole(provisionedRole));
   }
@@ -517,6 +511,7 @@ async function createInvitation(role: AccountRole, formData: FormData): Promise<
 
   revalidatePath("/owner/team");
   revalidatePath("/owner/apps");
+  revalidatePath("/owner/clients");
   return {
     emailDeliveryStatus: emailResult.status,
     invitationId: invitation.invitation_id,
@@ -620,6 +615,7 @@ export async function refreshInvitationAction(invitationId: string, _state: Acti
   }
   revalidatePath("/owner/team");
   revalidatePath("/owner/apps");
+  revalidatePath("/owner/clients");
   return { status: "success", invitationId, invitationRole: invitation.role, invitationUrl, recipientEmail: invitation.email, emailDeliveryStatus: delivery?.status,
     message: delivery?.status === "sent" ? `Invitation sent to ${invitation.email}.` : delivery?.status === "not_configured" ? "Email is not configured. Copy the new secure link below." : delivery?.status === "failed" ? delivery.error ?? "Email delivery failed. Copy the new secure link below." : "New secure link ready. The previous link no longer works." };
 }

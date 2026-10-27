@@ -32,12 +32,16 @@ export async function RoleSignupShell({
     ? directEnrollment?.role === role ? directEnrollment : null
     : handoff?.enrollment.role === role ? handoff.enrollment : null;
   const enrollmentIsValid = !invalidInvitation && (!(handoff || enrollmentToken) || Boolean(enrollment));
+  const clientInvitation = role === "client" && Boolean(enrollmentToken || handoff || invalidInvitation);
+  const backHref = clientInvitation
+    ? enrollment && enrollmentToken ? `/login?enrollment=${encodeURIComponent(enrollmentToken)}` : "/login"
+    : "/signup";
 
   return (
     <AuthEntryShell>
-      <Link className={styles.backAction} href="/signup">
+      <Link className={styles.backAction} href={backHref}>
         <span aria-hidden="true">←</span>
-        Back
+        {clientInvitation ? "Sign in instead" : "Back"}
       </Link>
 
       <p className={styles.eyebrow}>{enrollment ? "Secure gym enrollment" : "Selected account type"}</p>

@@ -36,10 +36,11 @@ test("SMTP requires server-only credentials, TLS and explicit recipient acceptan
       assert.deepEqual(mail.from, { name: "Ravoge", address: "sender@example.test" });
       assert.deepEqual(mail.replyTo, mail.from);
       assert.equal(mail.to, input.recipientEmail);
+      assert.deepEqual(mail.envelope, { from: "sender@example.test", to: [input.recipientEmail] });
       assert.ok(!String(mail.html).includes("fixture password"));
       if (outcome === "auth") throw Object.assign(new Error("sensitive recipient@example.test token=secret password=secret"), { code: "EAUTH", responseCode: 535 });
       if (outcome === "network") throw new Error("sensitive connection detail");
-      return { messageId: "smtp-test-id", accepted: outcome === "accepted" ? [input.recipientEmail] : [], rejected: outcome === "rejected" ? [input.recipientEmail] : [] };
+      return { messageId: "smtp-test-id", envelope: mail.envelope, accepted: outcome === "accepted" ? [input.recipientEmail] : [], rejected: outcome === "rejected" ? [input.recipientEmail] : [] };
     } };
   }) as unknown as typeof nodemailer.createTransport);
   try {
@@ -64,6 +65,39 @@ test("SMTP requires server-only credentials, TLS and explicit recipient acceptan
     assert.equal((await sendInvitationEmail(input)).status, "failed");
   } finally {
     for (const key of keys) { if (original[key] === undefined) delete process.env[key]; else process.env[key] = original[key]; }
+  }
+});
+
+test("Client email has the requested copy and a direct role-locked signup button; Coach copy is preserved", () => {
+  const client = createInvitationEmailContent({ ...input, role: "client", invitationUrl: "https://ravoge.com/enroll/client?token=client-unit-test-token" });
+  assert.equal(client.subject, "You’re invited to join Test <gym> on Ravoge");
+  assert.ok(client.text.includes("Test <gym> has invited you to use Ravoge for your training, workouts, progress and scheduling."));
+  assert.ok(client.html.includes(">Create your Ravoge account</a>"));
+  assert.ok(client.html.includes("https://ravoge.com/signup/client?enrollment=client-unit-test-token"));
+  assert.ok(!client.html.includes("/signup/owner"));
+  assert.ok(!client.html.includes("/signup/coach"));
+  assert.ok(!client.html.includes("info@ravoge.com"));
+  assert.ok(createInvitationEmailContent(input).html.includes(">Create your account</a>"));
+});
+
+test("Client SMTP recipient is normalized independently of sender credentials, with no fallback", async t => {
+  const keys = ["SMTP_HOST", "SMTP_USER", "SMTP_PORT", "RAVOGE_SMTP_PASSWORD", "RAVOGE_EMAIL_FROM"];
+  const before = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  let calls = 0;
+  t.mock.method(nodemailer, "createTransport", (() => ({ sendMail: async (mail: Record<string, unknown>) => {
+    calls++;
+    assert.equal(mail.to, "client+training@external.example.test");
+    assert.deepEqual(mail.envelope, { from: "sender@example.test", to: ["client+training@external.example.test"] });
+    assert.deepEqual(mail.replyTo, { name: "Ravoge", address: "sender@example.test" });
+    return { messageId: "client-test-id", envelope: mail.envelope, accepted: ["client+training@external.example.test"], rejected: [] };
+  } })) as unknown as typeof nodemailer.createTransport);
+  try {
+    Object.assign(process.env, { SMTP_HOST: "smtp.office365.com", SMTP_USER: "sender@example.test", SMTP_PORT: "587", RAVOGE_SMTP_PASSWORD: "mock-password", RAVOGE_EMAIL_FROM: "sender@example.test" });
+    assert.equal((await sendInvitationEmail({ ...input, role: "client", recipientEmail: " CLIENT+Training@External.Example.Test " })).status, "sent");
+    for (const recipientEmail of ["", "info", "client@example.test,other@example.test"]) assert.equal((await sendInvitationEmail({ ...input, role: "client", recipientEmail })).status, "failed");
+    assert.equal(calls, 1);
+  } finally {
+    for (const key of keys) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; }
   }
 });
 

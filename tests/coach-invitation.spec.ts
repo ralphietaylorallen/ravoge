@@ -51,3 +51,86 @@ test("Owner email-disabled fallback retains recipient, safely retries and opens 
   await expect(signup).toHaveURL(/invalid-invitation/);
   await context.close();
 });
+
+test("Clients entry sends role-locked Client invitations, signs up once and supports existing accounts", async ({ page, browser }, testInfo) => {
+  test.skip(process.env.RAVOGE_INVITATION_QA !== "yes" || testInfo.project.name !== "desktop", "Explicit disposable invitation fixture required; SMTP is disabled, not delivery proof.");
+  test.setTimeout(150_000);
+  const users = JSON.parse(process.env.BETA_QA_USERS ?? "[]") as Array<{ email: string; password: string; role: string }>;
+  const owner = users.find(user => user.role === "owner")!;
+  const existing = users.find(user => user.role === "existing_client")!;
+  const recipient = process.env.BETA_QA_NEW_CLIENT_EMAIL!;
+  expect(recipient).toMatch(/^qa-beta-.+@example\.test$/);
+  const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false } });
+  await db.auth.signInWithPassword({ email: owner.email, password: owner.password });
+  await page.goto("/login");
+  await page.getByLabel("Email", { exact: true }).fill(owner.email);
+  await page.getByLabel("Password", { exact: true }).fill(owner.password);
+  await page.getByRole("button", { name: "Login", exact: true }).click();
+  await expect(page).toHaveURL(/\/owner$/, { timeout: 25_000 });
+  await page.goto("/owner/clients");
+  await page.getByRole("link", { name: /Invite client/i }).click();
+  await expect(page).toHaveURL(/\/owner\/clients\/invite$/);
+  const form = page.locator("form").filter({ has: page.getByLabel("Email", { exact: true }) });
+  await form.getByLabel("Email", { exact: true }).fill("incomplete");
+  await form.getByRole("button", { name: "Send invite", exact: true }).click();
+  await expect(form.getByRole("status")).toContainText("complete email address");
+  await form.getByLabel("Email", { exact: true }).fill(recipient.toUpperCase());
+  await form.getByRole("button", { name: "Send invite", exact: true }).click();
+  await expect(form.getByRole("status")).toContainText("not configured");
+  const link = await form.getByRole("link", { name: "Open secure invitation" }).getAttribute("href");
+  const invite = new URL(link!);
+  const signupPath = `${invite.origin}/signup/client?enrollment=${encodeURIComponent(invite.searchParams.get("token")!)}`;
+  const rows = await db.from("organization_invitations").select("id,role,organization_id").eq("email", recipient).is("revoked_at", null);
+  expect(rows.error).toBeNull(); expect(rows.data).toHaveLength(1); expect(rows.data![0].role).toBe("client");
+  const invitationId = rows.data![0].id, organizationId = rows.data![0].organization_id;
+  for (const width of [390, 820, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  const clientContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const client = await clientContext.newPage();
+  await client.goto(signupPath.replace("/signup/client", "/signup/owner"));
+  await expect(client.getByRole("alert").filter({ hasText: "another account type" })).toBeVisible();
+  await expect(client.getByRole("button", { name: "Create account" })).toHaveCount(0);
+  await client.goto(signupPath);
+  await expect(client.getByLabel("Email", { exact: true })).toHaveValue(recipient);
+  await expect(client.getByLabel("Email", { exact: true })).toHaveAttribute("readonly", "");
+  await expect(client.getByRole("link", { name: "Sign in instead", exact: true })).toHaveAttribute("href", /\/login\?enrollment=/);
+  await expect(client.locator('a[href="/signup"]')).toHaveCount(0);
+  await client.getByLabel("Full name").fill("Invitation QA Client");
+  await client.getByLabel("Password", { exact: true }).fill(owner.password);
+  await client.getByLabel("Confirm password").fill(owner.password);
+  await client.getByRole("button", { name: "Create account" }).click();
+  await expect(client).toHaveURL(/\/client$/, { timeout: 25_000 });
+  await expect(client.getByRole("navigation", { name: "client navigation" })).toBeVisible();
+  for (const denied of ["/owner", "/coach", "/owner/clients/invite"]) {
+    await client.goto(`${invite.origin}${denied}`); await expect(client).toHaveURL(/\/client$/);
+  }
+  await page.goto("/owner/clients");
+  await expect(page.getByRole("link", { name: "Open Client: Invitation QA Client", exact: true })).toHaveCount(1);
+  const accepted = await db.from("organization_invitations").select("accepted_by").eq("id", invitationId).single();
+  const memberships = await db.from("organization_memberships").select("role,organization_id,invitation_id").eq("user_id", accepted.data!.accepted_by);
+  expect(memberships.data).toHaveLength(1);
+  expect(memberships.data![0]).toMatchObject({ role: "client", organization_id: organizationId, invitation_id: invitationId });
+  await client.getByRole("button", { name: "Log out", exact: true }).click();
+  await expect(client).toHaveURL(/\/login$/);
+  await client.getByLabel("Email", { exact: true }).fill(recipient);
+  await client.getByLabel("Password", { exact: true }).fill(owner.password);
+  await client.getByRole("button", { name: "Login", exact: true }).click();
+  await expect(client).toHaveURL(/\/client$/, { timeout: 25_000 });
+  await clientContext.close();
+  // An existing, unaffiliated Client joins through ordinary sign-in, not another signup.
+  await page.goto("/owner/clients/invite");
+  await page.getByLabel("Email", { exact: true }).fill(existing.email);
+  await page.getByRole("button", { name: "Send invite", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("not configured");
+  const existingLink = new URL((await page.getByRole("link", { name: "Open secure invitation" }).getAttribute("href"))!);
+  const existingContext = await browser.newContext(); const existingPage = await existingContext.newPage();
+  await existingPage.goto(`${existingLink.origin}/signup/client?enrollment=${encodeURIComponent(existingLink.searchParams.get("token")!)}`);
+  await existingPage.getByRole("link", { name: "Sign in instead", exact: true }).click();
+  await expect(existingPage.getByLabel("Email", { exact: true })).toHaveValue(existing.email);
+  await existingPage.getByLabel("Password", { exact: true }).fill(existing.password);
+  await existingPage.getByRole("button", { name: "Login", exact: true }).click();
+  await expect(existingPage).toHaveURL(/\/client$/, { timeout: 25_000 });
+  await existingContext.close(); await db.auth.signOut();
+});
