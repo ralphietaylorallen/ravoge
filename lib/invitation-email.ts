@@ -1,5 +1,7 @@
 import "server-only";
 
+import nodemailer from "nodemailer";
+
 type InvitationEmail = {
   invitationUrl: string;
   organizationName: string;
@@ -17,10 +19,18 @@ function escapeHtml(value: string) {
   })[character] ?? character);
 }
 
+function smtpPort() {
+  const value = Number(process.env.SMTP_PORT || 587);
+  return Number.isInteger(value) && value > 0 ? value : 587;
+}
+
 export async function sendInvitationEmail(input: InvitationEmail) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RAVOGE_EMAIL_FROM;
-  if (!apiKey || !from) {
+  const host = process.env.SMTP_HOST?.trim();
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim() || process.env.RAVOGE_SMTP_PASSWORD?.trim();
+  const from = process.env.RAVOGE_EMAIL_FROM?.trim();
+
+  if (!host || !user || !pass || !from) {
     return { error: null, id: null, status: "not_configured" as const };
   }
 
@@ -28,33 +38,36 @@ export async function sendInvitationEmail(input: InvitationEmail) {
   const html = `<!doctype html><html><body style="margin:0;background:#f4f2ed;color:#171918;font-family:Arial,sans-serif"><div style="max-width:620px;margin:0 auto;padding:42px 24px"><div style="background:#fff;border:1px solid #ddd8ce;padding:38px"><p style="margin:0 0 34px;letter-spacing:.28em;font-weight:700">RAVOGE</p><p style="margin:0;color:#8a6b3d;font-size:12px;letter-spacing:.18em;font-weight:700">${roleLabel.toUpperCase()} INVITATION</p><h1 style="margin:18px 0 10px;font-size:31px">Join ${escapeHtml(input.organizationName)}</h1><p style="margin:0;color:#666;line-height:1.65">Use your own Ravoge account to accept this secure, email-bound invitation.</p><a href="${escapeHtml(input.invitationUrl)}" style="display:block;margin-top:28px;padding:14px;background:#171918;color:#fff;text-align:center;text-decoration:none;font-weight:700">Get Ravoge</a><p style="margin:16px 0 0;color:#666;line-height:1.65">Install Ravoge, create your password, and you’re connected.</p><p style="margin:26px 0 0;color:#777;font-size:12px;line-height:1.55">No password is included. This link is intended only for ${escapeHtml(input.recipientEmail)} and expires automatically.</p></div></div></body></html>`;
 
   try {
-    const response = await fetch("https://api.resend.com/emails", {
-      body: JSON.stringify({
-        from,
-        html,
-        text: `Join ${input.organizationName} on Ravoge as ${roleLabel}.\n\nGet Ravoge: ${input.invitationUrl}\n\nInstall Ravoge, create your password, and you’re connected.\n\nThis secure invitation is intended only for ${input.recipientEmail} and expires automatically. No password is included.`,
-        subject: `Join ${input.organizationName} on Ravoge as ${roleLabel}`,
-        to: [input.recipientEmail],
-      }),
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-      signal: AbortSignal.timeout(10_000),
+    const port = smtpPort();
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: process.env.SMTP_SECURE === "true" || port === 465,
+      auth: { user, pass },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
     });
-    const payload = await response.json() as { id?: string; message?: string };
-    if (!response.ok || !payload.id) {
-      return {
-        error: `Email provider rejected delivery (${response.status}). Check the sender and provider configuration.`,
-        id: null,
-        status: "failed" as const,
-      };
-    }
-    return { error: null, id: payload.id, status: "sent" as const };
-  } catch {
+
+    const info = await transporter.sendMail({
+      from: { name: "Ravoge", address: from },
+      to: input.recipientEmail,
+      subject: `Join ${input.organizationName} on Ravoge as ${roleLabel}`,
+      html,
+      text: `Join ${input.organizationName} on Ravoge as ${roleLabel}.\n\nGet Ravoge: ${input.invitationUrl}\n\nInstall Ravoge, create your password, and you’re connected.\n\nThis secure invitation is intended only for ${input.recipientEmail} and expires automatically. No password is included.`,
+    });
+
     return {
-      error: "Transactional email provider could not be reached.",
+      error: null,
+      id: typeof info.messageId === "string" ? info.messageId : null,
+      status: "sent" as const,
+    };
+  } catch (error) {
+    console.error("[Ravoge email] SMTP invitation delivery failed", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    return {
+      error: "SMTP email delivery failed. Check the Microsoft 365 mailbox and SMTP configuration.",
       id: null,
       status: "failed" as const,
     };
