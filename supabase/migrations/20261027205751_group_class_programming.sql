@@ -102,6 +102,19 @@ returns boolean language sql stable security invoker set search_path = '' as $$ 
 revoke all on function public.can_manage_group_programming() from public,anon;
 grant execute on function public.can_manage_group_programming() to authenticated;
 
+-- Minimal editor labels for this shared workspace, without broadening profile RLS.
+create function private.group_programming_team()
+returns table(user_id uuid,full_name text,role public.organization_role,status public.membership_status)
+language sql stable security definer set search_path = '' as $$
+  select m.user_id,p.full_name,m.role,m.status from public.organization_memberships m join public.profiles p on p.id=m.user_id
+  where m.organization_id=private.group_programming_organization() and m.role in ('owner','coach');
+$$;
+create function public.group_programming_team()
+returns table(user_id uuid,full_name text,role public.organization_role,status public.membership_status)
+language sql stable security invoker set search_path = '' as $$ select * from private.group_programming_team(); $$;
+revoke all on function private.group_programming_team(),public.group_programming_team() from public,anon;
+grant execute on function private.group_programming_team(),public.group_programming_team() to authenticated;
+
 create function private.set_group_programming_permission(target_coach uuid, allowed boolean)
 returns void language plpgsql security definer set search_path = '' as $$
 declare org uuid := private.group_programming_organization();

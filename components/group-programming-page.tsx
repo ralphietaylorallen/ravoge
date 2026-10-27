@@ -20,13 +20,13 @@ export async function GroupProgrammingPage({ role }: { role: "owner" | "coach" }
   const [{ data: programs, error }, { data: permissions }, { data: members }] = await Promise.all([
     supabase.from("group_daily_programs").select("*").eq("organization_id", membership.organization_id).in("programming_date", groupWeek(week)),
     supabase.from("group_programming_permissions").select("coach_user_id").eq("organization_id", membership.organization_id),
-    supabase.from("organization_memberships").select("user_id,role").eq("organization_id", membership.organization_id).eq("status", "active").in("role", ["owner", "coach"]),
+    supabase.rpc("group_programming_team"),
   ]);
-  const { data: profiles } = await supabase.from("profiles").select("id,full_name").in("id", (members ?? []).map(m => m.user_id));
-  const names = Object.fromEntries((profiles ?? []).map(p => [p.id, p.full_name]));
+  const team = (members ?? []) as { user_id: string; full_name: string; role: string; status: string }[];
+  const names = Object.fromEntries(team.map(p => [p.user_id, p.full_name]));
   return <DashboardShell compact role={role} gymName={gym} name={profile?.full_name ?? role}>
     <div className={dashboardStyles.pageHeading}><div><h2>Group Class Programming</h2><p className={dashboardStyles.profileMeta}>Your gym’s weekly workout notepad. Monday–Saturday.</p></div>{role === "owner" && <Link className={dashboardStyles.textAction} href="/owner/mindbody">Mindbody Integration</Link>}</div>
     <GroupProgramming role={role} gym={gym} initialWeek={week} currentWeek={week} initialPrograms={programs ?? []} names={names} initialError={error ? "Programming could not load. Try reloading before editing." : undefined} />
-    {role === "owner" && <section className={styles.panel}><h3>Coach access</h3><p className={styles.hint}>Only Owners and the Coaches you enable here can manage group programming. This grants no Owner controls.</p>{(members ?? []).filter(m => m.role === "coach").map(m => <GroupPermissionForm key={m.user_id} coachId={m.user_id} name={names[m.user_id] ?? "Coach"} allowed={Boolean(permissions?.some(p => p.coach_user_id === m.user_id))} />)}{!members?.some(m => m.role === "coach") && <p>No active Coaches yet.</p>}</section>}
+    {role === "owner" && <section className={styles.panel}><h3>Coach access</h3><p className={styles.hint}>Only Owners and the Coaches you enable here can manage group programming. This grants no Owner controls.</p>{team.filter(m => m.role === "coach" && m.status === "active").map(m => <GroupPermissionForm key={m.user_id} coachId={m.user_id} name={names[m.user_id] ?? "Coach"} allowed={Boolean(permissions?.some(p => p.coach_user_id === m.user_id))} />)}{!team.some(m => m.role === "coach" && m.status === "active") && <p>No active Coaches yet.</p>}</section>}
   </DashboardShell>;
 }

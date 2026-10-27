@@ -27,6 +27,7 @@ end $$;
 select set_config('request.jwt.claim.sub','95000000-0000-0000-0000-000000000002',true);
 do $$ declare row public.group_daily_programs; d date; raw_text text := E'  EMOM 12\n1. Row 250 m\n2. 8 / side @ 55 lb\n3. 65%\tAMRAP  \n'; begin
   if not public.can_manage_group_programming() then raise exception 'Authorized Coach denied'; end if;
+  if (select count(*) from public.group_programming_team())<>3 then raise exception 'Shared editor labels missing or overexposed'; end if;
   for d in select generate_series(date '2026-11-02',date '2026-11-07',interval '1 day')::date loop
     row:=public.save_group_program(d,case when d=date '2026-11-07' then E' \n\t' else raw_text||d::text end,0);
     if row.organization_id<>'95a00000-0000-0000-0000-000000000001' or row.created_by<>auth.uid() then raise exception 'Wrong gym or author'; end if;
@@ -67,7 +68,7 @@ end $$;
 
 select set_config('request.jwt.claim.sub','95000000-0000-0000-0000-000000000003',true);
 do $$ begin
-  if public.can_manage_group_programming() or exists(select 1 from public.group_daily_programs) then raise exception 'Unauthorized Coach read'; end if;
+  if public.can_manage_group_programming() or exists(select 1 from public.group_daily_programs) or exists(select 1 from public.group_programming_team()) then raise exception 'Unauthorized Coach read'; end if;
   begin perform public.save_group_program('2026-11-02','denied',0); raise exception 'Unauthorized Coach saved'; exception when insufficient_privilege then null; end;
   begin perform public.publish_group_program('2026-11-02',2); raise exception 'Unauthorized Coach published'; exception when insufficient_privilege then null; end;
 end $$;
