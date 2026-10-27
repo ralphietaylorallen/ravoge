@@ -31,7 +31,7 @@ do $$ declare row public.group_daily_programs; d date; raw_text text := E'  EMOM
   for d in select generate_series(date '2026-11-02',date '2026-11-07',interval '1 day')::date loop
     row:=public.save_group_program(d,case when d=date '2026-11-07' then E' \n\t' else raw_text||d::text end,0);
     if row.organization_id<>'95a00000-0000-0000-0000-000000000001' or row.created_by<>auth.uid() then raise exception 'Wrong gym or author'; end if;
-    if row.raw_workout_text is distinct from case when d=date '2026-11-07' then E' \n\t' else raw_text||d::text end then raise exception 'Formatting lost'; end if;
+    if row.raw_workout_text is distinct from (case when d=date '2026-11-07' then E' \n\t' else raw_text||d::text end) then raise exception 'Formatting lost'; end if;
   end loop;
   if exists(select 1 from public.group_program_sync_attempts) then raise exception 'Draft triggered sync'; end if;
   row:=public.publish_group_program('2026-11-02',1);

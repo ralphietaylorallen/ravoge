@@ -16,6 +16,7 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
   const [message, setMessage] = useState(initialError ?? ""), [error, setError] = useState(Boolean(initialError));
   const [leaving, setLeaving] = useState<{ date?: string; week?: string; href?: string } | null>(null);
   const [publishing, setPublishing] = useState<string[] | null>(null), [history, setHistory] = useState<GroupVersion[] | null>(null);
+  const [activePublishingDates, setActivePublishingDates] = useState<string[]>([]);
   const dialog = useRef<HTMLDivElement>(null), priorFocus = useRef<HTMLElement | null>(null);
   const program = programs.find(p => p.programming_date === date);
   const dirty = text !== (program?.raw_workout_text ?? ""), days = groupWeek(week), modal = Boolean(leaving || publishing);
@@ -80,12 +81,12 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
     setPublishing(ready);
   }
   async function publish(dates: string[], retry = false) {
-    setBusy(retry ? "Checking Mindbody sync…" : "Publishing…"); setPublishing(null);
+    setBusy(retry ? "Checking Mindbody sync…" : "Publishing…"); setActivePublishingDates(dates); setPublishing(null);
     try {
       const result = await publishGroupDatesAction(role, dates.map(day => ({ date: day, revision: programs.find(p => p.programming_date === day)!.revision })), retry);
       if (result.programs) merge(result.programs); inform(result.message, result.status === "error");
     } catch { inform("Publication was not confirmed. Reload this week before retrying.", true); }
-    finally { setBusy(""); }
+    finally { setBusy(""); setActivePublishingDates([]); }
   }
   async function showHistory() {
     if (!program) return; setBusy("Loading history…");
@@ -102,7 +103,7 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
     <div className={styles.week} aria-label="Monday through Saturday">
       {days.map(day => <div key={day} className={styles.dateCard} data-selected={day === date}>
         <button className={styles.day} aria-pressed={day === date} disabled={Boolean(busy)} onClick={() => day !== date && leave({ date: day })}>
-          <strong>{groupDateLabel(day)}</strong><small>{busy === "Publishing…" && day === date ? "Publishing" : groupStatus(programs.find(p => p.programming_date === day), day === date && dirty)}</small>
+          <strong>{groupDateLabel(day)}</strong><small>{activePublishingDates.includes(day) ? "Publishing" : groupStatus(programs.find(p => p.programming_date === day), day === date && dirty)}</small>
         </button>
         <label className={styles.check}><input aria-label={`Select ${groupDateLabel(day, true)}`} type="checkbox" checked={selected.includes(day)} disabled={Boolean(busy)} onChange={e => setSelected(e.target.checked ? [...selected, day] : selected.filter(d => d !== day))} />Select date</label>
       </div>)}
