@@ -27,7 +27,7 @@ function smtpPort() {
 export async function sendInvitationEmail(input: InvitationEmail) {
   const host = process.env.SMTP_HOST?.trim();
   const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_PASS?.trim() || process.env.RAVOGE_SMTP_PASSWORD?.trim();
+  const pass = process.env.RAVOGE_SMTP_PASSWORD?.trim() || process.env.SMTP_PASS?.trim();
   const from = process.env.RAVOGE_EMAIL_FROM?.trim();
 
   if (!host || !user || !pass || !from) {
