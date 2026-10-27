@@ -456,6 +456,19 @@ async function createInvitation(role: AccountRole, formData: FormData): Promise<
   if (!userId) return { message: "Sign in again.", status: "error" };
   const membership = await getActiveMembership(userId, supabase);
   if (!membership) return { message: "Active gym access is required.", status: "error" };
+  if (role !== "client" && membership.role !== "owner") return { message: "Only an active Owner can send this invitation.", status: "error" };
+
+  // Preserve the existing pending row on retries; rotate only through the existing RPC.
+  if (membership.role === "owner") {
+    const { data: pendingInvite, error: lookupError } = await supabase.from("organization_invitations")
+      .select("id").eq("organization_id", membership.organization_id).eq("email", email).eq("role", role)
+      .is("accepted_at", null).is("revoked_at", null).maybeSingle();
+    if (lookupError) return { message: "Invitations could not be checked. Refresh and try again.", status: "error" };
+    if (pendingInvite) {
+      const resend = new FormData(); resend.set("intent", "resend");
+      return refreshInvitationAction(pendingInvite.id, { status: "idle" }, resend);
+    }
+  }
 
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
@@ -483,11 +496,13 @@ async function createInvitation(role: AccountRole, formData: FormData): Promise<
   const origin = await getRequestOrigin();
   const path = `/enroll/${role}?token=${encodeURIComponent(token)}`;
   const invitationUrl = `${origin}${path}`;
+  const { data: inviter } = await supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle();
   const emailResult = await sendInvitationEmail({
     invitationUrl,
     organizationName: invitation.organization_name,
     recipientEmail: invitation.email,
     role: invitation.role,
+    inviterName: inviter?.full_name,
   });
   const { error: deliveryError } = await supabase.rpc(
     "record_organization_invitation_delivery",
@@ -501,16 +516,17 @@ async function createInvitation(role: AccountRole, formData: FormData): Promise<
   if (deliveryError) logAuthError("invitation delivery status", deliveryError);
 
   revalidatePath("/owner/team");
+  revalidatePath("/owner/apps");
   return {
     emailDeliveryStatus: emailResult.status,
     invitationId: invitation.invitation_id,
     invitationRole: role,
     invitationUrl,
     message: emailResult.status === "sent"
-      ? `Invitation submitted to the email provider for ${invitation.email}.`
+      ? `Invitation sent to ${invitation.email}.`
       : emailResult.status === "not_configured"
         ? "Email delivery is not configured. The secure invitation is ready to copy."
-        : "Email delivery failed. The secure invitation is still ready to copy.",
+        : emailResult.error ?? "Email delivery failed. The secure invitation is still ready to copy.",
     recipientEmail: invitation.email,
     status: "success",
   };
@@ -574,8 +590,17 @@ export async function bulkInviteAction(_state: BulkInvitationState, form: FormDa
 }
 
 export async function refreshInvitationAction(invitationId: string, _state: ActionState, form: FormData): Promise<ActionState> {
-  const { supabase } = await requireRole("owner");
+  const { supabase, membership, userId } = await requireRole("owner");
   if (!/^[0-9a-f-]{36}$/i.test(invitationId)) return { status: "error", message: "Invitation unavailable." };
+  const resend = form.get("intent") === "resend";
+  const { data: pending, error: lookupError } = await supabase.from("organization_invitations")
+    .select("delivery_attempted_at, delivery_status, email, role").eq("id", invitationId).eq("organization_id", membership.organization_id)
+    .is("accepted_at", null).is("revoked_at", null).maybeSingle();
+  if (lookupError || !pending) return { status: "error", message: "Invitation unavailable. Refresh Team and try again." };
+  if (resend && pending.delivery_status !== "not_configured" && pending.delivery_attempted_at && Date.now() - Date.parse(pending.delivery_attempted_at) < 60_000) {
+    return { status: "error", invitationId, recipientEmail: pending.email, invitationRole: pending.role,
+      message: "Please wait one minute before resending. The existing invitation is still valid; you can copy its link below or open Team." };
+  }
   const token = randomBytes(32).toString("base64url");
   const { data, error } = await supabase.rpc("refresh_organization_invitation", {
     target_invitation_id: invitationId,
@@ -585,8 +610,8 @@ export async function refreshInvitationAction(invitationId: string, _state: Acti
   const invitation = (data as Array<{ email: string; role: AccountRole; organization_name: string }> | null)?.[0];
   if (error || !invitation) return { status: "error", message: "This invitation cannot be refreshed. Check that it has not been accepted or revoked." };
   const invitationUrl = `${await getRequestOrigin()}/enroll/${invitation.role}?token=${encodeURIComponent(token)}`;
-  const resend = form.get("intent") === "resend";
-  const delivery = resend ? await sendInvitationEmail({ invitationUrl, organizationName: invitation.organization_name, recipientEmail: invitation.email, role: invitation.role }) : null;
+  const { data: inviter } = await supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle();
+  const delivery = resend ? await sendInvitationEmail({ invitationUrl, organizationName: invitation.organization_name, recipientEmail: invitation.email, role: invitation.role, inviterName: inviter?.full_name }) : null;
   if (delivery) {
     await supabase.rpc("record_organization_invitation_delivery", {
       target_invitation_id: invitationId, new_delivery_status: delivery.status,
@@ -594,6 +619,7 @@ export async function refreshInvitationAction(invitationId: string, _state: Acti
     });
   }
   revalidatePath("/owner/team");
-  return { status: "success", invitationUrl, recipientEmail: invitation.email, emailDeliveryStatus: delivery?.status,
-    message: delivery?.status === "sent" ? "Invitation submitted to the email provider." : delivery?.status === "not_configured" ? "Email is not configured. Copy the new secure link below." : delivery?.status === "failed" ? "Email delivery failed. Copy the new secure link below." : "New secure link ready. The previous link no longer works." };
+  revalidatePath("/owner/apps");
+  return { status: "success", invitationId, invitationRole: invitation.role, invitationUrl, recipientEmail: invitation.email, emailDeliveryStatus: delivery?.status,
+    message: delivery?.status === "sent" ? `Invitation sent to ${invitation.email}.` : delivery?.status === "not_configured" ? "Email is not configured. Copy the new secure link below." : delivery?.status === "failed" ? delivery.error ?? "Email delivery failed. Copy the new secure link below." : "New secure link ready. The previous link no longer works." };
 }
