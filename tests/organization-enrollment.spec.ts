@@ -47,7 +47,7 @@ test("real organization QRs preserve install-first context and enforce lifecycle
   const clientCard = page.locator('[data-enrollment-card="client"]');
   const coachCard = page.locator('[data-app-access-card="coach"]');
   await expect(clientCard.getByText(gymName)).toBeVisible();
-  await expect(coachCard.getByText(/Each Coach needs their own email invitation/i)).toBeVisible();
+  await expect(coachCard.getByText(/Installation alone does not grant gym access/i)).toBeVisible();
   const initialClientUrl = await clientCard.locator("[data-qr-value]").getAttribute("data-qr-value");
   const coachUrl = await coachCard.locator("[data-qr-value]").getAttribute("data-qr-value");
   expect(initialClientUrl).toMatch(/^https:\/\/ravoge\.com\/enroll\/client\?token=[A-Za-z0-9_-]{43}$/);
@@ -57,7 +57,7 @@ test("real organization QRs preserve install-first context and enforce lifecycle
   await page.goto("/owner/team");
   const coachInviteForm = page.locator("section").filter({has: page.getByRole("heading", {name: "Invite coach", exact: true})}).locator("form");
   await coachInviteForm.getByLabel("Email", {exact: true}).fill(coachEmail);
-  await coachInviteForm.getByRole("button", {name: "Invite coach", exact: true}).click();
+  await coachInviteForm.getByRole("button", {name: "Send Coach Invite", exact: true}).click();
   const coachInvitationUrl = await coachInviteForm.getByRole("link", {name: "Open secure invitation"}).getAttribute("href");
   const coachPath = `${new URL(coachInvitationUrl!).pathname}${new URL(coachInvitationUrl!).search}`;
 

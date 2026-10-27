@@ -7,6 +7,7 @@ type InvitationEmail = {
   organizationName: string;
   recipientEmail: string;
   role: "owner" | "coach" | "client";
+  inviterName?: string;
 };
 
 function escapeHtml(value: string) {
@@ -19,30 +20,44 @@ function escapeHtml(value: string) {
   })[character] ?? character);
 }
 
-function smtpPort() {
-  const value = Number(process.env.SMTP_PORT || 587);
-  return Number.isInteger(value) && value > 0 ? value : 587;
+export function createInvitationEmailContent(input: InvitationEmail) {
+  const roleLabel = input.role === "owner" ? "Owner" : input.role === "coach" ? "Coach" : "Client";
+  const url = new URL(input.invitationUrl);
+  // Use the existing email-bound signup screen. Installation remains a separate step.
+  const token = url.searchParams.get("token");
+  if (url.pathname === `/enroll/${input.role}` && token) {
+    url.pathname = `/signup/${input.role}`;
+    url.search = new URLSearchParams({ enrollment: token }).toString();
+  }
+  const invitationUrl = url.href;
+  const invitation = `${input.inviterName?.trim() || "Your gym"} invited you to join ${input.organizationName} as ${roleLabel === "Owner" ? "an" : "a"} ${roleLabel} on Ravoge.`;
+  const instructions = `Use the invited email address (${input.recipientEmail}) to create your password and ${roleLabel} profile. Already have an account? Sign in from the invitation page.`;
+  const footer = "If you were not expecting this invitation, you can ignore this email.";
+  const html = `<!doctype html><html><body style="margin:0;background:#050606;color:#f6f5f3;font-family:Arial,sans-serif"><div style="max-width:560px;margin:0 auto;padding:36px 20px"><div style="background:#101211;border:1px solid #776343;padding:28px"><p style="margin:0 0 28px;letter-spacing:.28em;font-weight:700"><img src="https://ravoge.com/brand/ravoge-wolf-transparent.png" alt="" width="40" height="50" style="vertical-align:middle;object-fit:contain;margin-right:12px" />RAVOGE</p><h1 style="font-size:28px;line-height:1.25">You’re invited to ${escapeHtml(input.organizationName)}</h1><p style="line-height:1.6">${escapeHtml(invitation)}</p><p style="line-height:1.6;color:#d2cec5">${escapeHtml(instructions)}</p><a href="${escapeHtml(invitationUrl)}" style="display:block;margin:28px 0;padding:18px 12px;background:#e4bb70;color:#050606;text-align:center;text-decoration:none;font-weight:700;border-radius:4px">Create your account</a><p style="font-size:13px;line-height:1.6;color:#d2cec5">Button not working? Open this secure invitation:<br/><a href="${escapeHtml(invitationUrl)}" style="color:#e4bb70;word-break:break-all">${escapeHtml(invitationUrl)}</a></p><p style="font-size:13px;line-height:1.6;color:#d2cec5">This email-bound link expires automatically. No password is included. After joining, you can add Ravoge to your device’s Home Screen.</p><p style="font-size:12px;line-height:1.6;color:#aaa69f">${footer}</p></div></div></body></html>`;
+  return { html, subject: `You’re invited to ${input.role === "coach" ? "coach at " : "join "}${input.organizationName} on Ravoge`, text: `${invitation}\n\n${instructions}\n\nCreate your account: ${invitationUrl}\n\nThis secure invitation expires automatically. No password is included.\n\n${footer}` };
 }
 
 export async function sendInvitationEmail(input: InvitationEmail) {
   const host = process.env.SMTP_HOST?.trim();
   const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.RAVOGE_SMTP_PASSWORD?.trim() || process.env.SMTP_PASS?.trim();
-  const from = process.env.RAVOGE_EMAIL_FROM?.trim();
+  const pass = process.env.RAVOGE_SMTP_PASSWORD;
+  const fromValue = process.env.RAVOGE_EMAIL_FROM?.trim();
+  const from = fromValue?.match(/^(?:Ravoge\s*<)?([^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>?$/i)?.[1];
 
   if (!host || !user || !pass || !from) {
     return { error: null, id: null, status: "not_configured" as const };
   }
 
-  const roleLabel = input.role === "owner" ? "Owner" : input.role === "coach" ? "Coach" : "Client";
-  const html = `<!doctype html><html><body style="margin:0;background:#f4f2ed;color:#171918;font-family:Arial,sans-serif"><div style="max-width:620px;margin:0 auto;padding:42px 24px"><div style="background:#fff;border:1px solid #ddd8ce;padding:38px"><p style="margin:0 0 34px;letter-spacing:.28em;font-weight:700">RAVOGE</p><p style="margin:0;color:#8a6b3d;font-size:12px;letter-spacing:.18em;font-weight:700">${roleLabel.toUpperCase()} INVITATION</p><h1 style="margin:18px 0 10px;font-size:31px">Join ${escapeHtml(input.organizationName)}</h1><p style="margin:0;color:#666;line-height:1.65">Use your own Ravoge account to accept this secure, email-bound invitation.</p><a href="${escapeHtml(input.invitationUrl)}" style="display:block;margin-top:28px;padding:14px;background:#171918;color:#fff;text-align:center;text-decoration:none;font-weight:700">Get Ravoge</a><p style="margin:16px 0 0;color:#666;line-height:1.65">Install Ravoge, create your password, and you’re connected.</p><p style="margin:26px 0 0;color:#777;font-size:12px;line-height:1.55">No password is included. This link is intended only for ${escapeHtml(input.recipientEmail)} and expires automatically.</p></div></div></body></html>`;
-
   try {
-    const port = smtpPort();
+    const port = Number(process.env.SMTP_PORT || 587);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) throw { code: "ECONFIG" };
+    const { html, subject, text } = createInvitationEmailContent(input);
     const transporter = nodemailer.createTransport({
       host,
       port,
       secure: process.env.SMTP_SECURE === "true" || port === 465,
+      requireTLS: true,
+      tls: { minVersion: "TLSv1.2" },
       auth: { user, pass },
       connectionTimeout: 10_000,
       greetingTimeout: 10_000,
@@ -51,11 +66,14 @@ export async function sendInvitationEmail(input: InvitationEmail) {
 
     const info = await transporter.sendMail({
       from: { name: "Ravoge", address: from },
+      replyTo: { name: "Ravoge", address: from },
       to: input.recipientEmail,
-      subject: `Join ${input.organizationName} on Ravoge as ${roleLabel}`,
+      subject,
       html,
-      text: `Join ${input.organizationName} on Ravoge as ${roleLabel}.\n\nGet Ravoge: ${input.invitationUrl}\n\nInstall Ravoge, create your password, and you’re connected.\n\nThis secure invitation is intended only for ${input.recipientEmail} and expires automatically. No password is included.`,
+      text,
     });
+
+    if (!info.accepted?.some(address => String(address).toLowerCase() === input.recipientEmail.toLowerCase()) || info.rejected?.length) throw { code: "ERECIPIENT" };
 
     return {
       error: null,
@@ -63,11 +81,12 @@ export async function sendInvitationEmail(input: InvitationEmail) {
       status: "sent" as const,
     };
   } catch (error) {
-    console.error("[Ravoge email] SMTP invitation delivery failed", {
-      message: error instanceof Error ? error.message : "unknown",
-    });
+    // SMTP response/message can contain addresses, credentials or the invitation URL.
+    const details = error as { code?: string; responseCode?: number } | null;
+    const code = ["EAUTH", "ECONNECTION", "ESOCKET", "ETIMEDOUT", "ETLS", "EENVELOPE", "EMESSAGE", "ERECIPIENT", "ECONFIG"].includes(details?.code ?? "") ? details!.code : "unknown";
+    console.error("[Ravoge email] SMTP invitation delivery failed", { code, responseCode: typeof details?.responseCode === "number" ? details.responseCode : undefined });
     return {
-      error: "SMTP email delivery failed. Check the Microsoft 365 mailbox and SMTP configuration.",
+      error: code === "EAUTH" ? "The email mailbox could not authenticate. Ask the Owner to check the Microsoft 365 sending configuration. Your secure invite link is still available." : "Email delivery failed. Retry, or copy the secure invite link below.",
       id: null,
       status: "failed" as const,
     };
