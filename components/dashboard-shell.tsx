@@ -28,11 +28,14 @@ export async function DashboardShell({
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = user ? await supabase.from("profiles").select("avatar_path").eq("id", user.id).maybeSingle() : { data: null };
   const photo = await getProfileImageUrl(supabase, profile?.avatar_path);
+  const { data: groupProgrammingAllowed } = role === "coach" ? await supabase.rpc("can_manage_group_programming") : { data: false };
   const navigation = role === "owner"
     ? [{ href: "/owner", label: "Overview" }, { href: "/owner/team", label: "Team" }, { href: "/owner/schedule", label: "Schedule" }, { href: "/owner/clients", label: "Clients" }, { href: "/owner/reports", label: "Reports" }, { href: "/owner/revenue", label: "Revenue" }, { href: "/owner/equipment", label: "Equipment" }, { href: "/owner/training-library", label: "Training library" }, { href: "/owner/apps", label: "Apps & access" }, { href: "/owner/demo", label: "Demo" }]
     : role === "coach"
       ? [{ href: "/coach", label: "Overview & clients" }, { href: "/coach/schedule", label: "Schedule" }, { href: "/coach/availability", label: "Availability" }, { href: "/coach/profile", label: "Profile" }]
       : [{ href: "/client", label: "Workouts" }, { href: "/client/book", label: "Book session" }, { href: "/client/schedule", label: "Schedule" }, { href: "/client/profile", label: "Profile" }];
+  if (role === "owner" || (role === "coach" && groupProgrammingAllowed === true)) navigation.push({ href: `/${role}/group-programming`, label: "Group Class Programming" });
+  if (role === "owner") navigation.push({ href: "/owner/mindbody", label: "Mindbody Integration" });
   return (
     <VisualTheme><main className={styles.shell} data-account-role={role}>
       <aside className={styles.sidebar}>

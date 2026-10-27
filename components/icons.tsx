@@ -3,6 +3,8 @@ type IconProps = { className?: string };
 export function NavigationIcon({ href, className }: IconProps & { href: string }) {
   const section = href.split("/").at(-1);
   const paths: Record<string, React.ReactNode> = {
+    "group-programming": <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h10M7 12h10M7 17h7"/></>,
+    mindbody: <><path d="M8 8h8v8H8zM12 2v6m0 8v6M2 12h6m8 0h6"/></>,
     team: <><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m2-16a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v3"/></>,
     clients: <><circle cx="12" cy="7" r="3"/><path d="M5 21v-3a7 7 0 0 1 14 0v3M3 6v5m-2-2h4"/></>,
     schedule: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6m10-6v6M3 11h18m-12 4h3m-3 3h6"/></>,
