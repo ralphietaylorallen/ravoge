@@ -69,7 +69,7 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
   }
   function leave(target: { date?: string; week?: string }) { if (dirty) setLeaving(target); else void navigate(target); }
   async function save() {
-    setBusy("Saving draft…");
+    inform(""); setBusy("Saving draft…");
     try { const result = await saveGroupDraftAction(role, date, text, program?.revision ?? 0);
       inform(result.message, result.status === "error"); if (result.programs) merge(result.programs); return result.status === "success";
     } catch { inform("Save was not confirmed. Your text is still here. Reload before retrying.", true); return false; }
@@ -81,7 +81,7 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
     setPublishing(ready);
   }
   async function publish(dates: string[], retry = false) {
-    setBusy(retry ? "Checking Mindbody sync…" : "Publishing…"); setActivePublishingDates(dates); setPublishing(null);
+    inform(""); setBusy(retry ? "Checking Mindbody sync…" : "Publishing…"); setActivePublishingDates(dates); setPublishing(null);
     try {
       const result = await publishGroupDatesAction(role, dates.map(day => ({ date: day, revision: programs.find(p => p.programming_date === day)!.revision })), retry);
       if (result.programs) merge(result.programs); inform(result.message, result.status === "error");

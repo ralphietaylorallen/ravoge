@@ -56,7 +56,7 @@ test("group notepad uses real permission/save/publication paths and never claims
   await clientPage.goto("/coach/group-programming"); await expect(clientPage).toHaveURL(/\/client$/); await clientPage.goto("/owner/group-programming"); await expect(clientPage).toHaveURL(/\/client$/);
   const db=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,{auth:{persistSession:false}}); await db.auth.signInWithPassword({email:coach.email,password:coach.password});
   const rows=await db.from("group_daily_programs").select("revision,published_revision,mindbody_sync_status,last_sync_at"); expect(rows.error).toBeNull(); expect(rows.data).toHaveLength(6); expect(rows.data!.filter(row=>row.published_revision!==null)).toHaveLength(5); expect(rows.data!.every(row=>row.mindbody_sync_status!=="synced"&&row.last_sync_at===null)).toBe(true); await db.auth.signOut();
-  await permission.getByRole("checkbox").uncheck(); await permission.getByRole("button",{name:"Save permission"}).click(); await expect(permission.getByRole("status")).toHaveText("Permission saved.");
+  await permission.getByRole("checkbox").uncheck(); await permission.getByRole("button",{name:"Save permission"}).click(); await expect(permission.getByRole("button",{name:"Save permission",exact:true})).toBeEnabled(); await expect(permission.getByRole("status")).toHaveText("Permission saved.");
   await coachPage.goto("/coach/group-programming"); await expect(coachPage.getByRole("textbox")).toHaveCount(0);
   await clientContext.close(); await deniedContext.close(); await coachContext.close();
 });
