@@ -16,8 +16,16 @@ test("shared sender stays the info alias independently of the licensed SMTP logi
     delete process.env.RAVOGE_EMAIL_FROM; assert.equal(getEmailSender(),null);
     Object.assign(process.env,{RAVOGE_EMAIL_FROM:"Ravoge <info@ravoge.com>",RAVOGE_EMAIL_REPLY_TO:"info@ravoge.com",RAVOGE_SMTP_USER:"dane@ravoge.com"});
     assert.deepEqual(getEmailSender(),{from:{name:"Ravoge",address:"info@ravoge.com"},replyTo:{name:"Ravoge",address:"info@ravoge.com"},fromHeader:"Ravoge <info@ravoge.com>",replyToAddress:"info@ravoge.com"});
-    for(const from of ["Ravoge <dane@ravoge.com>","test@example.test","info@ravoge.com\r\nBcc: attacker@example.test"]) { process.env.RAVOGE_EMAIL_FROM=from;assert.throws(()=>getEmailSender()); }
-    process.env.RAVOGE_EMAIL_FROM="Ravoge <info@ravoge.com>";process.env.RAVOGE_EMAIL_REPLY_TO="different@example.test";assert.throws(()=>getEmailSender());
+    const disallowedAddresses = ["dane@ravoge.com", "coach@external.example.test", "client@external.example.test", "test@example.test"];
+    for (const address of disallowedAddresses) {
+      process.env.RAVOGE_EMAIL_FROM = `Ravoge <${address}>`;
+      assert.throws(() => getEmailSender());
+      process.env.RAVOGE_EMAIL_FROM = "Ravoge <info@ravoge.com>";
+      process.env.RAVOGE_EMAIL_REPLY_TO = address;
+      assert.throws(() => getEmailSender());
+      process.env.RAVOGE_EMAIL_REPLY_TO = "info@ravoge.com";
+    }
+    process.env.RAVOGE_EMAIL_FROM="info@ravoge.com\r\nBcc: attacker@example.test";assert.throws(()=>getEmailSender());
   } finally { restore(); }
 });
 
