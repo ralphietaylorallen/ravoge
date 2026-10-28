@@ -3,6 +3,7 @@ import "server-only";
 import nodemailer from "nodemailer";
 import { normalizeInvitationEmail } from "./invitation-input.ts";
 import { getEmailSender } from "./email-sender.ts";
+import { getSmtpOAuthAccessToken } from "./smtp-oauth.ts";
 
 type InvitationEmail = {
   invitationUrl: string;
@@ -47,16 +48,19 @@ export async function sendInvitationEmail(input: InvitationEmail) {
   if (!recipientEmail) return { error: "Enter a complete email address.", id: null, status: "failed" as const };
   const host = process.env.RAVOGE_SMTP_HOST?.trim();
   const user = process.env.RAVOGE_SMTP_USER?.trim();
-  const pass = process.env.RAVOGE_SMTP_PASSWORD;
+  const oauth = process.env.RAVOGE_SMTP_AUTH?.trim() === "oauth2";
 
-  if (!host || !user || !pass || !process.env.RAVOGE_EMAIL_FROM?.trim()) {
+  if (!host || !user || (!oauth && !process.env.RAVOGE_SMTP_PASSWORD) || !process.env.RAVOGE_EMAIL_FROM?.trim()) {
     return { error: null, id: null, status: "not_configured" as const };
   }
 
   try {
     const sender = getEmailSender();
     const port = Number(process.env.RAVOGE_SMTP_PORT || 587);
-    if (!sender || host !== "smtp.office365.com" || port !== 587 || user.toLowerCase() === "info@ravoge.com" || !normalizeInvitationEmail(user)) throw { code: "ECONFIG" };
+    if (!sender || host !== "smtp.office365.com" || port !== 587 || user.toLowerCase() !== "dane@ravoge.com" || (process.env.RAVOGE_SMTP_AUTH && !["oauth2", "password"].includes(process.env.RAVOGE_SMTP_AUTH.trim()))) throw { code: "ECONFIG" };
+    const auth = oauth
+      ? { type: "OAuth2" as const, user, accessToken: await getSmtpOAuthAccessToken() }
+      : { user, pass: process.env.RAVOGE_SMTP_PASSWORD };
     const { html, subject, text } = createInvitationEmailContent({ ...input, recipientEmail });
     const transporter = nodemailer.createTransport({
       host,
@@ -64,7 +68,7 @@ export async function sendInvitationEmail(input: InvitationEmail) {
       secure: false,
       requireTLS: true,
       tls: { minVersion: "TLSv1.2" },
-      auth: { user, pass },
+      auth,
       connectionTimeout: 10_000,
       greetingTimeout: 10_000,
       socketTimeout: 15_000,
@@ -90,13 +94,13 @@ export async function sendInvitationEmail(input: InvitationEmail) {
     };
   } catch (error) {
     // SMTP response/message can contain addresses, credentials or the invitation URL.
-    const details = error as { code?: string; responseCode?: number; response?: string } | null;
+    const details = error as { code?: string; responseCode?: number; response?: string; oauthStatus?: number; aadErrorCode?: number } | null;
     const enhancedStatus = typeof details?.response === "string" ? details.response.match(/\b[245]\.\d{1,3}\.\d{1,3}\b/)?.[0] : undefined;
     const aliasDenied = typeof details?.response === "string" && /5\.7\.60\b|SendAsDenied|does(?:n.t| not) have permissions to send as/i.test(details.response);
-    const code = ["EAUTH", "ECONNECTION", "ESOCKET", "ETIMEDOUT", "ETLS", "EENVELOPE", "EMESSAGE", "ERECIPIENT", "ECONFIG"].includes(details?.code ?? "") ? details!.code : "unknown";
-    console.error("[Ravoge email] SMTP invitation delivery failed", { code, responseCode: typeof details?.responseCode === "number" ? details.responseCode : undefined, enhancedStatus, aliasDenied });
+    const code = ["EAUTH", "EOAUTH", "ECONNECTION", "ESOCKET", "ETIMEDOUT", "ETLS", "EENVELOPE", "EMESSAGE", "ERECIPIENT", "ECONFIG"].includes(details?.code ?? "") ? details!.code : "unknown";
+    console.error("[Ravoge email] SMTP invitation delivery failed", { code, responseCode: typeof details?.responseCode === "number" ? details.responseCode : undefined, enhancedStatus, aliasDenied, oauthStatus: code === "EOAUTH" ? details?.oauthStatus : undefined, aadErrorCode: code === "EOAUTH" ? details?.aadErrorCode : undefined });
     return {
-      error: aliasDenied ? "Microsoft 365 Send From Alias must be enabled for the tenant or mailbox through GoDaddy/Microsoft 365 administration. Your secure invite link is still available." : code === "EAUTH" ? "The email mailbox could not authenticate. Ask the Owner to check the Microsoft 365 sending configuration. Your secure invite link is still available." : code === "ECONFIG" ? "The Ravoge sender configuration needs attention. Use the licensed mailbox for SMTP login and info@ravoge.com for From and Reply-To. Your secure invite link is still available." : "Email delivery failed. Retry, or copy the secure invite link below.",
+      error: aliasDenied ? "Microsoft 365 Send From Alias must be enabled for the tenant or mailbox through GoDaddy/Microsoft 365 administration. Your secure invite link is still available." : code === "EAUTH" || code === "EOAUTH" ? "The email mailbox could not authenticate. Ask the Owner to check the Microsoft 365 sending configuration. Your secure invite link is still available." : code === "ECONFIG" ? "The Ravoge sender configuration needs attention. Use the licensed mailbox for SMTP login and info@ravoge.com for From and Reply-To. Your secure invite link is still available." : "Email delivery failed. Retry, or copy the secure invite link below.",
       id: null,
       status: "failed" as const,
     };
