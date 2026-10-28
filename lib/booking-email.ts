@@ -39,14 +39,17 @@ export function createBookingEmailContent(input: BookingEmail) {
 
 export async function sendBookingEmail(input: BookingEmail) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RAVOGE_EMAIL_FROM;
-  if (!apiKey || !from) return { error: null, id: null, status: "skipped" as const };
+  if (!apiKey || !process.env.RAVOGE_EMAIL_FROM) return { error: null, id: null, status: "skipped" as const };
   const { calendar, html, subject } = createBookingEmailContent(input);
   try {
+    const { getEmailSender } = await import("./email-sender.ts");
+    const sender = getEmailSender();
+    if (!sender) return { error: null, id: null, status: "skipped" as const };
     const response = await fetch("https://api.resend.com/emails", {
       body: JSON.stringify({
         attachments: [{ content: Buffer.from(calendar, "utf8").toString("base64"), filename: `ravoge-${input.bookingId}.ics` }],
-        from,
+        from: sender.fromHeader,
+        reply_to: sender.replyToAddress,
         html,
         subject,
         to: [input.recipientEmail],
@@ -54,10 +57,10 @@ export async function sendBookingEmail(input: BookingEmail) {
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       method: "POST",
     });
-    const payload = await response.json() as { id?: string; message?: string };
-    if (!response.ok || !payload.id) return { error: payload.message ?? `Email provider returned ${response.status}.`, id: null, status: "failed" as const };
+    const payload = await response.json() as { id?: string };
+    if (!response.ok || !payload.id) return { error: `Email provider returned ${response.status}; email was not confirmed.`, id: null, status: "failed" as const };
     return { error: null, id: payload.id, status: "sent" as const };
-  } catch {
-    return { error: "Transactional email provider could not be reached.", id: null, status: "failed" as const };
+  } catch (error) {
+    return { error: (error as { code?: string })?.code === "ECONFIG" ? "The Ravoge From and Reply-To configuration needs attention. No email was sent." : "Transactional email provider could not be reached.", id: null, status: "failed" as const };
   }
 }
