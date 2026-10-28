@@ -7,6 +7,14 @@ server-only sender configuration uses `Ravoge <info@ravoge.com>` and replies to
 the SMTP login. Recipient selection, invitation records, expiry, role locking,
 and Auth callbacks are unchanged.
 
+This identity applies to every current and future message: Owner/Coach/Client
+invitations and alerts, account confirmations and recovery, scheduling, intake,
+workout assignments/completion, group programming, support and system messages.
+New application email adapters must obtain both headers from `getEmailSender()`;
+routes and templates must not define another sender. Recipient addresses,
+including test inboxes, never influence this identity. This is an email identity
+contract, not implementation of notification features that do not yet exist.
+
 ## Existing delivery paths
 
 | Messages | Existing delivery path | Sender configuration |
