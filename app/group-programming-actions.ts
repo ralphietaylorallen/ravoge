@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
-import { groupWeek, validGroupDate, type GroupResult } from "@/lib/group-programming";
+import { groupWeek, validGroupDate, type GroupResult, type DuplicateWeekResult } from "@/lib/group-programming";
 
 async function authorized(role: "owner" | "coach") {
   const session = await requireRole(role);
@@ -10,6 +10,17 @@ async function authorized(role: "owner" | "coach") {
   return { ...session, allowed: !error && data === true };
 }
 function refresh() { revalidatePath("/owner/group-programming"); revalidatePath("/coach/group-programming"); }
+export async function duplicateGroupWeekAction(monday: string, mode: "check" | "empty" | "replace" = "check", expectedDestination?: Record<string,number>): Promise<DuplicateWeekResult> {
+  const { supabase } = await requireRole("owner");
+  if (!validGroupDate(monday) || new Date(`${monday}T12:00:00Z`).getUTCDay() !== 1 || !["check","empty","replace"].includes(mode)) return { status: "error", message: "Choose a valid week and copy option." };
+  try {
+    const { data, error } = await supabase.rpc("duplicate_group_programming_week", { source_monday: monday, conflict_mode: mode, expected_destination: mode === "replace" ? expectedDestination ?? null : null }).abortSignal(AbortSignal.timeout(15000));
+    if (error || !data) return { status: "error", message: error?.code === "40001" ? "The next week changed. Click Duplicate Week again to review before replacing." : error?.code === "P0002" ? "Save at least one programming day before duplicating." : "Duplication was not confirmed. Your saved weeks are safe. Check the next week before retrying." };
+    if (data.status === "conflict") return { status: "conflict", message: "The next week already has programming.", destinationWeek: data.destinationWeek, expectedDestination: data.expectedDestination };
+    refresh();
+    return { status: "success", message: `Week duplicated. Review your changes, then publish when ready.${data.skippedDays ? ` ${data.skippedDays} existing day(s) preserved.` : ""}`, programs: data.programs ?? [], destinationWeek: data.destinationWeek };
+  } catch { return { status: "error", message: "Duplication was not confirmed. Check the next week before retrying; no partial copy will be saved." }; }
+}
 export async function loadGroupWeekAction(role: "owner" | "coach", monday: string): Promise<GroupResult> {
   const { supabase, membership, allowed } = await authorized(role);
   if (!allowed) return { status: "error", message: "Your Owner must enable Group Class Programming access." };

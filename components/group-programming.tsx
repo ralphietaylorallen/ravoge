@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { loadGroupHistoryAction, loadGroupWeekAction, publishGroupDatesAction, saveGroupDraftAction } from "@/app/group-programming-actions";
+import { duplicateGroupWeekAction, loadGroupHistoryAction, loadGroupWeekAction, publishGroupDatesAction, saveGroupDraftAction } from "@/app/group-programming-actions";
 import { groupDateLabel, groupStatus, groupWeek, moveGroupDate, publishableGroupDates, MINDBODY_BLOCKER, type GroupProgram, type GroupVersion } from "@/lib/group-programming";
 import styles from "./group-programming.module.css";
 
@@ -14,12 +14,14 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
   const [programs, setPrograms] = useState(initialPrograms), [text, setText] = useState(initialPrograms.find(p => p.programming_date === initialWeek)?.raw_workout_text ?? "");
   const [selected, setSelected] = useState<string[]>([]), [busy, setBusy] = useState("");
   const [message, setMessage] = useState(initialError ?? ""), [error, setError] = useState(Boolean(initialError));
-  const [leaving, setLeaving] = useState<{ date?: string; week?: string; href?: string } | null>(null);
+  const [leaving, setLeaving] = useState<{ date?: string; week?: string; href?: string; duplicate?: boolean } | null>(null);
+  const [duplicateConflict, setDuplicateConflict] = useState<{ week: string; snapshot: Record<string,number> } | null>(null);
+  const duplicateBusy = useRef(false);
   const [publishing, setPublishing] = useState<string[] | null>(null), [history, setHistory] = useState<GroupVersion[] | null>(null);
   const [activePublishingDates, setActivePublishingDates] = useState<string[]>([]);
   const dialog = useRef<HTMLDivElement>(null), priorFocus = useRef<HTMLElement | null>(null);
   const program = programs.find(p => p.programming_date === date);
-  const dirty = text !== (program?.raw_workout_text ?? ""), days = groupWeek(week), modal = Boolean(leaving || publishing);
+  const dirty = text !== (program?.raw_workout_text ?? ""), days = groupWeek(week), modal = Boolean(leaving || publishing || duplicateConflict);
   function inform(value: string, isError = false) { setMessage(value); setError(isError); }
   function merge(rows: GroupProgram[]) { setPrograms(old => [...old.filter(p => !rows.some(row => row.programming_date === p.programming_date)), ...rows]); setHistory(null); }
   useEffect(() => {
@@ -39,7 +41,7 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
     priorFocus.current = document.activeElement as HTMLElement;
     const container = dialog.current; container?.focus();
     function keyboard(event: KeyboardEvent) {
-      if (event.key === "Escape" && !busy) { setLeaving(null); setPublishing(null); }
+      if (event.key === "Escape" && !busy) { setLeaving(null); setPublishing(null); setDuplicateConflict(null); }
       if (event.key !== "Tab") return;
       const nodes = container?.querySelectorAll<HTMLElement>("button:not(:disabled),a[href],[tabindex='0']");
       if (!nodes?.length) { event.preventDefault(); return; }
@@ -51,8 +53,9 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
     return () => { document.removeEventListener("keydown", keyboard); priorFocus.current?.focus(); };
   }, [modal, busy]);
 
-  async function navigate(target: { date?: string; week?: string; href?: string }) {
+  async function navigate(target: { date?: string; week?: string; href?: string; duplicate?: boolean }) {
     setLeaving(null); setHistory(null);
+    if (target.duplicate) { await duplicate(); return; }
     if (target.href) { setText(program?.raw_workout_text ?? ""); router.push(target.href); return; }
     if (target.week) {
       setBusy("Loading week…");
@@ -68,6 +71,24 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
     }
   }
   function leave(target: { date?: string; week?: string }) { if (dirty) setLeaving(target); else void navigate(target); }
+  async function duplicate(mode: "check" | "empty" | "replace" = "check") {
+    if (duplicateBusy.current || role !== "owner") return;
+    duplicateBusy.current = true; setBusy("Duplicating…"); inform("");
+    try {
+      const result = await duplicateGroupWeekAction(week, mode, duplicateConflict?.snapshot);
+      if (result.status === "conflict" && result.destinationWeek && result.expectedDestination) {
+        setDuplicateConflict({ week: result.destinationWeek, snapshot: result.expectedDestination }); return;
+      }
+      setDuplicateConflict(null);
+      if (result.status === "success" && result.destinationWeek) {
+        const rows = result.programs ?? [];
+        setPrograms(rows); setWeek(result.destinationWeek); setDate(result.destinationWeek); setSelected([]); setHistory(null);
+        setText(rows.find(p => p.programming_date === result.destinationWeek)?.raw_workout_text ?? "");
+      }
+      inform(result.message, result.status !== "success");
+    } catch { inform("Duplication was not confirmed. Check the next week before retrying. Your saved programming is safe.", true); }
+    finally { duplicateBusy.current = false; setBusy(""); }
+  }
   async function save() {
     inform(""); setBusy("Saving draft…");
     try { const result = await saveGroupDraftAction(role, date, text, program?.revision ?? 0);
@@ -99,6 +120,7 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
       <button className={styles.button} disabled={Boolean(busy)} onClick={() => leave({ week: currentWeek })}>Current week</button>
       <strong>{groupDateLabel(week)} – {groupDateLabel(days[5], true)}</strong>
       <button className={styles.button} disabled={Boolean(busy)} onClick={() => leave({ week: moveGroupDate(week, 7) })}>Next week</button>
+      {role === "owner" && <button className={`${styles.button} ${styles.primary}`} disabled={Boolean(busy)} onClick={() => { if (dirty) setLeaving({ duplicate: true }); else void duplicate(); }}>{busy === "Duplicating…" ? busy : "Duplicate Week"}</button>}
     </div>
     <div className={styles.week} aria-label="Monday through Saturday">
       {days.map(day => <div key={day} className={styles.dateCard} data-selected={day === date}>
@@ -129,7 +151,7 @@ export function GroupProgramming({ role, gym, initialWeek, currentWeek, initialP
     </section>
     {history && <section className={`${styles.panel} ${styles.history}`}><h3>Version history · {groupDateLabel(date)}</h3><p className={styles.hint}>Latest 50 saves. Restoring text changes only this editor until you save it.</p>{history.map(version => <details key={version.revision}><summary>Version {version.revision} · {names[version.edited_by] ?? "Gym team member"} · {new Date(version.edited_at).toLocaleString()} · {version.published_at ? `Published ${new Date(version.published_at).toLocaleString()}` : "Draft"}</summary><pre>{version.raw_workout_text}</pre><button className={styles.button} disabled={Boolean(busy)} onClick={() => { if (!dirty || window.confirm("Replace your unsaved editor text with this saved version?")) setText(version.raw_workout_text); }}>Use this text in editor</button></details>)}</section>}
     {modal && <div className={styles.overlay}><div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="group-dialog-title" className={styles.dialog}>
-      {leaving ? <><h3 id="group-dialog-title">Save this draft before leaving?</h3><p>Your changes have not been saved.</p><div className={styles.actions}><button className={`${styles.button} ${styles.primary}`} disabled={Boolean(busy)} onClick={async () => { const target = leaving; if (await save()) await navigate(target); }}>Save and Continue</button><button className={styles.button} disabled={Boolean(busy)} onClick={() => void navigate(leaving)}>Discard Changes</button><button className={styles.button} disabled={Boolean(busy)} onClick={() => setLeaving(null)}>Stay Here</button></div></> : <><h3 id="group-dialog-title">Publish group programming?</h3><p><strong>{gym}</strong> · {publishing!.length} workout{publishing!.length === 1 ? "" : "s"}</p><ul>{publishing!.map(day => <li key={day}>{groupDateLabel(day, true)}</li>)}</ul><p>Mindbody destination: not connected.</p><p>This will publish the selected group programming to Ravoge. Mindbody delivery is unavailable; no external updates will be sent.</p><div className={styles.actions}><button className={styles.button} onClick={() => setPublishing(null)}>Cancel</button><button className={`${styles.button} ${styles.primary}`} onClick={() => void publish(publishing!)}>Publish</button></div></>}
+      {leaving ? <><h3 id="group-dialog-title">Save this draft before leaving?</h3><p>Your changes have not been saved.</p><div className={styles.actions}><button className={`${styles.button} ${styles.primary}`} disabled={Boolean(busy)} onClick={async () => { const target = leaving; if (await save()) await navigate(target); }}>Save and Continue</button><button className={styles.button} disabled={Boolean(busy)} onClick={() => { if (leaving.duplicate) setText(program?.raw_workout_text ?? ""); void navigate(leaving); }}>Discard Changes</button><button className={styles.button} disabled={Boolean(busy)} onClick={() => setLeaving(null)}>Stay Here</button></div></> : duplicateConflict ? <><h3 id="group-dialog-title">The next week already has programming</h3><p>{groupDateLabel(duplicateConflict.week)} – {groupDateLabel(moveGroupDate(duplicateConflict.week, 5), true)}</p><p>Copy only into empty days to keep all existing entries, or replace the matching saved dates with unpublished drafts. The original week stays unchanged. Earlier destination versions stay in Version history.</p><div className={styles.actions}><button className={`${styles.button} ${styles.primary}`} disabled={Boolean(busy)} onClick={() => void duplicate("empty")}>Copy only into empty days</button><button className={styles.button} disabled={Boolean(busy)} onClick={() => void duplicate("replace")}>Replace existing programmed days</button><button className={styles.button} disabled={Boolean(busy)} onClick={() => setDuplicateConflict(null)}>Cancel</button></div></> : <><h3 id="group-dialog-title">Publish group programming?</h3><p><strong>{gym}</strong> · {publishing!.length} workout{publishing!.length === 1 ? "" : "s"}</p><ul>{publishing!.map(day => <li key={day}>{groupDateLabel(day, true)}</li>)}</ul><p>Mindbody destination: not connected.</p><p>This will publish the selected group programming to Ravoge. Mindbody delivery is unavailable; no external updates will be sent.</p><div className={styles.actions}><button className={styles.button} onClick={() => setPublishing(null)}>Cancel</button><button className={`${styles.button} ${styles.primary}`} onClick={() => void publish(publishing!)}>Publish</button></div></>}
       {busy && <p role="status">{busy}</p>}{error && message && <p role="alert">{message}</p>}
     </div></div>}
   </div>;
