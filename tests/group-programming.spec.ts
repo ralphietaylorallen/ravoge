@@ -60,3 +60,64 @@ test("group notepad uses real permission/save/publication paths and never claims
   await coachPage.goto("/coach/group-programming"); await expect(coachPage.getByRole("textbox")).toHaveCount(0);
   await clientContext.close(); await deniedContext.close(); await coachContext.close();
 });
+
+test("Owner duplicates a week, edits and publishes copies, and explicitly resolves destination conflicts", async ({ page }, info) => {
+  test.skip(process.env.RAVOGE_GROUP_QA !== "yes" || info.project.name !== "desktop", "Explicit disposable group QA fixtures required.");
+  test.setTimeout(180000);
+  const users = JSON.parse(process.env.BETA_QA_USERS ?? "[]") as { role: string; email: string; password: string }[];
+  const owner = users.find(u => u.role === "owner")!;
+  await page.goto("/login"); await page.getByLabel("Email",{exact:true}).fill(owner.email); await page.getByLabel("Password",{exact:true}).fill(owner.password);
+  await page.getByRole("button",{name:"Login",exact:true}).click(); await expect(page).toHaveURL(/\/owner$/, {timeout:25000});
+  await page.getByRole("link",{name:"Group Class Programming",exact:true}).click();
+  const days = page.getByLabel("Monday through Saturday").getByRole("button");
+  const editor = page.getByRole("textbox",{name:/workout$/});
+  async function move(name: "Next week" | "Previous week") {
+    const before = await days.first().locator("strong").textContent();
+    await page.getByRole("button",{name,exact:true}).click();
+    await expect(days.first().locator("strong")).not.toHaveText(before!);
+  }
+  await move("Next week"); await move("Next week");
+  const source = Array.from({length:6},(_,index)=>`  Class ${index+1} — strength\nTITLE: Original day ${index+1}\n\nEMOM 12\nRow 250 m\n8 / side @ 55 lb\t65%\nNotes: preserve spacing  \n`);
+  for (let i=0;i<6;i++) {
+    await days.nth(i).click(); await editor.fill(source[i]); await page.getByRole("button",{name:"Save Draft",exact:true}).click();
+    await expect(page.getByRole("status").filter({hasText:"Draft Saved."})).toBeVisible();
+  }
+  const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,{auth:{persistSession:false}});
+  expect((await db.auth.signInWithPassword({email:owner.email,password:owner.password})).error).toBeNull();
+  const sourceRows = (await db.from("group_daily_programs").select("*").order("programming_date")).data!.filter(row=>source.includes(row.raw_workout_text));
+  expect(sourceRows).toHaveLength(6);
+  await page.getByRole("button",{name:"Duplicate Week",exact:true}).dblclick();
+  await expect(page.getByRole("status").filter({hasText:"Week duplicated. Review your changes, then publish when ready."})).toBeVisible();
+  for (let i=0;i<6;i++) { await days.nth(i).click(); await expect(editor).toHaveValue(source[i]); await expect(days.nth(i)).toContainText("Draft Saved"); }
+  const copiedRows = (await db.from("group_daily_programs").select("*").order("programming_date")).data!.filter(row=>source.includes(row.raw_workout_text)&&!sourceRows.some(old=>old.id===row.id));
+  expect(copiedRows).toHaveLength(6); expect(copiedRows.every(row=>row.published_at===null&&row.published_revision===null&&row.last_sync_at===null)).toBe(true);
+  for (const original of sourceRows) expect((await db.from("group_daily_programs").select("*").eq("id",original.id).single()).data).toEqual(original);
+  await days.first().click(); await editor.fill(`${source[0]}\nSmall copied-day change`);
+  await page.getByRole("button",{name:"Save Draft",exact:true}).click(); await expect(days.first()).toContainText("Draft Saved");
+  await page.getByRole("button",{name:"Publish Week",exact:true}).click(); await page.getByRole("dialog").getByRole("button",{name:"Publish",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"6 workouts published to Ravoge"})).toBeVisible();
+  await move("Previous week"); await page.getByRole("button",{name:"Duplicate Week",exact:true}).click();
+  const modal = page.getByRole("dialog"); await expect(modal).toContainText("The next week already has programming");
+  for (const width of [390,768,820,1024,1440]) {
+    await page.setViewportSize({width,height:1000});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await expect(modal.getByRole("button",{name:"Cancel",exact:true})).toBeInViewport();
+    if ([390,820,1440].includes(width)) await page.screenshot({path:`.temp/duplicate-week-modal-${width}.png`,fullPage:true});
+  }
+  await page.keyboard.press("Tab"); expect(await page.evaluate(()=>Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true);
+  await page.keyboard.press("Escape"); await expect(modal).toHaveCount(0);
+  const beforeCancel = (await db.from("group_daily_programs").select("*").order("programming_date")).data;
+  await page.getByRole("button",{name:"Duplicate Week",exact:true}).click(); await modal.getByRole("button",{name:"Cancel",exact:true}).click();
+  expect((await db.from("group_daily_programs").select("*").order("programming_date")).data).toEqual(beforeCancel);
+  await page.getByRole("button",{name:"Duplicate Week",exact:true}).click(); await modal.getByRole("button",{name:"Copy only into empty days",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"existing day(s) preserved"})).toBeVisible();
+  await expect(editor).toHaveValue(`${source[0]}\nSmall copied-day change`); await expect(days.first()).toContainText("Published to Ravoge");
+  await move("Previous week"); await page.getByRole("button",{name:"Duplicate Week",exact:true}).click();
+  await modal.getByRole("button",{name:"Replace existing programmed days",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"Week duplicated."})).toBeVisible();
+  await expect(editor).toHaveValue(source[0]); await expect(days.first()).toContainText("Draft Saved");
+  await page.getByRole("button",{name:"Version history",exact:true}).click();
+  await expect(page.locator("summary").filter({hasText:"Version 2"})).toContainText("Published");
+  for (const original of sourceRows) expect((await db.from("group_daily_programs").select("*").eq("id",original.id).single()).data).toEqual(original);
+  await db.auth.signOut();
+});
