@@ -56,7 +56,7 @@ export async function sendInvitationEmail(input: InvitationEmail) {
   try {
     const sender = getEmailSender();
     const port = Number(process.env.RAVOGE_SMTP_PORT || 587);
-    if (!sender || host !== "smtp.office365.com" || port !== 587 || user.toLowerCase() === "info@ravoge.com" || !normalizeInvitationEmail(user)) throw { code: "ECONFIG" };
+    if (!sender || host !== "smtp.office365.com" || port !== 587 || user.toLowerCase() !== "hello@ravoge.com" || sender.from.address !== "hello@ravoge.com" || sender.replyToAddress !== "hello@ravoge.com") throw { code: "ECONFIG" };
     const { html, subject, text } = createInvitationEmailContent({ ...input, recipientEmail });
     const transporter = nodemailer.createTransport({
       host,
@@ -96,7 +96,7 @@ export async function sendInvitationEmail(input: InvitationEmail) {
     const code = ["EAUTH", "ECONNECTION", "ESOCKET", "ETIMEDOUT", "ETLS", "EENVELOPE", "EMESSAGE", "ERECIPIENT", "ECONFIG"].includes(details?.code ?? "") ? details!.code : "unknown";
     console.error("[Ravoge email] SMTP invitation delivery failed", { code, responseCode: typeof details?.responseCode === "number" ? details.responseCode : undefined, enhancedStatus, aliasDenied });
     return {
-      error: aliasDenied ? "Microsoft 365 Send From Alias must be enabled for the tenant or mailbox through GoDaddy/Microsoft 365 administration. Your secure invite link is still available." : code === "EAUTH" ? "The email mailbox could not authenticate. Ask the Owner to check the Microsoft 365 sending configuration. Your secure invite link is still available." : code === "ECONFIG" ? "The Ravoge sender configuration needs attention. Use the licensed mailbox for SMTP login and info@ravoge.com for From and Reply-To. Your secure invite link is still available." : "Email delivery failed. Retry, or copy the secure invite link below.",
+      error: aliasDenied ? "Microsoft 365 rejected permission to send from the configured mailbox. Ask the Owner to check the hello mailbox sending permissions. Your secure invite link is still available." : code === "EAUTH" ? "The email mailbox could not authenticate. Ask the Owner to check the Microsoft 365 sending configuration. Your secure invite link is still available." : code === "ECONFIG" ? "The Ravoge invitation sender configuration needs attention. Use hello@ravoge.com for SMTP login, From and Reply-To. Your secure invite link is still available." : "Email delivery failed. Retry, or copy the secure invite link below.",
       id: null,
       status: "failed" as const,
     };
