@@ -31,12 +31,12 @@ test("SMTP requires server-only credentials, TLS and explicit recipient acceptan
     assert.equal(options.secure, false);
     assert.equal(options.requireTLS, true);
     assert.deepEqual(options.tls, { minVersion: "TLSv1.2" });
-    assert.deepEqual(options.auth, { user: "dane@ravoge.com", pass: " fixture password with spaces " });
+    assert.deepEqual(options.auth, { user: "hello@ravoge.com", pass: " fixture password with spaces " });
     return { sendMail: async (mail: Record<string, unknown>) => {
-      assert.deepEqual(mail.from, { name: "Ravoge", address: "info@ravoge.com" });
+      assert.deepEqual(mail.from, { name: "Ravoge", address: "hello@ravoge.com" });
       assert.deepEqual(mail.replyTo, mail.from);
       assert.equal(mail.to, input.recipientEmail);
-      assert.deepEqual(mail.envelope, { from: "info@ravoge.com", to: [input.recipientEmail] });
+      assert.deepEqual(mail.envelope, { from: "hello@ravoge.com", to: [input.recipientEmail] });
       assert.ok(!String(mail.html).includes("fixture password"));
       if (outcome === "auth") throw Object.assign(new Error("sensitive recipient@example.test token=secret password=secret"), { code: "EAUTH", responseCode: 535 });
       if (outcome === "alias") throw Object.assign(new Error("sensitive transport error"), { code: "EENVELOPE", responseCode: 550, response: "550 5.7.60 Client doesn't have permissions to send as this sender. secret" });
@@ -50,8 +50,20 @@ test("SMTP requires server-only credentials, TLS and explicit recipient acceptan
     process.env.SMTP_USER = "obsolete-alias@example.test";
     assert.equal((await sendInvitationEmail(input)).status, "not_configured");
     assert.equal(requests, 0);
-    Object.assign(process.env, { RAVOGE_SMTP_HOST: "smtp.office365.com", RAVOGE_SMTP_PORT: "587", RAVOGE_SMTP_USER: "dane@ravoge.com", RAVOGE_SMTP_PASSWORD: " fixture password with spaces ", RAVOGE_EMAIL_FROM: "Ravoge <info@ravoge.com>", RAVOGE_EMAIL_REPLY_TO: "info@ravoge.com" });
+    Object.assign(process.env, { RAVOGE_SMTP_HOST: "smtp.office365.com", RAVOGE_SMTP_PORT: "587", RAVOGE_SMTP_USER: "hello@ravoge.com", RAVOGE_SMTP_PASSWORD: " fixture password with spaces ", RAVOGE_EMAIL_FROM: "Ravoge <hello@ravoge.com>", RAVOGE_EMAIL_REPLY_TO: "hello@ravoge.com" });
     assert.equal((await sendInvitationEmail(input)).status, "sent");
+    const connected = requests;
+    for (const oldLogin of ["dane@ravoge.com", "info@ravoge.com"]) {
+      process.env.RAVOGE_SMTP_USER = oldLogin;
+      assert.equal((await sendInvitationEmail(input)).status, "failed");
+    }
+    process.env.RAVOGE_SMTP_USER = "hello@ravoge.com";
+    process.env.RAVOGE_EMAIL_FROM = "Ravoge <info@ravoge.com>";
+    process.env.RAVOGE_EMAIL_REPLY_TO = "info@ravoge.com";
+    assert.equal((await sendInvitationEmail(input)).status, "failed");
+    assert.equal(requests, connected);
+    process.env.RAVOGE_EMAIL_FROM = "Ravoge <hello@ravoge.com>";
+    process.env.RAVOGE_EMAIL_REPLY_TO = "hello@ravoge.com";
     outcome = "rejected";
     assert.equal((await sendInvitationEmail(input)).status, "failed");
     outcome = "auth";
@@ -62,7 +74,7 @@ test("SMTP requires server-only credentials, TLS and explicit recipient acceptan
     assert.ok(!JSON.stringify(diagnostics).includes("recipient@example.test"));
     assert.ok(JSON.stringify(diagnostics).includes("535"));
     outcome = "alias";
-    assert.match((await sendInvitationEmail(input)).error ?? "", /Microsoft 365 Send From Alias must be enabled/);
+    assert.match((await sendInvitationEmail(input)).error ?? "", /Microsoft 365 rejected permission/);
     assert.ok(JSON.stringify(diagnostics).includes("5.7.60"));
     assert.ok(!JSON.stringify(diagnostics).includes("secret"));
     outcome = "network";
@@ -82,7 +94,7 @@ test("Client email has the requested copy and a direct role-locked signup button
   assert.ok(client.html.includes("https://ravoge.com/signup/client?enrollment=client-unit-test-token"));
   assert.ok(!client.html.includes("/signup/owner"));
   assert.ok(!client.html.includes("/signup/coach"));
-  assert.ok(!client.html.includes("info@ravoge.com"));
+  assert.ok(!client.html.includes("hello@ravoge.com"));
   assert.ok(createInvitationEmailContent(input).html.includes(">Create your account</a>"));
 });
 
@@ -93,12 +105,12 @@ test("Client SMTP recipient is normalized independently of sender credentials, w
   t.mock.method(nodemailer, "createTransport", (() => ({ sendMail: async (mail: Record<string, unknown>) => {
     calls++;
     assert.equal(mail.to, "client+training@external.example.test");
-    assert.deepEqual(mail.envelope, { from: "info@ravoge.com", to: ["client+training@external.example.test"] });
-    assert.deepEqual(mail.replyTo, { name: "Ravoge", address: "info@ravoge.com" });
+    assert.deepEqual(mail.envelope, { from: "hello@ravoge.com", to: ["client+training@external.example.test"] });
+    assert.deepEqual(mail.replyTo, { name: "Ravoge", address: "hello@ravoge.com" });
     return { messageId: "client-test-id", envelope: mail.envelope, accepted: ["client+training@external.example.test"], rejected: [] };
   } })) as unknown as typeof nodemailer.createTransport);
   try {
-    Object.assign(process.env, { RAVOGE_SMTP_HOST: "smtp.office365.com", RAVOGE_SMTP_USER: "dane@ravoge.com", RAVOGE_SMTP_PORT: "587", RAVOGE_SMTP_PASSWORD: "mock-password", RAVOGE_EMAIL_FROM: "Ravoge <info@ravoge.com>", RAVOGE_EMAIL_REPLY_TO: "info@ravoge.com" });
+    Object.assign(process.env, { RAVOGE_SMTP_HOST: "smtp.office365.com", RAVOGE_SMTP_USER: "hello@ravoge.com", RAVOGE_SMTP_PORT: "587", RAVOGE_SMTP_PASSWORD: "mock-password", RAVOGE_EMAIL_FROM: "Ravoge <hello@ravoge.com>", RAVOGE_EMAIL_REPLY_TO: "hello@ravoge.com" });
     assert.equal((await sendInvitationEmail({ ...input, role: "client", recipientEmail: " CLIENT+Training@External.Example.Test " })).status, "sent");
     for (const recipientEmail of ["", "info", "client@example.test,other@example.test"]) assert.equal((await sendInvitationEmail({ ...input, role: "client", recipientEmail })).status, "failed");
     assert.equal(calls, 1);

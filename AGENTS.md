@@ -23,10 +23,10 @@
 
 ## Transactional email identity
 
-- All current and future Ravoge email must use From `Ravoge <info@ravoge.com>` and Reply-To `info@ravoge.com`, regardless of message type, recipient, gym or role.
+- Coach and Client invitation emails use the licensed `hello@ravoge.com` mailbox for SMTP login, From `Ravoge <hello@ravoge.com>`, and Reply-To `hello@ravoge.com`. Do not use the obsolete Dane/info login-alias combination for invitations. Unrelated notification behavior is outside this sender repair.
 - Reuse the server-only `getEmailSender()` in `lib/email-sender.ts` for every application email adapter. Do not hardcode a separate sender in routes, actions, templates or new notification features.
 - This includes invitations, account messages, scheduling, intake, workout assignment/completion, group programming, alerts, support and system messages. Do not add missing notification features merely to implement this rule.
-- SMTP authenticates privately as `dane@ravoge.com` with the existing protected password. Neither the login address nor any test recipient may become From or Reply-To. Never read, log, copy or overwrite the protected password during configuration audits.
+- Invitation SMTP authenticates privately as `hello@ravoge.com` with the existing protected `RAVOGE_SMTP_PASSWORD`. Test recipients must never become From or Reply-To. Never read, log, copy or overwrite the protected password during configuration audits.
 - Test inboxes are recipients only. Preserve the intended normalized recipient; never fall back to a sender or test inbox.
 - Hosted Supabase Auth sends outside the application utility. Independently verify its sender/SMTP settings and received headers; do not claim it inherits application configuration automatically. Preserve saved secrets and existing Auth behavior.
 
