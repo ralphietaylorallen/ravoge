@@ -17,70 +17,71 @@ test("invitation content uses existing email-bound signup, escaped branding and 
   assert.ok(body.text.includes("Test Owner invited you"));
 });
 
-test("SMTP requires server-only credentials, TLS and explicit recipient acceptance", async (t) => {
-  const keys = ["RAVOGE_SMTP_HOST", "RAVOGE_SMTP_PORT", "RAVOGE_SMTP_USER", "SMTP_USER", "SMTP_PASS", "RAVOGE_SMTP_PASSWORD", "RAVOGE_EMAIL_FROM", "RAVOGE_EMAIL_REPLY_TO"];
+test("Resend requires its own server-only configuration, with no SMTP dependency or fallback", async (t) => {
+  const keys = ["RESEND_API_KEY", "RAVOGE_EMAIL_FROM", "RAVOGE_EMAIL_REPLY_TO"];
   const original = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   let requests = 0;
   const diagnostics: unknown[][] = [];
   t.mock.method(console, "error", (...args: unknown[]) => diagnostics.push(args));
-  let outcome: "accepted" | "rejected" | "auth" | "network" | "alias" = "accepted";
-  t.mock.method(nodemailer, "createTransport", ((options: Record<string, unknown>) => {
+  t.mock.method(console, "info", (...args: unknown[]) => diagnostics.push(args));
+  const smtp = t.mock.method(nodemailer, "createTransport", () => { throw new Error("Invitations must never use SMTP"); });
+  let outcome: "accepted" | "rejected" | "auth" | "network" | "missing-id" | "invalid-json" | "timeout" = "accepted";
+  t.mock.method(globalThis, "fetch", async (url: unknown, options?: RequestInit) => {
     requests++;
-    assert.equal(options.host, "smtp.office365.com");
-    assert.equal(options.port, 587);
-    assert.equal(options.secure, false);
-    assert.equal(options.requireTLS, true);
-    assert.deepEqual(options.tls, { minVersion: "TLSv1.2" });
-    assert.deepEqual(options.auth, { user: "hello@ravoge.com", pass: " fixture password with spaces " });
-    return { sendMail: async (mail: Record<string, unknown>) => {
-      assert.deepEqual(mail.from, { name: "Ravoge", address: "hello@ravoge.com" });
-      assert.deepEqual(mail.replyTo, mail.from);
-      assert.equal(mail.to, input.recipientEmail);
-      assert.deepEqual(mail.envelope, { from: "hello@ravoge.com", to: [input.recipientEmail] });
-      assert.ok(!String(mail.html).includes("fixture password"));
-      if (outcome === "auth") throw Object.assign(new Error("sensitive recipient@example.test token=secret password=secret"), { code: "EAUTH", responseCode: 535 });
-      if (outcome === "alias") throw Object.assign(new Error("sensitive transport error"), { code: "EENVELOPE", responseCode: 550, response: "550 5.7.60 Client doesn't have permissions to send as this sender. secret" });
-      if (outcome === "network") throw new Error("sensitive connection detail");
-      return { messageId: "smtp-test-id", envelope: mail.envelope, accepted: outcome === "accepted" ? [input.recipientEmail] : [], rejected: outcome === "rejected" ? [input.recipientEmail] : [] };
-    } };
-  }) as unknown as typeof nodemailer.createTransport);
+    assert.equal(url, "https://api.resend.com/emails");
+    assert.equal(options?.method, "POST");
+    assert.deepEqual(options?.headers, { Authorization: "Bearer unit-fixture-only", "Content-Type": "application/json" });
+    assert.ok(options?.signal instanceof AbortSignal);
+    const mail = JSON.parse(String(options?.body));
+    assert.equal(mail.from, "Ravoge <hello@ravoge.com>");
+    assert.equal(mail.reply_to, "hello@ravoge.com");
+    assert.deepEqual(mail.to, [input.recipientEmail]);
+    assert.equal(mail.subject, createInvitationEmailContent(input).subject);
+    assert.ok(mail.html.includes("/signup/coach?enrollment=unit-test-opaque-fixture"));
+    assert.ok(mail.text.includes("/signup/coach?enrollment=unit-test-opaque-fixture"));
+    assert.ok(!options?.body?.toString().includes("unit-fixture-only"));
+    if (outcome === "network") throw new Error("sensitive recipient@example.test token=secret password=secret");
+    if (outcome === "timeout") throw new DOMException("private timeout detail", "TimeoutError");
+    if (outcome === "invalid-json") return new Response("private-provider-detail", { status: 502 });
+    if (outcome === "auth" || outcome === "rejected") return new Response(JSON.stringify({ message: "private-provider-detail", id: "not-accepted" }), { status: outcome === "auth" ? 401 : 403 });
+    return new Response(JSON.stringify(outcome === "missing-id" ? {} : { id: "resend-test-id" }), { status: 200 });
+  });
   try {
     for (const key of keys) delete process.env[key];
-    process.env.SMTP_PASS = "legacy-must-not-be-used";
-    process.env.SMTP_USER = "obsolete-alias@example.test";
     assert.equal((await sendInvitationEmail(input)).status, "not_configured");
     assert.equal(requests, 0);
-    Object.assign(process.env, { RAVOGE_SMTP_HOST: "smtp.office365.com", RAVOGE_SMTP_PORT: "587", RAVOGE_SMTP_USER: "hello@ravoge.com", RAVOGE_SMTP_PASSWORD: " fixture password with spaces ", RAVOGE_EMAIL_FROM: "Ravoge <hello@ravoge.com>", RAVOGE_EMAIL_REPLY_TO: "hello@ravoge.com" });
-    assert.equal((await sendInvitationEmail(input)).status, "sent");
+    process.env.RESEND_API_KEY = "unit-fixture-only";
+    assert.equal((await sendInvitationEmail(input)).status, "not_configured");
+    Object.assign(process.env, { RAVOGE_EMAIL_FROM: "Ravoge <hello@ravoge.com>", RAVOGE_EMAIL_REPLY_TO: "hello@ravoge.com" });
+    assert.deepEqual(await sendInvitationEmail(input), { error: null, id: "resend-test-id", status: "sent" });
     const connected = requests;
-    for (const oldLogin of ["dane@ravoge.com", "info@ravoge.com"]) {
-      process.env.RAVOGE_SMTP_USER = oldLogin;
+    for (const oldSender of ["dane@ravoge.com", "info@ravoge.com"]) {
+      process.env.RAVOGE_EMAIL_FROM = `Ravoge <${oldSender}>`;
+      process.env.RAVOGE_EMAIL_REPLY_TO = oldSender;
       assert.equal((await sendInvitationEmail(input)).status, "failed");
     }
-    process.env.RAVOGE_SMTP_USER = "hello@ravoge.com";
-    process.env.RAVOGE_EMAIL_FROM = "Ravoge <info@ravoge.com>";
+    process.env.RAVOGE_EMAIL_FROM = "Ravoge <hello@ravoge.com>";
     process.env.RAVOGE_EMAIL_REPLY_TO = "info@ravoge.com";
     assert.equal((await sendInvitationEmail(input)).status, "failed");
     assert.equal(requests, connected);
-    process.env.RAVOGE_EMAIL_FROM = "Ravoge <hello@ravoge.com>";
     process.env.RAVOGE_EMAIL_REPLY_TO = "hello@ravoge.com";
-    outcome = "rejected";
-    assert.equal((await sendInvitationEmail(input)).status, "failed");
-    outcome = "auth";
-    const failed = await sendInvitationEmail(input);
-    assert.equal(failed.status, "failed");
-    assert.ok(failed.error?.includes("authenticate"));
-    assert.ok(!JSON.stringify(diagnostics).includes("secret"));
-    assert.ok(!JSON.stringify(diagnostics).includes("recipient@example.test"));
-    assert.ok(JSON.stringify(diagnostics).includes("535"));
-    outcome = "alias";
-    assert.match((await sendInvitationEmail(input)).error ?? "", /Microsoft 365 rejected permission/);
-    assert.ok(JSON.stringify(diagnostics).includes("5.7.60"));
-    assert.ok(!JSON.stringify(diagnostics).includes("secret"));
-    outcome = "network";
-    assert.equal((await sendInvitationEmail(input)).status, "failed");
-    process.env.RAVOGE_SMTP_PORT = "invalid";
-    assert.equal((await sendInvitationEmail(input)).status, "failed");
+    for (const failure of ["rejected", "auth", "network", "missing-id", "invalid-json", "timeout"] as const) {
+      outcome = failure;
+      const before: number = requests;
+      const result = await sendInvitationEmail(input);
+      assert.equal(result.status, "failed");
+      assert.equal(result.id, null);
+      assert.match(result.error ?? "", /secure invite link/);
+      assert.equal(requests, before + 1, "One API attempt, never an automatic retry");
+      assert.ok(!JSON.stringify(result).includes("private-provider-detail"));
+    }
+    delete process.env.RESEND_API_KEY;
+    assert.equal((await sendInvitationEmail(input)).status, "not_configured");
+    assert.equal(smtp.mock.callCount(), 0);
+    for (const sensitive of ["secret", "recipient@example.test", "unit-fixture-only", "unit-test-opaque-fixture", "private-provider-detail", input.recipientEmail]) assert.ok(!JSON.stringify(diagnostics).includes(sensitive));
+    const source = readFileSync(new URL("../../lib/invitation-email.ts", import.meta.url), "utf8");
+    assert.ok(source.includes('import "server-only"'));
+    assert.ok(!source.includes("RAVOGE_SMTP_"));
   } finally {
     for (const key of keys) { if (original[key] === undefined) delete process.env[key]; else process.env[key] = original[key]; }
   }
@@ -98,22 +99,27 @@ test("Client email has the requested copy and a direct role-locked signup button
   assert.ok(createInvitationEmailContent(input).html.includes(">Create your account</a>"));
 });
 
-test("Client SMTP recipient is normalized independently of sender credentials, with no fallback", async t => {
-  const keys = ["RAVOGE_SMTP_HOST", "RAVOGE_SMTP_USER", "RAVOGE_SMTP_PORT", "RAVOGE_SMTP_PASSWORD", "RAVOGE_EMAIL_FROM", "RAVOGE_EMAIL_REPLY_TO"];
+test("Resend preserves each invitation role and normalized recipient, with no recipient fallback", async t => {
+  const keys = ["RESEND_API_KEY", "RAVOGE_EMAIL_FROM", "RAVOGE_EMAIL_REPLY_TO"];
   const before = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   let calls = 0;
-  t.mock.method(nodemailer, "createTransport", (() => ({ sendMail: async (mail: Record<string, unknown>) => {
+  let role: "coach" | "client" | "owner" = "client";
+  t.mock.method(globalThis, "fetch", async (_url: unknown, options?: RequestInit) => {
     calls++;
-    assert.equal(mail.to, "client+training@external.example.test");
-    assert.deepEqual(mail.envelope, { from: "hello@ravoge.com", to: ["client+training@external.example.test"] });
-    assert.deepEqual(mail.replyTo, { name: "Ravoge", address: "hello@ravoge.com" });
-    return { messageId: "client-test-id", envelope: mail.envelope, accepted: ["client+training@external.example.test"], rejected: [] };
-  } })) as unknown as typeof nodemailer.createTransport);
+    const mail = JSON.parse(String(options?.body));
+    assert.deepEqual(mail.to, ["client+training@external.example.test"]);
+    assert.equal(mail.from, "Ravoge <hello@ravoge.com>");
+    assert.equal(mail.reply_to, "hello@ravoge.com");
+    assert.ok(mail.html.includes(`/signup/${role}?enrollment=role-unit-test-token`));
+    return new Response(JSON.stringify({ id: "role-test-id" }), { status: 200 });
+  });
   try {
-    Object.assign(process.env, { RAVOGE_SMTP_HOST: "smtp.office365.com", RAVOGE_SMTP_USER: "hello@ravoge.com", RAVOGE_SMTP_PORT: "587", RAVOGE_SMTP_PASSWORD: "mock-password", RAVOGE_EMAIL_FROM: "Ravoge <hello@ravoge.com>", RAVOGE_EMAIL_REPLY_TO: "hello@ravoge.com" });
-    assert.equal((await sendInvitationEmail({ ...input, role: "client", recipientEmail: " CLIENT+Training@External.Example.Test " })).status, "sent");
+    Object.assign(process.env, { RESEND_API_KEY: "unit-fixture-only", RAVOGE_EMAIL_FROM: "Ravoge <hello@ravoge.com>", RAVOGE_EMAIL_REPLY_TO: "hello@ravoge.com" });
+    for (role of ["coach", "client", "owner"] as const) {
+      assert.equal((await sendInvitationEmail({ ...input, role, invitationUrl: `https://ravoge.com/enroll/${role}?token=role-unit-test-token`, recipientEmail: " CLIENT+Training@External.Example.Test " })).status, "sent");
+    }
     for (const recipientEmail of ["", "info", "client@example.test,other@example.test"]) assert.equal((await sendInvitationEmail({ ...input, role: "client", recipientEmail })).status, "failed");
-    assert.equal(calls, 1);
+    assert.equal(calls, 3);
   } finally {
     for (const key of keys) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; }
   }

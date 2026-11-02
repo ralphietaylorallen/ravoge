@@ -1,6 +1,5 @@
 import "server-only";
 
-import nodemailer from "nodemailer";
 import { normalizeInvitationEmail } from "./invitation-input.ts";
 import { getEmailSender } from "./email-sender.ts";
 
@@ -45,58 +44,43 @@ export function createInvitationEmailContent(input: InvitationEmail) {
 export async function sendInvitationEmail(input: InvitationEmail) {
   const recipientEmail = normalizeInvitationEmail(input.recipientEmail);
   if (!recipientEmail) return { error: "Enter a complete email address.", id: null, status: "failed" as const };
-  const host = process.env.RAVOGE_SMTP_HOST?.trim();
-  const user = process.env.RAVOGE_SMTP_USER?.trim();
-  const pass = process.env.RAVOGE_SMTP_PASSWORD;
+  const apiKey = process.env.RESEND_API_KEY;
 
-  if (!host || !user || !pass || !process.env.RAVOGE_EMAIL_FROM?.trim()) {
+  // Production-only credentials are intentionally absent from deploy previews.
+  if (!apiKey || !process.env.RAVOGE_EMAIL_FROM?.trim()) {
     return { error: null, id: null, status: "not_configured" as const };
   }
 
   try {
     const sender = getEmailSender();
-    const port = Number(process.env.RAVOGE_SMTP_PORT || 587);
-    if (!sender || host !== "smtp.office365.com" || port !== 587 || user.toLowerCase() !== "hello@ravoge.com" || sender.from.address !== "hello@ravoge.com" || sender.replyToAddress !== "hello@ravoge.com") throw { code: "ECONFIG" };
+    if (!sender || sender.from.address !== "hello@ravoge.com" || sender.replyToAddress !== "hello@ravoge.com") throw { code: "ECONFIG" };
     const { html, subject, text } = createInvitationEmailContent({ ...input, recipientEmail });
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: false,
-      requireTLS: true,
-      tls: { minVersion: "TLSv1.2" },
-      auth: { user, pass },
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 15_000,
+    // Use the existing booking adapter's Resend API contract. No SMTP fallback
+    // or automatic retry: an ambiguous response must not duplicate an invite.
+    const response = await fetch("https://api.resend.com/emails", {
+      body: JSON.stringify({ from: sender.fromHeader, reply_to: sender.replyToAddress, to: [recipientEmail], subject, html, text }),
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      method: "POST",
+      signal: AbortSignal.timeout(15_000),
     });
-
-    const info = await transporter.sendMail({
-      from: sender.from,
-      replyTo: sender.replyTo,
-      to: recipientEmail,
-      envelope: { from: sender.from.address, to: [recipientEmail] },
-      subject,
-      html,
-      text,
-    });
-
-    if (!info.accepted?.some(address => String(address).toLowerCase() === recipientEmail) || info.rejected?.length || info.envelope?.to?.length !== 1 || info.envelope.to[0].toLowerCase() !== recipientEmail) throw { code: "ERECIPIENT" };
-    console.info("[Ravoge email] SMTP invitation accepted", { role: input.role, intendedRecipientAccepted: true, envelopeRecipientMatches: true });
+    const payload = await response.json() as { id?: unknown } | null;
+    if (!response.ok || typeof payload?.id !== "string" || !payload.id.trim()) {
+      // Never log provider bodies, request headers, addresses or secure links.
+      console.error("[Ravoge email] Resend invitation not confirmed", { role: input.role, httpStatus: response.status });
+      return { error: `Email provider returned ${response.status}; the invitation was not confirmed. Copy the secure invite link below.`, id: null, status: "failed" as const };
+    }
+    console.info("[Ravoge email] Resend invitation accepted", { role: input.role, httpStatus: response.status });
 
     return {
       error: null,
-      id: typeof info.messageId === "string" ? info.messageId : null,
+      id: payload.id,
       status: "sent" as const,
     };
   } catch (error) {
-    // SMTP response/message can contain addresses, credentials or the invitation URL.
-    const details = error as { code?: string; responseCode?: number; response?: string } | null;
-    const enhancedStatus = typeof details?.response === "string" ? details.response.match(/\b[245]\.\d{1,3}\.\d{1,3}\b/)?.[0] : undefined;
-    const aliasDenied = typeof details?.response === "string" && /5\.7\.60\b|SendAsDenied|does(?:n.t| not) have permissions to send as/i.test(details.response);
-    const code = ["EAUTH", "ECONNECTION", "ESOCKET", "ETIMEDOUT", "ETLS", "EENVELOPE", "EMESSAGE", "ERECIPIENT", "ECONFIG"].includes(details?.code ?? "") ? details!.code : "unknown";
-    console.error("[Ravoge email] SMTP invitation delivery failed", { code, responseCode: typeof details?.responseCode === "number" ? details.responseCode : undefined, enhancedStatus, aliasDenied });
+    const configurationError = (error as { code?: string } | null)?.code === "ECONFIG";
+    console.error("[Ravoge email] Resend invitation delivery failed", { role: input.role, code: configurationError ? "ECONFIG" : "unconfirmed" });
     return {
-      error: aliasDenied ? "Microsoft 365 rejected permission to send from the configured mailbox. Ask the Owner to check the hello mailbox sending permissions. Your secure invite link is still available." : code === "EAUTH" ? "The email mailbox could not authenticate. Ask the Owner to check the Microsoft 365 sending configuration. Your secure invite link is still available." : code === "ECONFIG" ? "The Ravoge invitation sender configuration needs attention. Use hello@ravoge.com for SMTP login, From and Reply-To. Your secure invite link is still available." : "Email delivery failed. Retry, or copy the secure invite link below.",
+      error: configurationError ? "The Ravoge invitation sender configuration needs attention. Use hello@ravoge.com for From and Reply-To. Your secure invite link is still available." : "Email delivery could not be confirmed. Copy the secure invite link below before attempting another send.",
       id: null,
       status: "failed" as const,
     };
