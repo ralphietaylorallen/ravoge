@@ -37,11 +37,12 @@ Copy `.env.example` to a gitignored `.env.local`, or use the linked Ravoge Netli
 The invitation and scheduling email integrations are server-only and become active when these Netlify values are configured:
 
 - `RESEND_API_KEY` — Resend API key, marked secret and never exposed with a `NEXT_PUBLIC_` prefix.
-- `RAVOGE_EMAIL_FROM` — verified Ravoge sender identity.
+- `RAVOGE_EMAIL_FROM` — `Ravoge <hello@ravoge.com>` for invitations.
+- `RAVOGE_EMAIL_REPLY_TO` — `hello@ravoge.com` for invitations.
 - `RAVOGE_APP_URL` — optional public application origin; production defaults to `https://ravoge.com`.
 
 If the Resend key or sender is absent, bookings still complete and the separate delivery record is marked `skipped`; no provider request is attempted.
-Invitations remain valid with delivery status `not_configured` and a secure copy-link fallback. A provider accepting a message is not proof of inbox delivery. Verify the sending domain in Resend before live email testing.
+Invitations remain valid with delivery status `not_configured` and a secure copy-link fallback. Keep the invitation Resend key protected in Netlify's Functions scope and Production context; previews need no email secret. Invitations never fall back to SMTP or automatically retry a failed API request. Leave legacy SMTP variables untouched until replacement delivery is proven. A provider accepting a message is not proof of inbox delivery. Verify the sending domain in Resend before live email testing.
 
 Use only the publishable key. Never put a secret or `service_role` key in a `NEXT_PUBLIC_` variable or Git.
 
