@@ -226,12 +226,17 @@ begin
     set status = 'inactive'
     where user_id = '51000000-0000-0000-0000-000000000001';
     raise exception 'Primary owner was deactivated without transfer';
-  exception when raise_exception then
+  exception
+  when insufficient_privilege then null; -- Direct status writes are no longer a browser API.
+  when raise_exception then
     if sqlerrm = 'Primary owner was deactivated without transfer' then raise; end if;
   end;
 end;
 $$;
 
+-- Trusted fixture setup only: leave one active Owner to exercise the database
+-- final/primary Owner protections below. No application Owner-removal API exists.
+reset role;
 update public.organization_memberships
 set status = 'inactive'
 where user_id = '51000000-0000-0000-0000-000000000002';
