@@ -35,6 +35,9 @@ test("Owner clears selected invitations, retains audit and memberships, and can 
   const clientContext = await browser.newContext(), client = await clientContext.newPage();
   await client.goto(accepted.signup);
   await client.getByRole("link", { name: "Sign in instead", exact: true }).click();
+  await expect(client).toHaveURL(/\/login\?enrollment=/);
+  await expect(client.getByLabel("Email", { exact: true })).toHaveValue(existing.email);
+  await expect(client.getByLabel("Email", { exact: true })).toHaveAttribute("readonly", "");
   await client.getByLabel("Password", { exact: true }).fill(existing.password);
   await client.getByRole("button", { name: "Login", exact: true }).click();
   await expect(client).toHaveURL(/\/client$/, { timeout: 25_000 });
