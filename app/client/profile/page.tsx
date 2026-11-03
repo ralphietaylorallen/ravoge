@@ -2,6 +2,7 @@ import { ProfileDetailsForm, ProfilePhotoForm } from "@/components/profile-forms
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
+import { AnnouncementPreferences } from "@/components/announcement-preferences";
 
 export default async function ClientProfilePage() {
   const { membership, supabase, userId } = await requireRole("client");
@@ -25,5 +26,6 @@ export default async function ClientProfilePage() {
     <div className={`${styles.detailGrid} ${styles.workspaceSection}`}>
       <section className={styles.panel}><h2>About</h2>{profile && <ProfileDetailsForm defaults={profile} role="client" />}<p className={styles.securityNote}>Organization, role, coach assignment, goal, intake status, and account status cannot be changed here.</p></section>
     </div>
+    <AnnouncementPreferences />
   </DashboardShell>;
 }

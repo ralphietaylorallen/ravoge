@@ -189,6 +189,9 @@
 .teamMembers > li { flex-wrap: wrap; }
 .invitationDetails { min-width:0; flex:1 1 16rem; overflow-wrap:anywhere; }
 .invitationDetails > small { display:block; margin-top:.3rem; }
+.announcementPanel { display:grid; gap:1rem; margin-block:1rem; }
+.announcementAudience label, .announcementAudience label > span { min-width:0; overflow-wrap:anywhere; }
+.announcementAudience small { display:block; }
 .credentialList { display: grid; margin: 0 0 1rem; padding: 0; list-style: none; }
 .credentialList li { display: flex; align-items: start; justify-content: space-between; gap: 1rem; padding: 1.1rem 0; border-bottom: 1px solid var(--ui-divider, #dedad1); }
 .credentialList div { display: grid; gap: 0.28rem; }

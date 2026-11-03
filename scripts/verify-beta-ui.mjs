@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 const project = "kqdnljafaiohlijbgfld";
 const local = process.env.SUPABASE_DB_TARGET === "local";
+if (process.env.RAVOGE_ANNOUNCEMENTS_QA === "yes" && !local) throw new Error("Announcement fixtures require isolated local Supabase; hosted targets are forbidden.");
 if (process.env.RAVOGE_MEMBER_REMOVE_QA === "yes" && !local) throw new Error("Member removal fixtures require isolated local Supabase; hosted targets are forbidden.");
 if (process.env.RAVOGE_INVITATION_CLEAR_QA === "yes" && !local) throw new Error("Invitation clearing fixtures require isolated local Supabase; hosted targets are forbidden.");
 if (process.env.RAVOGE_GROUP_QA === "yes" && !local) throw new Error("Group browser fixtures require isolated local Supabase; hosted targets are forbidden.");
@@ -23,6 +24,7 @@ if (process.env.RAVOGE_QUALITY_QA === "yes") roles.push("client", "client", "cli
 if (process.env.RAVOGE_GROUP_QA === "yes") roles.push("client");
 if (process.env.RAVOGE_INVITATION_CLEAR_QA === "yes") roles.push("client");
 if (process.env.RAVOGE_MEMBER_REMOVE_QA === "yes") roles.push("client");
+if (process.env.RAVOGE_ANNOUNCEMENTS_QA === "yes") roles.push("client");
 const users = roles.map((role, index) => ({ role, id: randomUUID(), email: `${prefix}-${index}@example.test`, password, name: `Beta QA ${role} ${index}` }));
 const newCoachEmail = `${prefix}-new-coach@example.test`, newClientEmail = `${prefix}-new-client@example.test`, expiredInviteEmail = `${prefix}-expired@example.test`;
 const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: apiUrl, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
@@ -66,7 +68,7 @@ try {
     server.stderr.on("data", chunk => process.stderr.write(chunk));
     for (let attempt = 0; attempt < 60; attempt++) { try { if ((await fetch(env.PLAYWRIGHT_BASE_URL)).ok) break; } catch {} await new Promise(resolve => setTimeout(resolve, 500)); }
   }
-  execSync(`npx playwright test ${env.RAVOGE_MEMBER_REMOVE_QA === "yes" ? "tests/member-removal.spec.ts" : env.RAVOGE_INVITATION_CLEAR_QA === "yes" ? "tests/invitation-clearing.spec.ts" : env.RAVOGE_GROUP_QA === "yes" ? "tests/group-programming.spec.ts" : env.RAVOGE_INVITATION_QA === "yes" ? "tests/coach-invitation.spec.ts" : env.RAVOGE_REFERENCE_QA === "yes" ? "tests/gym-references.spec.ts" : env.RAVOGE_LOAD_QA === "yes" ? "tests/starting-loads.spec.ts" : env.RAVOGE_QUALITY_QA === "yes" ? "tests/workout-quality.spec.ts" : "tests/beta-readiness.spec.ts"} --project=desktop --workers=1`, { env, stdio: "inherit", windowsHide: true });
+  execSync(`npx playwright test ${env.RAVOGE_ANNOUNCEMENTS_QA === "yes" ? "tests/announcements.spec.ts" : env.RAVOGE_MEMBER_REMOVE_QA === "yes" ? "tests/member-removal.spec.ts" : env.RAVOGE_INVITATION_CLEAR_QA === "yes" ? "tests/invitation-clearing.spec.ts" : env.RAVOGE_GROUP_QA === "yes" ? "tests/group-programming.spec.ts" : env.RAVOGE_INVITATION_QA === "yes" ? "tests/coach-invitation.spec.ts" : env.RAVOGE_REFERENCE_QA === "yes" ? "tests/gym-references.spec.ts" : env.RAVOGE_LOAD_QA === "yes" ? "tests/starting-loads.spec.ts" : env.RAVOGE_QUALITY_QA === "yes" ? "tests/workout-quality.spec.ts" : "tests/beta-readiness.spec.ts"} --project=desktop --workers=1`, { env, stdio: "inherit", windowsHide: true });
 } finally {
   server?.kill();
   if (created) {
@@ -95,6 +97,9 @@ try {
       delete from public.generated_prescriptions where organization_id='${org}';
       delete from public.client_states where organization_id='${org}';
       delete from public.client_intakes where organization_id='${org}';
+      delete from public.announcement_recipients where organization_id='${org}';
+      delete from public.announcements where organization_id='${org}';
+      delete from public.announcement_preferences where organization_id='${org}';
       delete from public.member_access_removals where organization_id='${org}';
       set local session_replication_role=replica;
       delete from public.organization_memberships where organization_id='${org}' and user_id='${users[0].id}';
