@@ -62,6 +62,7 @@ do $$ begin
  update announcement_qa_state set claim=public.claim_announcement_recipient(job);
  perform public.finish_announcement_recipient((select (claim->>'id')::uuid from announcement_qa_state),(select (claim->>'lease')::uuid from announcement_qa_state),'failed',null,'provider_429',120);
  if public.retry_announcement_failures((select job from announcement_qa_state))<>0 then raise exception 'Provider backoff ignored'; end if;
+ if (select count(*) from public.announcement_recipients where status='failed' and retryable)<>1 then raise exception 'Rate-limited recipient cannot retry'; end if;
  if public.claim_announcement_recipient((select job from announcement_qa_state))->>'busy' is distinct from 'true' then raise exception 'Global backoff ignored'; end if;
 end $$;
 reset role;

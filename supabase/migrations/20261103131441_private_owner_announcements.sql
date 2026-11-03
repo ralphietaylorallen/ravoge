@@ -197,9 +197,9 @@ begin
  if r.lease_token is distinct from claim_token or r.status not in ('processing','unconfirmed') then return; end if;
  update public.announcement_recipients set status=result_status,provider_id=case when result_status='accepted' then provider_message_id else provider_id end,
  accepted_at=case when result_status='accepted' then coalesce(accepted_at,now()) else accepted_at end,
- retryable=result_status in ('failed','unconfirmed') and result_code in ('provider_429','provider_5xx','network_unconfirmed','response_unconfirmed') and attempts<5 and first_attempt_at>now()-interval '23 hours',
+ retryable=result_status in ('failed','unconfirmed') and (result_code in ('provider_401','provider_403','provider_429','provider_5xx','network_unconfirmed','response_unconfirmed','not_configured','preflight_unconfirmed') or result_code ~ '^(suppression_check|preference_check)_(401|403|429|5[0-9]{2})$') and attempts<5 and first_attempt_at>now()-interval '23 hours',
  error_code=result_code,lease_until=null,next_attempt_at=now()+make_interval(secs=>retry_after_seconds) where id=r.id;
- update private.announcement_dispatch_slot s set recipient_id=null,lease_until=now()+make_interval(secs=>case when result_code='provider_429' then retry_after_seconds else 1 end) where s.id and s.recipient_id=r.id;
+ update private.announcement_dispatch_slot s set recipient_id=null,lease_until=now()+make_interval(secs=>case when result_code ~ '_429$' then retry_after_seconds else 1 end) where s.id and s.recipient_id=r.id;
  if result_status='skipped' and result_code in ('suppressed','unsubscribed') then update public.announcement_preferences set opted_in=false,updated_at=now() where organization_id=org and user_id=r.user_id and email=r.email; end if;
 end $$;
 create function public.finish_announcement_recipient(recipient_id uuid,claim_token uuid,result_status text,provider_message_id text,result_code text,retry_after_seconds integer default 60) returns void language sql security invoker set search_path='' as $$ select private.finish_announcement_recipient(recipient_id,claim_token,result_status,provider_message_id,result_code,retry_after_seconds); $$;

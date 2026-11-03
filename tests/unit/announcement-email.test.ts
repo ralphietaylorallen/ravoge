@@ -12,6 +12,7 @@ test("announcements are private per recipient, use hello identity, and retain id
   if(options?.method!=="POST"){
    reads++;const u=String(url);
    if(mode==="blocked")return new Response("",{status:403});
+   if(mode==="preflight-rate-limit")return new Response("",{status:429,headers:{"retry-after":"180"}});
    if(u.includes("/suppressions/"))return mode==="suppressed"?Response.json({email:decodeURIComponent(u.split("/").at(-1)!)}):new Response("",{status:404});
    if(u.includes("/contacts/"))return mode==="unsubscribed"?Response.json({email:decodeURIComponent(u.split("/").at(-1)!),unsubscribed:true}):new Response("",{status:404});
    if(u.includes("/emails/"))return Response.json({id:provider,to:mode==="wrong-recipient"?["other@example.test"]:[base.email],cc:[],bcc:[],last_event:"delivered"});
@@ -35,6 +36,7 @@ test("announcements are private per recipient, use hello identity, and retain id
   await sendAnnouncementEmail(base,async()=>true,noWait);assert.equal(mails[2].key,mails[0].key);assert.deepEqual(mails[2].payload,mails[0].payload);
   for(const preference of ["suppressed","unsubscribed"]){mode=preference;const n=mails.length;const r=await sendAnnouncementEmail(base,async()=>true,noWait);assert.equal(r.status,"skipped");assert.equal(r.code,preference);assert.equal(mails.length,n);}
   mode="blocked";const n=mails.length;assert.equal((await sendAnnouncementEmail(base,async()=>true,noWait)).code,"suppression_check_403");assert.equal(mails.length,n);
+  mode="preflight-rate-limit";const limited=await sendAnnouncementEmail(base,async()=>true,noWait);assert.equal(limited.code,"suppression_check_429");assert.equal(limited.retryAfter,180);assert.equal(mails.length,n);
   mode="clear";assert.equal((await sendAnnouncementEmail(base,async()=>false,noWait)).status,"skipped");assert.equal(mails.length,n);
   outcome=429;let r=await sendAnnouncementEmail(base,async()=>true,noWait);assert.equal(r.code,"provider_429");assert.equal(r.retryAfter,120);
   outcome=503;r=await sendAnnouncementEmail(base,async()=>true,noWait);assert.equal(r.status,"unconfirmed");assert.equal(r.code,"provider_5xx");

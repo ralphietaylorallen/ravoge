@@ -10,15 +10,16 @@ export function announcementRetryAfter(value:string|null){const seconds=value&&/
 function config(){const sender=getEmailSender(),key=process.env.RESEND_API_KEY;if(!key||!sender||sender.from.address!=="hello@ravoge.com"||sender.replyToAddress!=="hello@ravoge.com")throw Error("not_configured");return {key,sender};}
 export function announcementEmailConfigured(){try{config();return true;}catch{return false;}}
 async function providerRead(path:string){const {key}=config();return fetch(`https://api.resend.com${path}`,{headers:{Authorization:`Bearer ${key}`},cache:"no-store",signal:AbortSignal.timeout(8000)});}
+class PreflightError extends Error {constructor(code:string,readonly retryAfter:number){super(code);}}
 export async function checkAnnouncementRecipient(email:string,wait=pause):Promise<"clear"|"suppressed"|"unsubscribed">{
  if(!normalizeInvitationEmail(email))throw Error("invalid_recipient");
  const suppression=await providerRead(`/suppressions/${encodeURIComponent(email)}`);
  if(suppression.ok){const data=await suppression.json();if(data.email?.toLowerCase()!==email)throw Error("suppression_response_unconfirmed");return "suppressed";}
- if(suppression.status!==404)throw Error(`suppression_check_${suppression.status}`);
+ if(suppression.status!==404)throw new PreflightError(`suppression_check_${suppression.status}`,announcementRetryAfter(suppression.headers.get("retry-after")));
  await wait(650);
  const contact=await providerRead(`/contacts/${encodeURIComponent(email)}`);
  if(contact.status===404)return "clear";
- if(!contact.ok)throw Error(`preference_check_${contact.status}`);
+ if(!contact.ok)throw new PreflightError(`preference_check_${contact.status}`,announcementRetryAfter(contact.headers.get("retry-after")));
  const data=await contact.json();if(data.email?.toLowerCase()!==email||typeof data.unsubscribed!=="boolean")throw Error("preference_response_unconfirmed");
  return data.unsubscribed?"unsubscribed":"clear";
 }
@@ -31,7 +32,7 @@ export async function sendAnnouncementEmail(input:AnnouncementDispatch,eligible:
  try{
   const preference=await checkAnnouncementRecipient(email,wait);
   if(preference!=="clear")return fail("skipped",preference);
- }catch(error){const code=error instanceof Error?error.message:"preflight_unconfirmed";return fail("failed",/^(suppression_check|preference_check)_\d{3}$/.test(code)?code:"preflight_unconfirmed");}
+ }catch(error){const code=error instanceof Error?error.message:"preflight_unconfirmed";return fail("failed",/^(suppression_check|preference_check)_\d{3}$/.test(code)?code:"preflight_unconfirmed",error instanceof PreflightError?error.retryAfter:60);}
  await wait(650);
  if(!await eligible())return fail("skipped","access_or_preference_changed");
  const unsubscribe=`https://ravoge.com/email/announcements/unsubscribe?token=${input.unsubscribeToken}`;
