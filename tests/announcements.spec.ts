@@ -19,6 +19,6 @@ test("Owner selects opted-in recipients, previews and queues privately; missing 
  page.once("dialog",d=>d.dismiss());await page.getByRole("button",{name:"Confirm 1 recipients & Send",exact:true}).click();await expect(page.getByRole("heading",{name:"Preview announcement",exact:true})).toBeVisible();
  page.once("dialog",async d=>{expect(d.message()).toContain("1 separate private email");await d.accept();});await page.getByRole("button",{name:"Confirm 1 recipients & Send",exact:true}).click();
  await expect(page.getByText("Queue saved. Sending is not configured in this environment; no emails were sent.")).toBeVisible();await expect(page.getByRole("status").filter({hasText:"Queued: 1"})).toBeVisible();
- await page.reload();await page.getByRole("button",{name:"Open announcement",exact:true}).click();await expect(page.getByRole("status").filter({hasText:"Provider-accepted: 0"})).toBeVisible();await expect(page.getByText(client.email,{exact:true})).toBeVisible();
+ await page.reload();await page.getByRole("button",{name:"Open announcement",exact:true}).click();await expect(page.getByRole("status").filter({hasText:"Provider-accepted: 0"})).toBeVisible();await page.getByText("Recipient-level status",{exact:true}).click();await expect(page.getByText(client.email,{exact:true})).toBeVisible();
  await context.clearCookies();await login(cp,coach);await cp.goto("/owner/announcements");await expect(cp.getByRole("heading",{name:"Announcements",exact:true})).toHaveCount(0);await context.close();
 });
