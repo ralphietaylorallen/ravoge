@@ -62,7 +62,7 @@ create table public.announcement_recipients (
  foreign key(organization_id,user_id) references public.organization_memberships(organization_id,user_id) on delete restrict
 );
 create index announcement_recipients_org_job_idx on public.announcement_recipients(organization_id,announcement_id,status);
-create index announcement_recipients_user_idx on public.announcement_recipients(user_id);
+create index announcement_recipients_user_idx on public.announcement_recipients(user_id,organization_id);
 create index announcement_recipients_job_status_idx on public.announcement_recipients(announcement_id,status,next_attempt_at);
 alter table public.announcement_recipients enable row level security;
 create policy announcement_recipients_owner_read on public.announcement_recipients for select to authenticated using((select private.has_active_role(organization_id,array['owner']::public.organization_role[])));
