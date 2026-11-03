@@ -6,6 +6,7 @@ export type GroupProgram = {
 };
 export type GroupVersion = { revision: number; raw_workout_text: string; edited_by: string; edited_at: string; published_at: string | null };
 export type GroupResult = { status: "success" | "error"; message: string; programs?: GroupProgram[]; versions?: GroupVersion[] };
+export type DuplicateWeekResult = { status: "success" | "error" | "conflict"; message: string; programs?: GroupProgram[]; destinationWeek?: string; expectedDestination?: Record<string,number> };
 export const MINDBODY_BLOCKER = "Mindbody sync is unavailable until a supported date-specific workout field and branded-app display are verified. No Mindbody classes or bookings will be changed.";
 
 export function validGroupDate(value: string) {
