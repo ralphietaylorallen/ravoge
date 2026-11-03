@@ -8,14 +8,14 @@ insert into public.organization_memberships(organization_id,user_id,role,status)
  ('99a00000-0000-0000-0000-000000000001','99000000-0000-0000-0000-000000000002','coach','active'),
  ('99a00000-0000-0000-0000-000000000002','99000000-0000-0000-0000-000000000004','owner','active'),
  ('99a00000-0000-0000-0000-000000000001','99000000-0000-0000-0000-000000000005','owner','inactive');
-insert into public.organization_invitations(id,organization_id,invited_by,email,role,token_hash,created_at,expires_at,revoked_at,accepted_at,accepted_by)
+insert into public.organization_invitations(id,organization_id,invited_by,email,role,token_hash,created_at,expires_at,revoked_at)
 select ('99b00000-0000-0000-0000-'||lpad(i::text,12,'0'))::uuid,
  case when i=5 then '99a00000-0000-0000-0000-000000000002'::uuid else '99a00000-0000-0000-0000-000000000001'::uuid end,
  case when i=5 then '99000000-0000-0000-0000-000000000004'::uuid else '99000000-0000-0000-0000-000000000001'::uuid end,
- case when i=1 then 'clear-pending@example.test' else 'clear-invite-'||i||'@example.test' end,'client',
+ case when i=1 then 'clear-pending@example.test' when i=4 then 'clear-user-3@example.test' else 'clear-invite-'||i||'@example.test' end,'client',
  encode(extensions.digest(repeat(i::text,32),'sha256'),'hex'),now()-interval '2 days',
  case when i=2 then now()-interval '1 day' else now()+interval '7 days' end,
- case when i=3 then now() end,case when i=4 then now() end,case when i=4 then '99000000-0000-0000-0000-000000000003'::uuid end
+ case when i=3 then now() end
 from generate_series(1,6) i;
 insert into public.organization_memberships(organization_id,user_id,role,status,invitation_id) values
  ('99a00000-0000-0000-0000-000000000001','99000000-0000-0000-0000-000000000003','client','active','99b00000-0000-0000-0000-000000000004');
