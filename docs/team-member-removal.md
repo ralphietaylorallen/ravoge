@@ -13,3 +13,5 @@ The existing RLS and per-request membership checks enforce loss of access for al
 CI uses an isolated local Supabase database and disposable browser identities. Tests cover permission and gym boundaries, Owner protection, explicit appointment/assignment resolution, preserved Auth/workout/history records, other-gym membership preservation, existing-session revocation and responsive controls. Production checks are read-only and do not remove any real member.
 
 Partner/small-group personal training is recorded separately in `partner-training-requirements.md`; no implementation is included.
+
+CI run 129 passed all application/security checks, every isolated database suite, and four authenticated browser tests (group programming, invitation clearing and member removal). The verified additive migration was applied once to Ravoge project `kqdnljafaiohlijbgfld` as `20261103131951_owner_member_access_removal`; the SQL is unchanged from CI. Existing browser-status-write tests now assert denial, while the trusted primary/final Owner trigger checks remain in place.
