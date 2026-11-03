@@ -30,3 +30,16 @@ test("preview and missing authentication cannot start an announcement worker",as
  const original=process.env.CONTEXT;let requests=0;t.mock.method(globalThis,"fetch",async()=>{requests++;throw Error("No network expected");});
  try{process.env.CONTEXT="deploy-preview";await handler(new Request("https://preview.test/.netlify/functions/announcements-background",{method:"POST",body:JSON.stringify({jobId:"fake"})}));process.env.CONTEXT="production";await handler(new Request("https://ravoge.com/.netlify/functions/announcements-background",{method:"POST"}));assert.equal(requests,0);}finally{if(original===undefined)delete process.env.CONTEXT;else process.env.CONTEXT=original;}
 });
+test("production worker verifies the ordinary session and lets RLS authorize the job",async t=>{
+ const keys=["RESEND_API_KEY","RAVOGE_EMAIL_FROM","RAVOGE_EMAIL_REPLY_TO","NEXT_PUBLIC_SUPABASE_URL","NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],before=keys.map(k=>process.env[k]);
+ Object.assign(process.env,{RESEND_API_KEY:"unit-test-only",RAVOGE_EMAIL_FROM:"Ravoge <hello@ravoge.com>",RAVOGE_EMAIL_REPLY_TO:"hello@ravoge.com",NEXT_PUBLIC_SUPABASE_URL:"https://kqdnljafaiohlijbgfld.supabase.co",NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:"sb_publishable_test_only"});
+ const paths:string[]=[];let valid=true;
+ t.mock.method(globalThis,"fetch",async(input:unknown,options?:RequestInit)=>{
+  const u=typeof input==="string"?input:input instanceof Request?input.url:String(input);paths.push(new URL(u).pathname);
+  if(u.endsWith("/auth/v1/user"))return valid?Response.json({id:"9b000000-0000-4000-8000-000000000001",aud:"authenticated"}):Response.json({msg:"Session rejected"},{status:401});
+  assert.ok(u.endsWith("/rest/v1/rpc/claim_announcement_recipient"));assert.equal(JSON.parse(String(options?.body)).job_id,"9b000000-0000-4000-8000-000000000002");return Response.json(null);
+ });
+ const ctx={deploy:{context:"production"},site:{id:"c1bf03e6-2657-40fe-9584-f265ab9c2b94"}};
+ const request=()=>new Request("https://ravoge.com/.netlify/functions/announcements-background",{method:"POST",headers:{Authorization:"Bearer unit-test-session"},body:JSON.stringify({jobId:"9b000000-0000-4000-8000-000000000002"})});
+ try{await handler(request(),ctx);assert.deepEqual(paths,["/auth/v1/user","/rest/v1/rpc/claim_announcement_recipient"]);paths.length=0;valid=false;await handler(request(),ctx);assert.deepEqual(paths,["/auth/v1/user"]);paths.length=0;await handler(request(),{...ctx,deploy:{context:"deploy-preview"}});assert.equal(paths.length,0);}finally{keys.forEach((k,i)=>{if(before[i]===undefined)delete process.env[k];else process.env[k]=before[i];});}
+});

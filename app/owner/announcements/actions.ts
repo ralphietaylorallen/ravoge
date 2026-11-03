@@ -1,6 +1,7 @@
 "use server";
 import type {SupabaseClient} from "@supabase/supabase-js";
 import {revalidatePath} from "next/cache";
+import {headers} from "next/headers";
 import {requireRole} from "@/lib/auth";
 import {announcementEmailConfigured,checkAnnouncementRecipient,getAnnouncementDeliveryEvent} from "@/lib/announcement-email";
 import type {AnnouncementJob,AnnouncementRecipient} from "@/lib/announcement-types";
@@ -29,7 +30,8 @@ export async function queueAnnouncementAction(id:string,count:number):Promise<An
 }
 export async function refreshAnnouncementAction(id:string):Promise<AnnouncementState>{const {supabase,membership}=await requireRole("owner");try{return {status:"success",job:await jobState(supabase,membership.organization_id,id)};}catch{return {status:"error",message:"This announcement is unavailable."};}}
 async function startWorker(supabase:SupabaseClient,id:string){
- if(process.env.CONTEXT!=="production"||!announcementEmailConfigured())return {status:"error" as const,paused:true,message:"Queue saved. Sending is not configured in this environment; no emails were sent."};
+ const host=(await headers()).get("host")?.toLowerCase();
+ if(!["ravoge.com","www.ravoge.com"].includes(host??"")||!announcementEmailConfigured())return {status:"error" as const,paused:true,message:"Queue saved. Sending is not configured in this environment; no emails were sent."};
  const {data:{session}}=await supabase.auth.getSession();
  if(!session)return {status:"error" as const,paused:true,message:"Queue saved. Sign in again to resume sending."};
  try{const result=await fetch("https://ravoge.com/.netlify/functions/announcements-background",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({jobId:id}),signal:AbortSignal.timeout(10000)});

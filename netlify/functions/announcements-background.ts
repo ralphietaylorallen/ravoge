@@ -4,9 +4,9 @@ import {announcementEmailConfigured} from "../../lib/announcement-email-core.ts"
 import {runAnnouncementQueue} from "../../lib/announcement-worker.ts";
 
 export const config={background:true};
-export default async function handler(request:Request){
+export default async function handler(request:Request,context?:{deploy:{context:string};site:{id:string}}){
  // Preview secrets are intentionally absent. Never send from preview/local.
- if(request.method!=="POST"||process.env.CONTEXT!=="production"||!announcementEmailConfigured())return;
+ if(request.method!=="POST"||context?.deploy.context!=="production"||context.site.id!=="c1bf03e6-2657-40fe-9584-f265ab9c2b94"||!announcementEmailConfigured())return;
  const authorization=request.headers.get("authorization");
  if(!authorization?.startsWith("Bearer ")||authorization.length>12000)return;
  try{
