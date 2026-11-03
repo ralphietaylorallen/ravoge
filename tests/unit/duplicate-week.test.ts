@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { ModuleKind, transpileModule } from "typescript";
 import { groupWeek, moveGroupDate, validGroupDate, type DuplicateWeekResult } from "../../lib/group-programming.ts";
+
+test("group browser fixture harness rejects hosted targets before setup or cleanup", () => {
+  const result = spawnSync(process.execPath, ["scripts/verify-beta-ui.mjs"], { encoding: "utf8", env: { ...process.env, SUPABASE_DB_TARGET: "hosted", RAVOGE_BETA_QA: "yes", RAVOGE_GROUP_QA: "yes", PLAYWRIGHT_BASE_URL: "https://ravoge.com" } });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Group browser fixtures require isolated local Supabase; hosted targets are forbidden/);
+  assert.ok(!result.stdout.includes("Preparing"));
+});
 
 function harness(role = "owner", outcome: Record<string,unknown> = { status: "success", programs: [], destinationWeek: "2026-11-02" }, error: { code: string } | null = null) {
   const calls: { name: string; args: Record<string,unknown> }[] = [];

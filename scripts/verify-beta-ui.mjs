@@ -1,12 +1,18 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { execSync, spawn } from "node:child_process";
+import { execFileSync, execSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 const project = "kqdnljafaiohlijbgfld";
-if (process.env.RAVOGE_BETA_QA !== "yes" || readFileSync("supabase/.temp/project-ref", "utf8").trim() !== project) throw new Error("Explicit isolated Ravoge beta test opt-in required");
+const local = process.env.SUPABASE_DB_TARGET === "local";
+if (process.env.RAVOGE_GROUP_QA === "yes" && !local) throw new Error("Group browser fixtures require isolated local Supabase; hosted targets are forbidden.");
+if (process.env.RAVOGE_BETA_QA !== "yes" || (!local && readFileSync("supabase/.temp/project-ref", "utf8").trim() !== project)) throw new Error("Explicit isolated Ravoge beta test opt-in required");
+const localProject = readFileSync("supabase/config.toml", "utf8").match(/^project_id\s*=\s*"([^"]+)"/m)?.[1];
+if (local && (localProject !== "ravoge" || process.env.PLAYWRIGHT_BASE_URL)) throw new Error("Local QA must use the Ravoge Docker stack and its own loopback app server.");
 const cli = "npx --yes supabase@2.117.0";
-const keyRows = JSON.parse(execSync(`${cli} projects api-keys --project-ref ${project} -o json --agent no`, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], windowsHide: true }));
-const key = keyRows.find(row => row.type === "publishable")?.api_key;
+const connection = JSON.parse(execSync(local ? `${cli} status -o json --agent no` : `${cli} projects api-keys --project-ref ${project} -o json --agent no`, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], windowsHide: true }));
+const key = local ? connection.PUBLISHABLE_KEY : connection.find(row => row.type === "publishable")?.api_key;
+const apiUrl = local ? connection.API_URL : `https://${project}.supabase.co`;
+if (local && (!apiUrl || !["127.0.0.1", "localhost"].includes(new URL(apiUrl).hostname))) throw new Error("Local QA refuses a hosted Supabase endpoint.");
 if (!key?.startsWith("sb_publishable_")) throw new Error("Ravoge publishable key unavailable");
 const org = randomUUID(), run = randomUUID(), prefix = `qa-beta-${run}`;
 const password = randomBytes(24).toString("hex");
@@ -15,14 +21,17 @@ if (process.env.RAVOGE_QUALITY_QA === "yes") roles.push("client", "client", "cli
 if (process.env.RAVOGE_GROUP_QA === "yes") roles.push("client");
 const users = roles.map((role, index) => ({ role, id: randomUUID(), email: `${prefix}-${index}@example.test`, password, name: `Beta QA ${role} ${index}` }));
 const newCoachEmail = `${prefix}-new-coach@example.test`, newClientEmail = `${prefix}-new-client@example.test`;
-const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: `https://${project}.supabase.co`, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
+const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: apiUrl, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
   BETA_QA_USERS: JSON.stringify(users), BETA_QA_PASSWORD: password, BETA_QA_NEW_COACH_EMAIL: newCoachEmail, BETA_QA_NEW_CLIENT_EMAIL: newClientEmail };
 mkdirSync(".temp", { recursive: true });
 writeFileSync(".temp/beta-qa-state.json", JSON.stringify({ organizationId: org, prefix, userIds: users.map(user => user.id) }));
 function sql(query) {
   const file = ".temp/beta-qa.sql";
   writeFileSync(file, query);
-  try { return execSync(`${cli} db query --linked --file ${file} --agent no`, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], windowsHide: true, timeout: 60_000 }); }
+  try {
+    if (local) return execFileSync("docker", ["exec", "-i", `supabase_db_${localProject}`, "psql", "--username", "postgres", "--dbname", "postgres", "--set", "ON_ERROR_STOP=on"], { input: `set search_path=public,extensions;\n${query}`, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], windowsHide: true, timeout: 60_000 });
+    return execSync(`${cli} db query --linked --file ${file} --agent no`, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], windowsHide: true, timeout: 60_000 });
+  }
   catch (error) { throw new Error(`Isolated beta fixture database operation ${error.signal ? "timed out or was interrupted" : "failed"}; SQL output suppressed to protect runtime credentials.`); }
   finally { rmSync(file, { force: true }); }
 }
@@ -46,6 +55,7 @@ try {
     env.RAVOGE_ENROLLMENT_TOKEN_KEY = randomBytes(32).toString("hex");
     delete env.RESEND_API_KEY; delete env.RAVOGE_EMAIL_FROM;
     delete env.OPENAI_API_KEY; // Automated local browser QA uses the tested fallback, never a paid call.
+    if (local) execSync("npm run build", { env, stdio: "inherit", windowsHide: true });
     server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--port", "3100"], { env, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
     server.stderr.on("data", chunk => process.stderr.write(chunk));
     for (let attempt = 0; attempt < 60; attempt++) { try { if ((await fetch(env.PLAYWRIGHT_BASE_URL)).ok) break; } catch {} await new Promise(resolve => setTimeout(resolve, 500)); }
