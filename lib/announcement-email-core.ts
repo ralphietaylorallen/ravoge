@@ -10,7 +10,7 @@ export function announcementRetryAfter(value:string|null){const seconds=value&&/
 function config(){const sender=getEmailSender(),key=process.env.RESEND_API_KEY;if(!key||!sender||sender.from.address!=="hello@ravoge.com"||sender.replyToAddress!=="hello@ravoge.com")throw Error("not_configured");return {key,sender};}
 export function announcementEmailConfigured(){try{config();return true;}catch{return false;}}
 async function providerRead(path:string){const {key}=config();return fetch(`https://api.resend.com${path}`,{headers:{Authorization:`Bearer ${key}`},cache:"no-store",signal:AbortSignal.timeout(8000)});}
-class PreflightError extends Error {constructor(code:string,readonly retryAfter:number){super(code);}}
+class PreflightError extends Error {readonly retryAfter:number;constructor(code:string,retryAfter:number){super(code);this.retryAfter=retryAfter;}}
 export async function checkAnnouncementRecipient(email:string,wait=pause):Promise<"clear"|"suppressed"|"unsubscribed">{
  if(!normalizeInvitationEmail(email))throw Error("invalid_recipient");
  const suppression=await providerRead(`/suppressions/${encodeURIComponent(email)}`);
