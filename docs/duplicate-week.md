@@ -1,8 +1,8 @@
-# Duplicate Week
+# Copy week to next week
 
 Owners can copy saved Monday–Saturday group programming to the immediately following week. Sunday is not supported by the existing calendar/table constraint. All editable content currently lives in `raw_workout_text`: titles, labels, notes, spacing and line breaks are copied byte-for-byte. No parsing or new workout fields are introduced.
 
-The existing week toolbar adds **Duplicate Week**. Empty destinations copy immediately; occupied destinations offer **Copy only into empty days**, **Replace existing programmed days**, and **Cancel**. Unsaved editor changes use the existing save/discard dialog first. Success opens the next week; editing, Save Draft and Publish Week remain the existing workflow.
+The existing week toolbar adds **Copy week to next week**. Empty destinations copy immediately; occupied destinations offer **Copy into empty days**, **Replace matching days**, and **Cancel**. Replacement requires a separate **Confirm replacement** action before any write. Unsaved editor changes use the existing save/discard dialog first. Success opens the next week; editing, Save Draft and Publish Week remain the existing workflow.
 
 One additive migration adds a public invoker RPC and private write helper, following the existing restricted-RPC pattern. There are no new tables, columns, RLS policies, or changes to existing saves/publication. Active Owner membership is checked server-side and again in SQL. Organization identity comes from membership, with no gym ID parameter. Existing Coach editing permissions do not grant duplication.
 
@@ -13,3 +13,5 @@ Date arithmetic uses SQL `date + 7` and the existing calendar-date client helper
 Schema reversal, if required: drop `public.duplicate_group_programming_week(date,text,jsonb)`, then `private.duplicate_group_programming_week(date,text,jsonb)`. Preserve all copied programming and history. Existing migrations must not be reapplied.
 
 Verification includes the rollback-only `supabase/tests/duplicate_group_week_rls.sql`, existing group-programming RLS suite, unit action/date checks and authenticated `tests/group-programming.spec.ts`. Browser fixtures use an isolated disposable QA organization; they must never overwrite an existing gym's actual programming.
+
+Release reconciliation: current main was merged into PR #47 without changing the copy RPC SQL. The migration API applied this function once as `20261103035824_duplicate_group_programming_week.sql`; the repository filename now matches that recorded version. Both focused database/RLS suites passed before application in rolled-back preflights and again after application. Production's pre-existing `20261027155028_workout_completion_email` history entry is absent from this checkout, so a broad CLI push was not used. That unrelated entry was not reverted, repaired or reapplied.

@@ -15,11 +15,11 @@ export async function duplicateGroupWeekAction(monday: string, mode: "check" | "
   if (!validGroupDate(monday) || new Date(`${monday}T12:00:00Z`).getUTCDay() !== 1 || !["check","empty","replace"].includes(mode)) return { status: "error", message: "Choose a valid week and copy option." };
   try {
     const { data, error } = await supabase.rpc("duplicate_group_programming_week", { source_monday: monday, conflict_mode: mode, expected_destination: mode === "replace" ? expectedDestination ?? null : null }).abortSignal(AbortSignal.timeout(15000));
-    if (error || !data) return { status: "error", message: error?.code === "40001" ? "The next week changed. Click Duplicate Week again to review before replacing." : error?.code === "P0002" ? "Save at least one programming day before duplicating." : "Duplication was not confirmed. Your saved weeks are safe. Check the next week before retrying." };
+    if (error || !data) return { status: "error", message: error?.code === "40001" ? "The next week changed. Click Copy week to next week again to review before replacing." : error?.code === "P0002" ? "Save at least one programming day before copying." : "Copying was not confirmed. Your saved weeks are safe. Check the next week before retrying." };
     if (data.status === "conflict") return { status: "conflict", message: "The next week already has programming.", destinationWeek: data.destinationWeek, expectedDestination: data.expectedDestination };
     refresh();
-    return { status: "success", message: `Week duplicated. Review your changes, then publish when ready.${data.skippedDays ? ` ${data.skippedDays} existing day(s) preserved.` : ""}`, programs: data.programs ?? [], destinationWeek: data.destinationWeek };
-  } catch { return { status: "error", message: "Duplication was not confirmed. Check the next week before retrying; no partial copy will be saved." }; }
+    return { status: "success", message: `Week copied. Review your changes, then publish when ready.${data.skippedDays ? ` ${data.skippedDays} existing day(s) preserved.` : ""}`, programs: data.programs ?? [], destinationWeek: data.destinationWeek };
+  } catch { return { status: "error", message: "Copying was not confirmed. Check the next week before retrying; no partial copy will be saved." }; }
 }
 export async function loadGroupWeekAction(role: "owner" | "coach", monday: string): Promise<GroupResult> {
   const { supabase, membership, allowed } = await authorized(role);

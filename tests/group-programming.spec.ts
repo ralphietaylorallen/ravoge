@@ -86,8 +86,8 @@ test("Owner duplicates a week, edits and publishes copies, and explicitly resolv
   expect((await db.auth.signInWithPassword({email:owner.email,password:owner.password})).error).toBeNull();
   const sourceRows = (await db.from("group_daily_programs").select("*").order("programming_date")).data!.filter(row=>source.includes(row.raw_workout_text));
   expect(sourceRows).toHaveLength(6);
-  await page.getByRole("button",{name:"Duplicate Week",exact:true}).dblclick();
-  await expect(page.getByRole("status").filter({hasText:"Week duplicated. Review your changes, then publish when ready."})).toBeVisible();
+  await page.getByRole("button",{name:"Copy week to next week",exact:true}).dblclick();
+  await expect(page.getByRole("status").filter({hasText:"Week copied. Review your changes, then publish when ready."})).toBeVisible();
   for (let i=0;i<6;i++) { await days.nth(i).click(); await expect(editor).toHaveValue(source[i]); await expect(days.nth(i)).toContainText("Draft Saved"); }
   const copiedRows = (await db.from("group_daily_programs").select("*").order("programming_date")).data!.filter(row=>source.includes(row.raw_workout_text)&&!sourceRows.some(old=>old.id===row.id));
   expect(copiedRows).toHaveLength(6); expect(copiedRows.every(row=>row.published_at===null&&row.published_revision===null&&row.last_sync_at===null)).toBe(true);
@@ -96,7 +96,7 @@ test("Owner duplicates a week, edits and publishes copies, and explicitly resolv
   await page.getByRole("button",{name:"Save Draft",exact:true}).click(); await expect(days.first()).toContainText("Draft Saved");
   await page.getByRole("button",{name:"Publish Week",exact:true}).click(); await page.getByRole("dialog").getByRole("button",{name:"Publish",exact:true}).click();
   await expect(page.getByRole("status").filter({hasText:"6 workouts published to Ravoge"})).toBeVisible();
-  await move("Previous week"); await page.getByRole("button",{name:"Duplicate Week",exact:true}).click();
+  await move("Previous week"); await page.getByRole("button",{name:"Copy week to next week",exact:true}).click();
   const modal = page.getByRole("dialog"); await expect(modal).toContainText("The next week already has programming");
   for (const width of [390,768,820,1024,1440]) {
     await page.setViewportSize({width,height:1000});
@@ -107,14 +107,22 @@ test("Owner duplicates a week, edits and publishes copies, and explicitly resolv
   await page.keyboard.press("Tab"); expect(await page.evaluate(()=>Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true);
   await page.keyboard.press("Escape"); await expect(modal).toHaveCount(0);
   const beforeCancel = (await db.from("group_daily_programs").select("*").order("programming_date")).data;
-  await page.getByRole("button",{name:"Duplicate Week",exact:true}).click(); await modal.getByRole("button",{name:"Cancel",exact:true}).click();
+  await page.getByRole("button",{name:"Copy week to next week",exact:true}).click(); await modal.getByRole("button",{name:"Cancel",exact:true}).click();
   expect((await db.from("group_daily_programs").select("*").order("programming_date")).data).toEqual(beforeCancel);
-  await page.getByRole("button",{name:"Duplicate Week",exact:true}).click(); await modal.getByRole("button",{name:"Copy only into empty days",exact:true}).click();
+  await page.getByRole("button",{name:"Copy week to next week",exact:true}).click(); await modal.getByRole("button",{name:"Copy into empty days",exact:true}).click();
   await expect(page.getByRole("status").filter({hasText:"existing day(s) preserved"})).toBeVisible();
   await expect(editor).toHaveValue(`${source[0]}\nSmall copied-day change`); await expect(days.first()).toContainText("Published to Ravoge");
-  await move("Previous week"); await page.getByRole("button",{name:"Duplicate Week",exact:true}).click();
-  await modal.getByRole("button",{name:"Replace existing programmed days",exact:true}).click();
-  await expect(page.getByRole("status").filter({hasText:"Week duplicated."})).toBeVisible();
+  await move("Previous week"); await page.getByRole("button",{name:"Copy week to next week",exact:true}).click();
+  await modal.getByRole("button",{name:"Replace matching days",exact:true}).click();
+  await expect(modal).toContainText("Replace matching days?");
+  await page.keyboard.press("Tab"); expect(await page.evaluate(()=>Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true);
+  expect((await db.from("group_daily_programs").select("*").order("programming_date")).data).toEqual(beforeCancel);
+  await modal.getByRole("button",{name:"Cancel",exact:true}).click();
+  expect((await db.from("group_daily_programs").select("*").order("programming_date")).data).toEqual(beforeCancel);
+  await page.getByRole("button",{name:"Copy week to next week",exact:true}).click();
+  await modal.getByRole("button",{name:"Replace matching days",exact:true}).click();
+  await modal.getByRole("button",{name:"Confirm replacement",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"Week copied."})).toBeVisible();
   await expect(editor).toHaveValue(source[0]); await expect(days.first()).toContainText("Draft Saved");
   await page.getByRole("button",{name:"Version history",exact:true}).click();
   await expect(page.locator("summary").filter({hasText:"Version 2"})).toContainText("Published");
