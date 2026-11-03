@@ -9,7 +9,7 @@ export type DirectoryClient = { id: string; name: string; photo: string | null; 
 
 export function ClientDirectory({ clients }: { clients: DirectoryClient[] }) {
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("active");
   const [coach, setCoach] = useState("");
   const coaches = [...new Map(clients.filter((client) => client.coachId).map((client) => [client.coachId!, client.coach])).entries()];
   const visible = clients.filter((client) => client.name.toLowerCase().includes(search.toLowerCase()) && (!status || client.status === status) && (!coach || (coach === "unassigned" ? !client.coachId : client.coachId === coach)));

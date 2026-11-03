@@ -59,10 +59,16 @@ do $$ begin
     raise exception 'Owner A cannot read intended members';
   end if;
 end $$;
-update public.organization_memberships
-set status = 'inactive'
-where organization_id = 'a0000000-0000-0000-0000-000000000001'
-  and user_id = '10000000-0000-0000-0000-000000000003';
+-- Owner access removal now requires the controlled resolution RPC. A direct
+-- browser status write must not bypass appointment/assignment confirmation.
+do $$ begin
+  begin
+    update public.organization_memberships set status='inactive'
+    where organization_id='a0000000-0000-0000-0000-000000000001'
+      and user_id='10000000-0000-0000-0000-000000000003';
+    raise exception 'Direct status update bypassed member removal';
+  exception when insufficient_privilege then null; end;
+end $$;
 
 reset role;
 update public.organization_memberships

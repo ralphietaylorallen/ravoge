@@ -34,6 +34,7 @@ export default async function OwnerTeamPage() {
     { data: organization },
     { data: memberships },
     { data: invitations },
+    { data: removals },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("organizations").select("name").eq("id", organizationId).single(),
@@ -48,6 +49,7 @@ export default async function OwnerTeamPage() {
       .eq("organization_id", organizationId)
       .is("cleared_at", null)
       .order("created_at", { ascending: false }),
+    supabase.from("member_access_removals").select("member_user_id,member_name,member_role,created_at").eq("organization_id",organizationId).order("created_at",{ascending:false}),
   ]);
 
   const memberRows = (memberships ?? []) as MemberRow[];
@@ -91,15 +93,15 @@ export default async function OwnerTeamPage() {
         <section className={styles.panel}><h2>Invite your team</h2><BulkInvitations /></section>
         {(["owner", "coach", "client"] as const).map((role) => (
           <section className={styles.panel} key={role}>
-            <h2>{role}s</h2>
-            {memberRows.some((row) => row.role === role) ? (
+            <h2>{role === "coach" ? "Coaches" : role === "client" ? "Clients" : "Owners"}</h2>
+            {memberRows.some((row) => row.role === role && row.status === "active") ? (
               <ul className={`${styles.list} ${styles.teamMembers}`}>
                 {memberRows
-                  .filter((row) => row.role === role)
+                  .filter((row) => row.role === role && row.status === "active")
                   .map((row) => {
                     const name = names.get(row.user_id) ?? (role === "owner" ? "Owner" : role === "coach" ? "Coach" : "Client");
                     return (
-                    <li key={row.user_id}>
+                    <li key={row.user_id} data-member-id={row.user_id}>
                       <div className={styles.memberIdentity}>
                         {role === "coach" && row.status === "active" ? <ProfilePhotoForm compact imageUrl={photos.get(row.user_id)} name={name} organizationId={organizationId} role="owner" targetUserId={row.user_id} /> : <ProfilePhoto name={name} size="small" url={photos.get(row.user_id)} />}
                         <span>
@@ -114,6 +116,7 @@ export default async function OwnerTeamPage() {
                         </span>
                       </div>
                       <small>{row.status}</small>
+                      {role!=="owner"&&row.user_id!==userId&&<Link href={`/owner/team/${row.user_id}/remove`}>{role==="coach"?"Remove Coach":"Remove Client"}</Link>}
                     </li>
                     );
                   })}
@@ -123,6 +126,8 @@ export default async function OwnerTeamPage() {
             )}
           </section>
         ))}
+
+        {removals?.length ? <section className={styles.panel}><details><summary>Removed members — audit history</summary><ul className={styles.activityList}>{removals.map((r:{member_user_id:string;member_name:string;member_role:string;created_at:string},i:number)=><li key={`${r.member_user_id}-${i}`}><span>{r.member_name} · {r.member_role}</span><small>Access removed {new Date(r.created_at).toLocaleDateString("en-US",{timeZone:"UTC"})}</small></li>)}</ul></details></section>:null}
 
         <section className={styles.panel}>
           <h2>Invite owner</h2>
