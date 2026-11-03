@@ -8,6 +8,12 @@
 .sidebar nav { display: grid; gap: 0.3rem; margin-top: 3rem; }
 .sidebar nav a { display: flex; align-items: center; gap: 0.6rem; min-height: 44px; padding: 0.75rem 0.8rem; border-left: 2px solid transparent; color: var(--ui-muted, #dadbd3); font-size: 0.78rem; font-weight: 500; text-decoration: none; }
 .sidebar nav a:hover, .sidebar nav a:focus-visible, .sidebar nav a[aria-current="page"] { border-color: var(--ui-border, #b99862); background: #3b3529; color: var(--ui-gold, #fff2d6); outline: none; }
+.sidebar nav:focus-visible { outline: 2px solid var(--ui-gold, #b99862); outline-offset: 2px; }
+@media (min-width: 1001px) {
+  .sidebar { height: 100dvh; min-height: 0; align-self: start; overflow: hidden; }
+  .sidebar > a, .sidebar .identity { flex-shrink: 0; }
+  .sidebar nav { flex: 1; min-height: 0; align-content: start; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; scrollbar-color: #92723d transparent; }
+}
 .identity { display: grid; margin-top: auto; padding-top: 1.2rem; border-top: 1px solid var(--ui-divider, #ddd9d0); gap: 0.25rem; }
 .identity span, .identity small { color: var(--ui-muted, #7b7d79); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; }
 .identity strong { font-family: "Space Grotesk Variable", sans-serif; font-size: 0.9rem; font-weight: 600; }
