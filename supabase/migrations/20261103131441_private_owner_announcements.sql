@@ -23,6 +23,7 @@ create table public.announcements (
  requested_users uuid[] not null default '{}',
  subject text not null check(char_length(subject) between 1 and 160 and subject !~ E'[\r\n]'),
  message text not null check(char_length(message) between 1 and 10000),
+ gym_name text not null,
  status text not null default 'preview' check(status in ('preview','queued')),
  created_at timestamptz not null default now(),
  confirmed_at timestamptz,
@@ -52,6 +53,7 @@ create table public.announcement_recipients (
  provider_id text,
  accepted_at timestamptz,
  delivered_at timestamptz,
+ provider_checked_at timestamptz,
  retryable boolean not null default false,
  error_code text check(char_length(error_code)<=120),
  created_at timestamptz not null default now(),
@@ -65,7 +67,7 @@ create index announcement_recipients_job_status_idx on public.announcement_recip
 alter table public.announcement_recipients enable row level security;
 create policy announcement_recipients_owner_read on public.announcement_recipients for select to authenticated using((select private.has_active_role(organization_id,array['owner']::public.organization_role[])));
 revoke all on public.announcement_recipients from anon,authenticated;
-grant select(id,announcement_id,organization_id,user_id,email,member_role,status,attempts,provider_id,accepted_at,delivered_at,retryable,error_code,created_at,first_attempt_at,next_attempt_at) on public.announcement_recipients to authenticated;
+grant select(id,announcement_id,organization_id,user_id,email,member_role,status,attempts,provider_id,accepted_at,delivered_at,provider_checked_at,retryable,error_code,created_at,first_attempt_at,next_attempt_at,lease_until) on public.announcement_recipients to authenticated;
 
 -- One in-flight announcement dispatch across gyms limits this narrow email flow.
 -- It is not a general task runner and stores no API key or Auth token.
@@ -128,7 +130,7 @@ begin
  if audience_kind='selected' and (selected_user_ids is null or cardinality(selected_user_ids) not between 1 and 500 or (select count(*) from public.organization_memberships where organization_id=org and user_id=any(selected_user_ids) and status='active')<>cardinality(selected_user_ids)) then raise exception 'Select different active members in this gym' using errcode='42501'; end if;
  -- A plain announcement must not embed the selected audience's private addresses.
  if exists(select 1 from private.owner_announcement_audience() a where a.opted_in and ((audience_kind='clients' and a.role='client') or (audience_kind='team' and a.role in ('owner','coach')) or (audience_kind='selected' and a.user_id=any(selected_user_ids))) and position(a.email in lower(announcement_subject||' '||announcement_message))>0) then raise exception 'Remove recipient email addresses from the subject and message' using errcode='22023'; end if;
- insert into public.announcements(organization_id,created_by,request_id,audience,requested_users,subject,message) values(org,auth.uid(),request_nonce,audience_kind,coalesce(selected_user_ids,'{}'::uuid[]),trim(announcement_subject),trim(announcement_message)) returning id into job;
+ insert into public.announcements(organization_id,created_by,request_id,audience,requested_users,subject,message,gym_name) values(org,auth.uid(),request_nonce,audience_kind,coalesce(selected_user_ids,'{}'::uuid[]),trim(announcement_subject),trim(announcement_message),(select name from public.organizations where id=org)) returning id into job;
  insert into public.announcement_recipients(announcement_id,organization_id,user_id,email,member_role)
  select distinct on(a.email) job,org,a.user_id,a.email,a.role from private.owner_announcement_audience() a where a.opted_in and ((audience_kind='clients' and a.role='client') or (audience_kind='team' and a.role in ('owner','coach')) or (audience_kind='selected' and a.user_id=any(selected_user_ids))) order by a.email,a.user_id;
  if (select count(*) from public.announcement_recipients where announcement_id=job) not between 1 and 500 then raise exception 'No eligible opted-in recipients, or audience exceeds 500' using errcode='22023'; end if;
@@ -174,7 +176,7 @@ begin
  r.lease_token:=gen_random_uuid();
  update public.announcement_recipients set status='processing',attempts=attempts+1,first_attempt_at=coalesce(first_attempt_at,now()),lease_token=r.lease_token,lease_until=now()+interval '2 minutes',retryable=false,error_code=null where id=r.id;
  update private.announcement_dispatch_slot set recipient_id=r.id,lease_until=now()+interval '2 minutes' where id;
- return jsonb_build_object('id',r.id,'lease',r.lease_token,'email',r.email,'subject',job.subject,'message',job.message,'unsubscribeToken',r.unsubscribe_token,'gym',(select name from public.organizations where id=org));
+ return jsonb_build_object('id',r.id,'lease',r.lease_token,'email',r.email,'subject',job.subject,'message',job.message,'unsubscribeToken',r.unsubscribe_token,'gym',job.gym_name);
 end $$;
 create function public.claim_announcement_recipient(job_id uuid) returns jsonb language sql security invoker set search_path='' as $$ select private.claim_announcement_recipient(job_id); $$;
 
@@ -187,7 +189,7 @@ create function public.announcement_dispatch_eligible(recipient_id uuid,claim_to
 create function private.finish_announcement_recipient(recipient_id uuid,claim_token uuid,result_status text,provider_message_id text,result_code text,retry_after_seconds integer default 60) returns void language plpgsql security definer set search_path='' as $$
 declare org uuid:=private.announcement_owner_org(); r public.announcement_recipients%rowtype;
 begin
- if result_status not in ('accepted','failed','unconfirmed','skipped') or result_status is null or char_length(coalesce(result_code,''))>120 or retry_after_seconds not between 1 and 3600 then raise exception 'Invalid dispatch result' using errcode='22023'; end if;
+ if result_status not in ('accepted','failed','unconfirmed','skipped') or result_status is null or char_length(coalesce(result_code,''))>120 or retry_after_seconds is null or retry_after_seconds not between 1 and 86400 then raise exception 'Invalid dispatch result' using errcode='22023'; end if;
  if result_status='accepted' and (provider_message_id is null or provider_message_id !~ '^[0-9a-fA-F-]{36}$') then raise exception 'Provider acceptance ID required' using errcode='22023'; end if;
  perform 1 from private.announcement_dispatch_slot where id for update;
  select * into r from public.announcement_recipients where id=recipient_id and organization_id=org for update;
@@ -197,7 +199,8 @@ begin
  accepted_at=case when result_status='accepted' then coalesce(accepted_at,now()) else accepted_at end,
  retryable=result_status in ('failed','unconfirmed') and result_code in ('provider_429','provider_5xx','network_unconfirmed','response_unconfirmed') and attempts<5 and first_attempt_at>now()-interval '23 hours',
  error_code=result_code,lease_until=null,next_attempt_at=now()+make_interval(secs=>retry_after_seconds) where id=r.id;
- update private.announcement_dispatch_slot set recipient_id=null,lease_until=now()+interval '1 second' where id and recipient_id=r.id;
+ update private.announcement_dispatch_slot set recipient_id=null,lease_until=now()+make_interval(secs=>case when result_code='provider_429' then retry_after_seconds else 1 end) where id and recipient_id=r.id;
+ if result_status='skipped' and result_code in ('suppressed','unsubscribed') then update public.announcement_preferences set opted_in=false,updated_at=now() where organization_id=org and user_id=r.user_id and email=r.email; end if;
 end $$;
 create function public.finish_announcement_recipient(recipient_id uuid,claim_token uuid,result_status text,provider_message_id text,result_code text,retry_after_seconds integer default 60) returns void language sql security invoker set search_path='' as $$ select private.finish_announcement_recipient(recipient_id,claim_token,result_status,provider_message_id,result_code,retry_after_seconds); $$;
 
@@ -217,6 +220,7 @@ declare org uuid:=private.announcement_owner_org(); r public.announcement_recipi
 begin
  select * into r from public.announcement_recipients where id=recipient_id and organization_id=org and provider_id is not null for update;
  if not found then raise exception 'Accepted recipient unavailable' using errcode='42501'; end if;
+ update public.announcement_recipients set provider_checked_at=now() where id=r.id;
  if provider_event in ('delivered','opened','clicked') then
   update public.announcement_recipients set status='delivered',delivered_at=coalesce(delivered_at,now()),retryable=false,error_code=null where id=r.id and status in ('accepted','delivered');
  elsif provider_event in ('bounced','complained','suppressed','failed') then

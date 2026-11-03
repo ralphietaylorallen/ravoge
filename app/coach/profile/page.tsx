@@ -4,6 +4,7 @@ import { DashboardShell, dashboardStyles as styles } from "@/components/dashboar
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
 import { MutationActionForm } from "@/components/mutation-action-form";
+import { AnnouncementPreferences } from "@/components/announcement-preferences";
 
 type Certification = { certification_name: string; credential_number: string | null; expiration_date: string | null; id: string; issue_date: string | null; issuing_organization: string; notes: string | null };
 
@@ -26,5 +27,6 @@ export default async function CoachProfilePage() {
       {certifications.length ? <ul className={styles.credentialList}>{certifications.map((certification) => <li key={certification.id}><div><strong>{certification.certification_name}</strong><span>{certification.issuing_organization}</span><small>{[certification.credential_number && `Credential ${certification.credential_number}`, certification.issue_date && `Issued ${certification.issue_date}`, certification.expiration_date && `Expires ${certification.expiration_date}`].filter(Boolean).join(" · ") || "Dates and credential number not supplied"}</small>{certification.notes && <p>{certification.notes}</p>}</div><MutationActionForm action={deleteCertificationAction.bind(null, certification.id)} confirmMessage={`Remove ${certification.certification_name}?`} label="Remove" /></li>)}</ul> : <p className={styles.empty}>No certifications added yet.</p>}
       <div className={styles.panel}><h2>Add certification</h2><CertificationForm /></div>
     </section>
+    <AnnouncementPreferences />
   </DashboardShell>;
 }

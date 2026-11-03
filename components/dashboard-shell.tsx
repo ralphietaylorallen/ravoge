@@ -35,7 +35,7 @@ export async function DashboardShell({
       ? [{ href: "/coach", label: "Overview & clients" }, { href: "/coach/schedule", label: "Schedule" }, { href: "/coach/availability", label: "Availability" }, { href: "/coach/profile", label: "Profile" }]
       : [{ href: "/client", label: "Workouts" }, { href: "/client/book", label: "Book session" }, { href: "/client/schedule", label: "Schedule" }, { href: "/client/profile", label: "Profile" }];
   if (role === "owner" || (role === "coach" && groupProgrammingAllowed === true)) navigation.push({ href: `/${role}/group-programming`, label: "Group Class Programming" });
-  if (role === "owner") navigation.push({ href: "/owner/mindbody", label: "Mindbody Integration" });
+  if (role === "owner") { navigation.splice(2,0,{href:"/owner/announcements",label:"Announcements"}); navigation.push({ href: "/owner/mindbody", label: "Mindbody Integration" }); }
   return (
     <VisualTheme><main className={styles.shell} data-account-role={role}>
       <aside className={styles.sidebar}>

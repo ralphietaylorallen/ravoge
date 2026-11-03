@@ -1,0 +1,3 @@
+import {NextResponse} from "next/server";
+import {createClient} from "@/lib/supabase/server";
+export async function POST(request:Request){const token=new URL(request.url).searchParams.get("token");if(!token||!/^[0-9a-f]{64}$/.test(token))return NextResponse.json({error:"Invalid unsubscribe token"},{status:400});try{const db=await createClient();const {error}=await db.rpc("unsubscribe_announcement",{opaque_token:token});return NextResponse.json(error?{error:"Unsubscribe link unavailable"}:{unsubscribed:true},{status:error?400:200,headers:{"Cache-Control":"no-store"}});}catch{return NextResponse.json({error:"Unsubscribe could not be confirmed"},{status:503});}}
