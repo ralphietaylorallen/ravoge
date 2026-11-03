@@ -29,6 +29,17 @@ test("shared sender stays the info alias independently of the licensed SMTP logi
   } finally { restore(); }
 });
 
+test("configured hello sender and Reply-To are supported without changing legacy adapter configuration",()=>{
+  const restore=preserveEnvironment();
+  try {
+    Object.assign(process.env,{RAVOGE_EMAIL_FROM:"Ravoge <HELLO@ravoge.com>",RAVOGE_EMAIL_REPLY_TO:"hello@ravoge.com",RAVOGE_SMTP_USER:"hello@ravoge.com"});
+    assert.deepEqual(getEmailSender(),{from:{name:"Ravoge",address:"hello@ravoge.com"},replyTo:{name:"Ravoge",address:"hello@ravoge.com"},fromHeader:"Ravoge <hello@ravoge.com>",replyToAddress:"hello@ravoge.com"});
+    for (const replyTo of ["info@ravoge.com","dane@ravoge.com","test@example.test","hello@ravoge.com\r\nBcc: test@example.test"]) {
+      process.env.RAVOGE_EMAIL_REPLY_TO=replyTo; assert.throws(()=>getEmailSender());
+    }
+  } finally { restore(); }
+});
+
 test("existing Resend booking adapter shares From/Reply-To and preserves intended recipient and calendar",async(t)=>{
   const restore=preserveEnvironment();let payload:Record<string,unknown>={};let calls=0;let failed=false;
   t.mock.method(globalThis,"fetch",async(_url:unknown,options?:RequestInit)=>{
