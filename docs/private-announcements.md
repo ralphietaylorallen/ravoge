@@ -21,3 +21,7 @@ Reuse the protected `RESEND_API_KEY` in Functions/Production plus the existing `
 Authenticated tests run only against CI's isolated Docker Supabase and loopback Next server. Unit transport/worker tests mock every provider call. Production verification is read-only except a single announcement to an explicitly authorized external inbox that is an active opted-in member; never opt members in or mass-send for testing.
 
 Partner/small-group training remains requirements only in `partner-training-requirements.md`.
+
+## Release verification
+
+The main migration was applied once as `20261103144939_private_owner_announcements`; the repository filename records the hosted version without changing its verified SQL. Production grants confirm RLS on all three exposed tables, no anonymous reads/direct browser inserts/deletes, no browser reads of claim/unsubscribe tokens, and no anonymous queue/private-schema access. Hosted advisors identified two composite FK covering indexes, addressed by the separate `announcement_fk_indexes` migration. The intentional anonymous/authenticated opt-out definer warnings and private dispatch table's deny-all/no-policy INFO finding are documented above; existing unrelated advisor findings are outside this release.
