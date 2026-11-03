@@ -44,6 +44,8 @@ jobs:
       - run: SUPABASE_DB_TARGET=local node scripts/run-database-tests.mjs
       - name: Authenticated group programming browser checks (isolated local database)
         run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_GROUP_QA=yes node scripts/verify-beta-ui.mjs
+      - name: Invitation clearing browser checks (isolated local database, email disabled)
+        run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_INVITATION_CLEAR_QA=yes node scripts/verify-beta-ui.mjs
 
   secrets:
     runs-on: ubuntu-latest

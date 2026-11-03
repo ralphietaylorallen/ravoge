@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 const project = "kqdnljafaiohlijbgfld";
 const local = process.env.SUPABASE_DB_TARGET === "local";
+if (process.env.RAVOGE_INVITATION_CLEAR_QA === "yes" && !local) throw new Error("Invitation clearing fixtures require isolated local Supabase; hosted targets are forbidden.");
 if (process.env.RAVOGE_GROUP_QA === "yes" && !local) throw new Error("Group browser fixtures require isolated local Supabase; hosted targets are forbidden.");
 if (process.env.RAVOGE_BETA_QA !== "yes" || (!local && readFileSync("supabase/.temp/project-ref", "utf8").trim() !== project)) throw new Error("Explicit isolated Ravoge beta test opt-in required");
 const localProject = readFileSync("supabase/config.toml", "utf8").match(/^project_id\s*=\s*"([^"]+)"/m)?.[1];
@@ -19,10 +20,11 @@ const password = randomBytes(24).toString("hex");
 const roles = ["owner", "invited_coach", "existing_client", "coach", "coach", "coach", "coach"];
 if (process.env.RAVOGE_QUALITY_QA === "yes") roles.push("client", "client", "client");
 if (process.env.RAVOGE_GROUP_QA === "yes") roles.push("client");
+if (process.env.RAVOGE_INVITATION_CLEAR_QA === "yes") roles.push("client");
 const users = roles.map((role, index) => ({ role, id: randomUUID(), email: `${prefix}-${index}@example.test`, password, name: `Beta QA ${role} ${index}` }));
-const newCoachEmail = `${prefix}-new-coach@example.test`, newClientEmail = `${prefix}-new-client@example.test`;
+const newCoachEmail = `${prefix}-new-coach@example.test`, newClientEmail = `${prefix}-new-client@example.test`, expiredInviteEmail = `${prefix}-expired@example.test`;
 const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: apiUrl, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
-  BETA_QA_USERS: JSON.stringify(users), BETA_QA_PASSWORD: password, BETA_QA_NEW_COACH_EMAIL: newCoachEmail, BETA_QA_NEW_CLIENT_EMAIL: newClientEmail };
+  BETA_QA_USERS: JSON.stringify(users), BETA_QA_PASSWORD: password, BETA_QA_NEW_COACH_EMAIL: newCoachEmail, BETA_QA_NEW_CLIENT_EMAIL: newClientEmail, BETA_QA_EXPIRED_INVITE_EMAIL: expiredInviteEmail };
 mkdirSync(".temp", { recursive: true });
 writeFileSync(".temp/beta-qa-state.json", JSON.stringify({ organizationId: org, prefix, userIds: users.map(user => user.id) }));
 function sql(query) {
@@ -47,6 +49,7 @@ try {
     ${users.filter(user => ["owner", "coach", "client"].includes(user.role)).map(user => `insert into public.organization_memberships(organization_id,user_id,role) values('${org}','${user.id}','${user.role}');`).join("\n")}
     ${users.filter(user => user.role === "client").map(user => `insert into public.coach_client_assignments(organization_id,coach_user_id,client_user_id) values('${org}','${users[3].id}','${user.id}');`).join("\n")}
     ${users.filter(user => ["invited_coach", "existing_client"].includes(user.role)).map(user => `select set_config('request.jwt.claim.sub','${user.id}',true); select public.register_unaffiliated_account_type('${user.role === "invited_coach" ? "coach" : "client"}');`).join("\n")}
+    ${env.RAVOGE_INVITATION_CLEAR_QA === "yes" ? `insert into public.organization_invitations(organization_id,invited_by,email,role,token_hash,created_at,expires_at) values('${org}','${users[0].id}','${expiredInviteEmail}','client',encode(extensions.digest('${randomBytes(32).toString("hex")}','sha256'),'hex'),now()-interval '2 days',now()-interval '1 day');` : ""}
     commit;`);
   created = true;
   console.log("Isolated fixtures ready. Starting authenticated browser checks.");
@@ -60,7 +63,7 @@ try {
     server.stderr.on("data", chunk => process.stderr.write(chunk));
     for (let attempt = 0; attempt < 60; attempt++) { try { if ((await fetch(env.PLAYWRIGHT_BASE_URL)).ok) break; } catch {} await new Promise(resolve => setTimeout(resolve, 500)); }
   }
-  execSync(`npx playwright test ${env.RAVOGE_GROUP_QA === "yes" ? "tests/group-programming.spec.ts" : env.RAVOGE_INVITATION_QA === "yes" ? "tests/coach-invitation.spec.ts" : env.RAVOGE_REFERENCE_QA === "yes" ? "tests/gym-references.spec.ts" : env.RAVOGE_LOAD_QA === "yes" ? "tests/starting-loads.spec.ts" : env.RAVOGE_QUALITY_QA === "yes" ? "tests/workout-quality.spec.ts" : "tests/beta-readiness.spec.ts"} --project=desktop --workers=1`, { env, stdio: "inherit", windowsHide: true });
+  execSync(`npx playwright test ${env.RAVOGE_INVITATION_CLEAR_QA === "yes" ? "tests/invitation-clearing.spec.ts" : env.RAVOGE_GROUP_QA === "yes" ? "tests/group-programming.spec.ts" : env.RAVOGE_INVITATION_QA === "yes" ? "tests/coach-invitation.spec.ts" : env.RAVOGE_REFERENCE_QA === "yes" ? "tests/gym-references.spec.ts" : env.RAVOGE_LOAD_QA === "yes" ? "tests/starting-loads.spec.ts" : env.RAVOGE_QUALITY_QA === "yes" ? "tests/workout-quality.spec.ts" : "tests/beta-readiness.spec.ts"} --project=desktop --workers=1`, { env, stdio: "inherit", windowsHide: true });
 } finally {
   server?.kill();
   if (created) {

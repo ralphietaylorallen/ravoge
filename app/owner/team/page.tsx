@@ -1,14 +1,12 @@
 import Link from "next/link";
 
-import { revokeInvitationAction } from "@/app/auth/actions";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { InviteForm } from "@/components/invite-form";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { ProfilePhotoForm } from "@/components/profile-photo-editor";
 import { requireRole } from "@/lib/auth";
 import { getProfileThumbnailUrl as getProfileImageUrl } from "@/lib/profile-images";
-import { MutationActionForm } from "@/components/mutation-action-form";
-import { BulkInvitations, InvitationControls } from "@/components/team-invitations";
+import { BulkInvitations, TeamInvitationList } from "@/components/team-invitations";
 
 type MemberRow = {
   is_primary_owner: boolean;
@@ -48,6 +46,7 @@ export default async function OwnerTeamPage() {
       .from("organization_invitations")
       .select("id, email, role, expires_at, created_at, accepted_at, revoked_at, delivery_status")
       .eq("organization_id", organizationId)
+      .is("cleared_at", null)
       .order("created_at", { ascending: false }),
   ]);
 
@@ -142,20 +141,7 @@ export default async function OwnerTeamPage() {
         </section>
         <section className={styles.panel}>
           <h2>Invitations</h2>
-          {(invitations ?? []).length ? (
-            <ul className={styles.list}>
-              {((invitations ?? []) as InvitationRow[]).map((invitation) => {
-                const status = invitation.accepted_at ? "accepted" : invitation.revoked_at ? "revoked" : invitation.expires_at <= nowIso ? "expired" : "pending";
-                return <li key={invitation.id}>
-                  <div><strong>{invitation.email}</strong><small>{invitation.role} · {status} · expires {new Date(invitation.expires_at).toLocaleDateString("en-US")}</small><small>{invitation.delivery_status === "not_configured" ? "Email not configured" : invitation.delivery_status === "failed" ? "Failed delivery" : invitation.delivery_status === "sent" ? "Submitted to email provider" : "Email pending"}</small>
-                  {["pending", "expired"].includes(status) && <InvitationControls id={invitation.id}/>}</div>
-                  {["pending", "expired"].includes(status) ? <MutationActionForm action={revokeInvitationAction.bind(null, invitation.id)} confirmMessage={`Revoke the ${invitation.role} invitation for ${invitation.email}?`} label="Revoke" /> : null}
-                </li>;
-              })}
-            </ul>
-          ) : (
-            <p className={styles.empty}>No invitation history.</p>
-          )}
+          <TeamInvitationList invitations={(invitations ?? []) as InvitationRow[]} nowIso={nowIso} />
         </section>
       </div>
     </DashboardShell>
