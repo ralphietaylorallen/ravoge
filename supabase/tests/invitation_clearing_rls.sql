@@ -6,7 +6,6 @@ insert into public.organizations(id,name) values ('99a00000-0000-0000-0000-00000
 insert into public.organization_memberships(organization_id,user_id,role,status) values
  ('99a00000-0000-0000-0000-000000000001','99000000-0000-0000-0000-000000000001','owner','active'),
  ('99a00000-0000-0000-0000-000000000001','99000000-0000-0000-0000-000000000002','coach','active'),
- ('99a00000-0000-0000-0000-000000000001','99000000-0000-0000-0000-000000000003','client','active'),
  ('99a00000-0000-0000-0000-000000000002','99000000-0000-0000-0000-000000000004','owner','active'),
  ('99a00000-0000-0000-0000-000000000001','99000000-0000-0000-0000-000000000005','owner','inactive');
 insert into public.organization_invitations(id,organization_id,invited_by,email,role,token_hash,created_at,expires_at,revoked_at,accepted_at,accepted_by)
@@ -18,7 +17,8 @@ select ('99b00000-0000-0000-0000-'||lpad(i::text,12,'0'))::uuid,
  case when i=2 then now()-interval '1 day' else now()+interval '7 days' end,
  case when i=3 then now() end,case when i=4 then now() end,case when i=4 then '99000000-0000-0000-0000-000000000003'::uuid end
 from generate_series(1,6) i;
-update public.organization_memberships set invitation_id='99b00000-0000-0000-0000-000000000004' where user_id='99000000-0000-0000-0000-000000000003';
+insert into public.organization_memberships(organization_id,user_id,role,status,invitation_id) values
+ ('99a00000-0000-0000-0000-000000000001','99000000-0000-0000-0000-000000000003','client','active','99b00000-0000-0000-0000-000000000004');
 create temporary table clear_fixture_before as select
  (select jsonb_agg(to_jsonb(u) order by id) from auth.users u where id::text like '99000000-%') as users,
  (select jsonb_agg(to_jsonb(m) order by id) from public.organization_memberships m where user_id::text like '99000000-%') as memberships;
