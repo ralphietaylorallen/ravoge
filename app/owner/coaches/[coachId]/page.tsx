@@ -72,7 +72,7 @@ export default async function OwnerCoachDetailPage({ params }: { params: Promise
       <Link className={styles.backLink} href="/owner/team">← Back to team</Link>
       <div className={styles.detailHeader}>
         <div className={styles.profileHero}><ProfilePhotoForm imageUrl={coachImageUrl} name={coachName} organizationId={membership.organization_id} role="owner" targetUserId={coachId} /><div><p className={styles.eyebrow}>Owner View · Coach</p><h2 className={styles.detailTitle}>{coachName}</h2><p className={styles.profileMeta}>{coach?.specialties?.length ? coach.specialties.join(" · ") : "Operational oversight · you remain signed in as Owner"}</p></div></div>
-        <span className={coachMembership.status === "active" ? styles.statusPill : styles.mutedPill}>{coachMembership.status}</span>
+        <div className={styles.bookingActions}><span className={coachMembership.status === "active" ? styles.statusPill : styles.mutedPill}>{coachMembership.status}</span>{coachMembership.status === "active" && coachId !== userId && <Link className={styles.secondaryAction} href={`/owner/team/${coachId}/remove`}>Remove Coach</Link>}</div>
       </div>
       <section className={styles.profileOverview}>
         <article className={styles.metricCard}><span>Assigned clients</span><strong>{activeClients.length}</strong><small>Active primary assignments</small></article>
