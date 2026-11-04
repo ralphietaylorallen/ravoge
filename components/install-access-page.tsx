@@ -28,7 +28,7 @@ export async function InstallAccessPage({ enrollmentToken, role, status }: {
   const continueHref = membership ? dashboardForRole(membership.role) : verifiedToken ? `/launch?enrollment=${encodeURIComponent(verifiedToken)}` : "/login";
 
   return (
-    <AuthEntryShell wide>
+    <AuthEntryShell wide audience={role}>
       <p className={styles.eyebrow}>Ravoge {label} App</p>
       <h1 className={styles.installHeading}>Install Ravoge</h1>
       <p className={styles.lede}>

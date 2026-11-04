@@ -577,6 +577,117 @@
 .photoDialog button { min-height: 44px; }
 .libraryShell .activityList .checkboxLabel > span { display: grid; min-width: 0; gap: 0.35rem; }
 .libraryShell .activityList .checkboxLabel small { overflow-wrap: anywhere; }
+
+/* Client presentation: keep shared Owner/Coach layouts and all data behavior intact. */
+.shell[data-account-role="client"] { align-items: start; }
+.shell[data-account-role="client"] .frame { max-width: 80rem; padding-bottom: 3rem; }
+.shell[data-account-role="client"] .operationTopSpace { height: 1.5rem; }
+.shell[data-account-role="client"] .role { display: none; }
+.clientHeading { margin: .35rem 0 0; font: 600 clamp(1.7rem, 3.5vw, 2.35rem)/1.18 "Space Grotesk Variable", sans-serif; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.shell[data-account-role="client"] .detailTitle { margin: .35rem 0 0; font-size: clamp(1.65rem, 3.5vw, 2.35rem); line-height: 1.18; }
+.shell[data-account-role="client"] :is(.pageHeading, .detailHeader) { margin-bottom: 1.25rem; gap: .8rem; }
+.shell[data-account-role="client"] :is(.pageHeading, .sectionHeading) p:not(.eyebrow) { margin: .5rem 0 0; max-width: 42rem; font-size: .88rem; line-height: 1.55; color: var(--ui-muted); }
+.shell[data-account-role="client"] .profileMeta { text-transform: none; line-height: 1.5; }
+.shell[data-account-role="client"] :is(.panel, .operationCard) { padding: clamp(1rem, 2.5vw, 1.5rem); margin-bottom: 1rem; }
+.shell[data-account-role="client"] :is(.panel h2, .operationCard h2, .operationCard h3, .workspaceSection h3) { margin: 0 0 .75rem; font: 600 1.1rem/1.3 "Space Grotesk Variable", sans-serif; letter-spacing: -.01em; text-transform: none; }
+.shell[data-account-role="client"] .operationCard > p { margin: .5rem 0 1rem; font-size: .86rem; line-height: 1.6; color: var(--ui-muted); }
+.shell[data-account-role="client"] .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.shell[data-account-role="client"] .panelWide { grid-column: 1 / -1; }
+.shell[data-account-role="client"] .clientMeta { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .2rem .9rem; padding: .9rem 1rem; border: 1px solid var(--ui-border); background: var(--ui-panel-background); }
+.shell[data-account-role="client"] .clientMeta > :first-child { grid-row: 1 / 3; }
+.shell[data-account-role="client"] .clientMeta > span { align-self: end; }
+.shell[data-account-role="client"] .clientMeta > strong { align-self: start; font-size: 1rem; }
+.shell[data-account-role="client"] .clientWorkoutList { margin-top: .25rem; }
+.shell[data-account-role="client"] .clientWorkoutList a { align-items: start; padding: 1rem 0; }
+.shell[data-account-role="client"] .clientWorkoutList a > div { min-width: 0; gap: .4rem; }
+.shell[data-account-role="client"] .clientWorkoutList a > span { flex-shrink: 0; font-size: .7rem; text-transform: capitalize; line-height: 1.5; }
+.shell[data-account-role="client"] .clientWorkoutList strong { font-size: 1rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.shell[data-account-role="client"] .clientWorkoutList time { font-size: .76rem; color: var(--ui-muted); }
+.shell[data-account-role="client"] .empty { margin: .75rem 0 0; padding: 1rem; border: 1px dashed var(--ui-border); border-radius: 10px; background: #ffffff03; font-size: .86rem; }
+.shell[data-account-role="client"] .field, .shell[data-account-role="client"] .field label { font-size: .85rem; font-weight: 500; line-height: 1.45; letter-spacing: 0; text-transform: none; }
+.shell[data-account-role="client"] .field :is(input, select, textarea) { font-size: 1rem; min-height: 48px; }
+.shell[data-account-role="client"] :is(.action, .secondaryAction, .completionAction) { padding: .8rem 1.1rem; font-size: .84rem; line-height: 1.25; letter-spacing: .01em; text-transform: none; }
+.shell[data-account-role="client"] .form > :is(.action, .secondaryAction) { justify-self: start; }
+.shell[data-account-role="client"] .form > p { margin: 0; color: var(--ui-muted); font-size: .85rem; line-height: 1.55; }
+.shell[data-account-role="client"] .form > .notice { padding: .85rem 1rem; color: var(--ui-gold); }
+.shell[data-account-role="client"] .form > .error { color: var(--ui-danger); }
+.shell[data-account-role="client"] .dayDateForm { display: flex; align-items: end; flex-wrap: wrap; gap: .75rem; margin: 0 0 1.25rem; }
+.shell[data-account-role="client"] .dayDateForm .field { flex: 1; max-width: 20rem; min-width: 10rem; }
+.shell[data-account-role="client"] .operationCard details { margin-top: .75rem; border: 1px solid var(--ui-divider); border-radius: 10px; background: var(--ui-input); }
+.shell[data-account-role="client"] .operationCard summary { min-height: 48px; padding: .9rem 1rem; font-size: .86rem; font-weight: 550; line-height: 1.6; overflow-wrap: anywhere; }
+.shell[data-account-role="client"] .operationCard details[open] { padding: 0 1rem 1rem; border-color: var(--ui-border); }
+.shell[data-account-role="client"] .operationCard details[open] > summary { margin-inline: -1rem; }
+.shell[data-account-role="client"] .operationCard details .form { margin-top: .5rem; }
+.shell[data-account-role="client"] .activityList > li { padding-block: 1rem; }
+.shell[data-account-role="client"] .activityList :is(h4,p) { margin: 0; line-height: 1.6; }
+.shell[data-account-role="client"] .activityList h4 { color: var(--ui-gold); font-size: .85rem; }
+.shell[data-account-role="client"] .activityList h4 time { color: inherit; font-size: inherit; }
+.shell[data-account-role="client"] .activityList p { font-size: .85rem; }
+.shell[data-account-role="client"] .activityList a { display: inline-block; min-height: 32px; padding-block: .3rem; font-size: .8rem; }
+.shell[data-account-role="client"] .coachCard { gap: 1rem; padding: 1rem; }
+.shell[data-account-role="client"] .coachCard { display: grid; grid-template-columns: 4rem minmax(0,1fr); align-items: start; }
+.shell[data-account-role="client"] .coachCard .profilePhoto { width: 4rem; height: 4rem; }
+.shell[data-account-role="client"] .coachCard h3 { font-size: 1.2rem; }
+.shell[data-account-role="client"] .rollingSchedule { margin-block: 1.25rem; }
+.shell[data-account-role="client"] .rollingSchedule .sectionHeading { align-items: end; flex-direction: row; gap: 1rem; }
+.shell[data-account-role="client"] .rollingSchedule .sectionHeading > .field { width: 9rem; flex-shrink: 0; }
+.shell[data-account-role="client"] .slotGrid span { font-size: .88rem; padding: .6rem; gap: .25rem; }
+.shell[data-account-role="client"] .slotGrid input:disabled + span { border-style: dashed; opacity: .65; }
+.shell[data-account-role="client"] .bookingList { gap: 1rem; }
+.shell[data-account-role="client"] .bookingList > li { padding: 1rem; border: 1px solid var(--ui-border); border-radius: 12px; background: var(--ui-panel-background); grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+.shell[data-account-role="client"] .bookingList strong { font-size: 1rem; line-height: 1.45; }
+.shell[data-account-role="client"] .bookingList :is(span,small) { font-size: .78rem; line-height: 1.5; }
+.shell[data-account-role="client"] .bookingActions { flex-wrap: wrap; gap: .65rem 1rem; }
+.shell[data-account-role="client"] .bookingList > .bookingActions, .shell[data-account-role="client"] .bookingList > li > .bookingActions { grid-column: 1 / -1; }
+.shell[data-account-role="client"] .bookingActions a { min-height: 36px; padding-block: .5rem; font-size: .76rem; letter-spacing: 0; text-transform: none; }
+.bookingControls { grid-column: 1 / -1; min-width: 0; }
+.shell[data-account-role="client"] .manageBooking { margin: 0; padding-top: 1rem; border-top: 1px solid var(--ui-divider); flex-wrap: wrap; }
+.shell[data-account-role="client"] .cancelForm { flex: 1; min-width: 0; flex-wrap: wrap; }
+.shell[data-account-role="client"] .cancelForm input { flex: 1; min-width: 8rem; min-height: 48px; font-size: .85rem; border-radius: 10px; }
+.shell[data-account-role="client"] .cancelForm button { color: var(--ui-danger); border-color: #754943; background: #301b19; }
+.shell[data-account-role="client"] .workspaceSection { margin-top: 1.5rem; padding-top: 1.25rem; }
+.shell[data-account-role="client"] .profileHero { gap: 1.25rem; align-items: center; margin-top: 0; margin-bottom: 1.25rem; padding: 1.1rem; }
+.shell[data-account-role="client"] .frame > .profileHero { margin-top: 0; }
+.shell[data-account-role="client"] .profileHero .photoEditor { display: flex; align-items: center; flex-wrap: wrap; gap: .8rem; }
+.shell[data-account-role="client"] .photoPicker img, .shell[data-account-role="client"] .photoPicker > span { width: 6rem; height: 6rem; }
+.shell[data-account-role="client"] .photoChoices { flex-direction: column; gap: .5rem; }
+.shell[data-account-role="client"] .photoChoices button { min-height: 44px; font-size: .75rem; padding: .6rem .8rem; }
+.shell[data-account-role="client"] .profileOverview { gap: .75rem; }
+.shell[data-account-role="client"] .metricCard { padding: 1rem; }
+.shell[data-account-role="client"] .metricCard strong { font-size: 1rem; line-height: 1.4; overflow-wrap: anywhere; }
+.shell[data-account-role="client"] .securityNote { font-size: .8rem; }
+.onboardingShell[data-account-role="client"] .onboardingFrame { max-width: 54rem; padding-top: 2rem; }
+.onboardingShell[data-account-role="client"] .profileHero > .profilePhoto { display: none; }
+.onboardingShell[data-account-role="client"] .profileHero { margin-bottom: 1.25rem; }
+.onboardingShell[data-account-role="client"] .detailTitle { font-size: clamp(1.7rem, 3.5vw, 2.35rem); line-height: 1.2; }
+.onboardingShell[data-account-role="client"] .field label { font-size: .85rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.onboardingShell[data-account-role="client"] .field :is(input,textarea) { font-size: 1rem; }
+.shell[data-account-role="client"] .tapScale button { min-height: 44px; font-size: .8rem; }
+.shell[data-account-role="client"] .checkinGrid { margin-top: 0; }
+.shell[data-account-role="client"] .sectionHeading { gap: .5rem; }
+.shell[data-account-role="client"] .photoDialog .photoChoices { flex-direction: row; }
+.shell[data-account-role="client"] .operationCard details > form + form { margin-top: .75rem; }
+@media (max-width: 1000px) {
+  .shell[data-account-role="client"] { display: block; }
+  .shell[data-account-role="client"] .sidebar { height: auto; align-self: start; }
+}
+@media (max-width: 700px) {
+  .shell[data-account-role="client"] .frame { padding-bottom: calc(8rem + env(safe-area-inset-bottom)); }
+  .shell[data-account-role="client"] .grid { grid-template-columns: minmax(0, 1fr); }
+  .shell[data-account-role="client"] .header { padding-block: .8rem; }
+  .shell[data-account-role="client"] .sidebar nav a { white-space: nowrap; }
+  .shell[data-account-role="client"] .clientWorkoutList a { flex-direction: column; gap: .5rem; }
+  .shell[data-account-role="client"] .detailHeader { flex-direction: row; align-items: start; }
+  .shell[data-account-role="client"] .statusPill { flex-shrink: 0; margin-top: .4rem; }
+  .shell[data-account-role="client"] .profileHero { align-items: start; flex-direction: column; }
+  .shell[data-account-role="client"] .profileHero .photoChoices { flex-direction: row; flex-wrap: wrap; }
+  .shell[data-account-role="client"] .manageBooking { display: grid; grid-template-columns: minmax(0,1fr); justify-content: stretch; gap: .75rem; }
+  .shell[data-account-role="client"] .cancelForm { display: grid; grid-template-columns: minmax(0,1fr); gap: .5rem; }
+  .shell[data-account-role="client"] .form > :is(.action, .secondaryAction) { width: 100%; }
+  .shell[data-account-role="client"] .dayDateForm > .secondaryAction { width: auto; }
+  .shell[data-account-role="client"] .backLink { margin-bottom: 1rem; }
+  .shell[data-account-role="client"] .operationCard[data-readiness-role="client"] .formColumns { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
 .reviewForm .reviewRow { align-items: start; }
 .reviewForm .reviewRow > .reviewReason { grid-column: 1 / -1; }
 
@@ -663,5 +774,5 @@
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .sidebar nav { justify-content: space-around; overflow: visible; }
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .sidebar nav a { flex: 1 1 0; flex-direction: column; gap: .3rem; padding: .5rem .15rem; font-size: .65rem; border: 0; border-radius: 12px; }
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .sidebar nav a[aria-current="page"] { box-shadow: none; background: #c897351a; }
-  :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .frame { padding-bottom: 8rem; }
+  :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .frame { padding-bottom: calc(8rem + env(safe-area-inset-bottom)); }
 }

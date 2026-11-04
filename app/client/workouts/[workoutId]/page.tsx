@@ -87,12 +87,12 @@ export default async function ClientWorkoutPage({
   const workoutDate=workout.completed_at?localDateInTimeZone(workout.completed_at,organization?.timezone??DEFAULT_ORGANIZATION_TIMEZONE):workout.scheduled_date;
 
   return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Client"} role="client">
+    <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Client"} role="client">
       <Link className={styles.backLink} href="/client">← Back to workouts</Link>
       <div className={styles.detailHeader}>
         <div>
           <p className={styles.eyebrow}>{workout.scheduled_date}</p>
-          <h2 className={styles.detailTitle}>{workout.title}</h2>
+          <h1 className={styles.detailTitle}>{workout.title}</h1>
         </div>
         <span className={styles.statusPill}>{workout.status.replaceAll("_", " ")}</span>
       </div>

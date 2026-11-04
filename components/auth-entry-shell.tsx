@@ -9,11 +9,12 @@ import styles from "./auth-entry.module.css";
 type AuthEntryShellProps = {
   children: ReactNode;
   wide?: boolean;
+  audience?: "owner" | "coach" | "client";
 };
 
-export function AuthEntryShell({ children, wide = false }: AuthEntryShellProps) {
+export function AuthEntryShell({ children, wide = false, audience }: AuthEntryShellProps) {
   return (
-    <VisualTheme><main className={styles.shell}>
+    <VisualTheme><main className={styles.shell} data-audience={audience}>
       <div aria-hidden="true" className={styles.atmosphere}>
         <GoldAtmosphere />
       </div>

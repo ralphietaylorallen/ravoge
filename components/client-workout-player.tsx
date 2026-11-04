@@ -67,7 +67,7 @@ export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, 
   const recorded = allSets.filter(s => s.completed_at).length;
   const locked = ["completed", "cancelled"].includes(status);
   const next = orderedPlayerSets(exercises).find(({ set }) => !allSets.find(s => s.id === set.id)?.completed_at);
-  return <section className={styles.player} aria-label="Ravoge workout player"><header className={styles.header}><span>RAVOGE · TRAIN WITH INTENT</span><p className={styles.title}>{title}</p><p>{goal ?? "Coach-approved training"} · {duration ? `About ${duration} minutes` : "Follow your Coach’s timing"}</p>
+  return <section className={styles.player} data-workout-status={status} aria-label="Ravoge workout player"><header className={styles.header}><span>RAVOGE · TRAIN WITH INTENT</span><p className={styles.title}>{title}</p><p>{goal ?? "Coach-approved training"} · {duration ? `About ${duration} minutes` : "Follow your Coach’s timing"}</p>
     <label>Workout progress<progress max={Math.max(1, allSets.length)} value={recorded}/></label><p>{recorded} / {allSets.length} sets recorded · Modified and missed work remain visible to your Coach.</p>
     <form action={action}><button className={styles.primary} name="intent" value="start" disabled={locked || pending}>{status === "assigned" ? "Start workout" : locked ? "Workout closed" : "Continue workout"}</button></form>
     {!locked && next && <a className={styles.next} href={`#player-set-${next.set.id}`}>Next: {next.exercise.exercise_name} · {["superset", "circuit", "stations", "emom", "rounds"].includes(next.exercise.prescription_details?.format ?? "") ? "Round / visit" : "Set"} {next.set.set_number}</a>}

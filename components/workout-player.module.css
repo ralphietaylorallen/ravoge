@@ -12,3 +12,30 @@
 :global([data-ravoge-visual="cinematic"]) .set[open] { padding: 1rem; border: 1px solid #b38e4b; border-radius: 12px; background: #d7b06008; }
 :global([data-ravoge-visual="cinematic"]) .set[open] .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 :global([data-ravoge-visual="cinematic"]) .set[open] input:is([name="reps"], [name="load"]) { text-align: center; font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 650; min-height: 4rem; }
+
+/* Match the Client workspace without changing Coach execution or result logic. */
+:global([data-account-role="client"]) .player { max-width: none; margin: 1.25rem 0; gap: 1rem; }
+:global([data-account-role="client"]) .header { gap: .75rem; padding: 1.25rem; }
+:global([data-account-role="client"]) .header > span,
+:global([data-account-role="client"]) .header .title { display: none; }
+:global([data-account-role="client"]) .player p { margin: 0; font-size: .86rem; line-height: 1.6; }
+:global([data-account-role="client"]) .player > h3 { margin: .5rem 0 0; font: 600 1.2rem/1.3 "Space Grotesk Variable",sans-serif; }
+:global([data-account-role="client"]) .block { padding: 1.25rem; gap: .8rem; scroll-margin-top: 5rem; }
+:global([data-account-role="client"]) .block h3 { font: 600 1.2rem/1.3 "Space Grotesk Variable",sans-serif; }
+:global([data-account-role="client"]) .blockHeading { color: var(--ui-gold); font-size: .66rem; letter-spacing: .06em; }
+:global([data-account-role="client"]) .player .target { font-size: 1rem; }
+:global([data-account-role="client"]) .player :is(button,.next) { font-size: .84rem; line-height: 1.3; min-height: 46px; }
+:global([data-account-role="client"]) .player .primary { min-height: 50px; }
+:global([data-account-role="client"]) .player :is(input,select,textarea) { font-size: 1rem; }
+:global([data-account-role="client"]) .set summary { display: list-item; line-height: 1.5; padding-block: .5rem; font-size: .9rem; }
+:global([data-account-role="client"]) .timer { padding: 1rem; }
+:global([data-account-role="client"]) .player:is([data-workout-status="completed"],[data-workout-status="cancelled"]) > form:last-child,
+:global([data-account-role="client"]) .player:is([data-workout-status="completed"],[data-workout-status="cancelled"]) .header > form,
+:global([data-account-role="client"]) .player:is([data-workout-status="completed"],[data-workout-status="cancelled"]) .set .actions { display: none; }
+@media (max-width:700px) {
+  :global([data-account-role="client"]) .block { padding: 1rem; scroll-margin-top: 1rem; }
+  :global([data-account-role="client"]) .player .actions > button { flex: 1 1 8rem; }
+  :global([data-account-role="client"]) .player form > .primary { width: 100%; }
+  :global([data-account-role="client"]) .set[open] .fields { gap: .75rem; }
+  :global([data-account-role="client"]) .set[open] { padding: .9rem; }
+}
