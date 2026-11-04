@@ -9,6 +9,7 @@ import { ClientCoachAssignmentForm } from "@/components/client-coach-assignment-
 import { BaselineSummary, type BaselineRecord } from "@/components/baseline-summary";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { ProgressChart, type ProgressMetric } from "@/components/progress-chart";
+import { ClientLogHistory } from "@/components/client-log-history";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { ProfilePhotoForm } from "@/components/profile-photo-editor";
 import { requireRole } from "@/lib/auth";
@@ -187,5 +188,6 @@ export default async function OwnerClientDetailPage({ params, searchParams }: { 
     {tab === "workouts" && <section className={styles.operationCard}><h3>Workout history</h3>{workouts.length ? <ul className={styles.workoutList}>{workouts.map((workout) => <li key={workout.id}><div className={styles.workoutSummary}><div><strong>{workout.title}</strong><small>{workout.scheduled_date} · {names.get(workout.coach_user_id) ?? "Coach"}</small></div><span className={workout.status === "completed" ? styles.successPill : styles.mutedPill}>{workout.status.replaceAll("_"," ")}</span></div><ol className={styles.compactExercises}>{[...workout.workout_exercises].sort((a,b)=>a.sort_order-b.sort_order).map((exercise)=><li key={exercise.id}><span>{exercise.exercise_name}</span><small>{exercise.sets} × {exercise.reps} · {exercise.load === null ? "Bodyweight" : loadLabel(exercise.load, exercise.load_unit)}</small></li>)}</ol></li>)}</ul> : <p className={styles.empty}>No workouts assigned yet.</p>}</section>}
     {tab === "notes" && <section className={styles.operationCard}><h3>Client notes</h3><p className={styles.empty}>{client?.bio || "No client About section yet."}</p><dl className={styles.factList}><div><dt>Current injuries</dt><dd>{intake?.current_injuries || "None recorded"}</dd></div><div><dt>Movement limitations</dt><dd>{intake?.movement_limitations || "None recorded"}</dd></div></dl></section>}
     {tab === "progress" && <><ProgressChart metrics={progressMetrics} /><section className={styles.operationCard}><h3>InBody history</h3>{bodyComposition.length ? <div className={styles.tableScroll} tabIndex={0}><table className={styles.previewTable}><thead><tr><th>Date</th><th>Weight (lb)</th><th>Muscle (lb)</th><th>Body fat</th><th>Score</th></tr></thead><tbody>{bodyComposition.map((row)=><tr key={row.measured_at}><td>{formatDate(row.measured_at)}</td><td>{canonicalPounds(row.weight_kg)}</td><td>{canonicalPounds(row.skeletal_muscle_mass_kg)}</td><td>{row.body_fat_percentage ?? "—"}%</td><td>{row.inbody_score ?? "—"}</td></tr>)}</tbody></table></div> : <p className={styles.empty}>No measurements yet.</p>}</section></>}
+    {tab === "progress" && <ClientLogHistory supabase={supabase} organizationId={organizationId} clientId={clientId}/>}
   </DashboardShell>;
 }

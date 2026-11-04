@@ -1,0 +1,32 @@
+"use client";
+
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { deleteActivityAction, saveActivityAction, saveDailyTotalsAction, saveRecoveryAction, type LogState } from "@/app/client/log-actions";
+import { ACTIVITY_LABELS, RECOVERY_LABELS, recoverySummary, type ActivityEntry, type DailyTotal, type RecoveryEntry } from "@/lib/client-logs";
+import styles from "./dashboard.module.css";
+
+const initial: LogState={status:"idle",message:""};
+function Message({state}:{state:LogState}) {return state.message?<p className={styles.notice} role={state.status==="error"?"alert":"status"}>{state.message}</p>:null;}
+function useSavedRefresh(state:LogState) {const router=useRouter();useEffect(()=>{if(state.status==="success")router.refresh();},[state,router]);}
+export function DailyTotalForm({date,total}:{date:string;total:DailyTotal|null}) {
+  const [state,action,pending]=useActionState(saveDailyTotalsAction,initial);
+  useSavedRefresh(state);
+  return <form action={action} className={styles.form} aria-label="Daily nutrition"><h3>Daily intake</h3><input type="hidden" name="date" value={date}/><p>One total for {date}. Saving replaces that date’s total. Leave unknown values blank.</p><div className={styles.formColumns}><label className={styles.field}>Calories<input name="calories" type="number" min="0" max="30000" step="1" defaultValue={total?.calories??""} placeholder="Not logged"/></label><label className={styles.field}>Protein (g, optional)<input name="protein_grams" type="number" min="0" max="2000" step="0.01" defaultValue={total?.protein_grams??""} placeholder="Not logged"/></label></div><button className={styles.action} disabled={pending}>{pending?"Saving…":"Save daily total"}</button><Message state={state}/></form>;
+}
+export function ActivityForm({date,entry}:{date:string;entry?:ActivityEntry}) {
+  const [id]=useState(()=>entry?.id??crypto.randomUUID());
+  const [state,action,pending]=useActionState(saveActivityAction.bind(null,id),initial);
+  const [deleted,remove,removing]=useActionState(deleteActivityAction.bind(null,id),initial);
+  useSavedRefresh(state);useSavedRefresh(deleted);
+  return <><form action={action} className={styles.form} aria-label={entry?`Edit ${ACTIVITY_LABELS[entry.activity_type]}`:"Add activity"}><div className={styles.formColumns}><label className={styles.field}>Activity date<input type="date" name="date" required defaultValue={entry?.log_date??date}/></label><label className={styles.field}>Activity<select name="activity_type" defaultValue={entry?.activity_type??"walk"}>{Object.entries(ACTIVITY_LABELS).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label><label className={styles.field}>Actual minutes<input name="duration_minutes" type="number" required min="0.01" max="1440" step="0.01" defaultValue={entry?.duration_minutes??""}/></label><label className={styles.field}>Distance (optional)<input name="distance" type="number" min="0.001" max="10000" step="0.001" defaultValue={entry?.distance??""} placeholder="Not logged"/></label><label className={styles.field}>Distance unit<select name="distance_unit" defaultValue={entry?.distance_unit??"mi"}><option value="mi">Miles</option><option value="km">Kilometers</option></select></label><label className={styles.field}>Effort (1–10, optional)<input name="effort" type="number" min="1" max="10" step="1" defaultValue={entry?.effort??""} placeholder="Not logged"/></label></div><button className={styles.action} disabled={pending||removing}>{pending?"Saving…":"Save activity"}</button><Message state={state}/></form>{entry&&<form action={remove} onSubmit={e=>{if(!confirm("Delete this activity? Assigned workouts and training results will stay unchanged."))e.preventDefault();}}><input type="hidden" name="confirmed" value="yes"/><button className={styles.secondaryAction} disabled={pending||removing}>{removing?"Deleting…":"Delete activity"}</button><Message state={deleted}/></form>}</>;
+}
+function RecoveryForm({date,workoutId,type,entry}:{date:string;workoutId:string;type:string;entry?:RecoveryEntry}) {
+  const [state,action,pending]=useActionState(saveRecoveryAction.bind(null,workoutId),initial);
+  useSavedRefresh(state);
+  return <form action={action} className={styles.form} aria-label={`${entry?"Edit":"Add"} ${RECOVERY_LABELS[type]}`}><h3>{RECOVERY_LABELS[type]}</h3><input type="hidden" name="recovery_type" value={type}/><div className={styles.formColumns}><label className={styles.field}>Recovery date<input name="date" type="date" required defaultValue={entry?.log_date??date}/></label><label className={styles.field}>Actual minutes completed<input name="duration_minutes" type="number" required min="0.01" max="1440" step="0.01" defaultValue={entry?.duration_minutes??""}/></label>{type==="cold_plunge"?<><label className={styles.field}>Water temperature (optional)<input name="water_temperature" type="number" step="0.01" defaultValue={entry?.water_temperature??""} placeholder="Not logged"/></label><label className={styles.field}>Temperature unit<select name="temperature_unit" defaultValue={entry?.temperature_unit??"F"}><option value="F">°F</option><option value="C">°C</option></select></label></>:<input type="hidden" name="temperature_unit" value="F"/>}</div><button className={styles.action} disabled={pending}>{pending?"Saving…":"Save recovery"}</button><Message state={state}/></form>;
+}
+export function RecoveryLog({date,workoutId,entries}:{date:string;workoutId:string;entries:RecoveryEntry[]}) {
+  const missing=Object.keys(RECOVERY_LABELS).filter(type=>!entries.some(e=>e.recovery_type===type));
+  return <section className={styles.operationCard} aria-label="Workout recovery"><h2>Recovery</h2><p>Record what you actually completed. You can save or edit it later without changing your completed workout.</p>{!entries.length&&<p>Not logged</p>}{entries.map(entry=><details key={`${entry.id}:${entry.log_date}:${entry.duration_minutes}:${entry.water_temperature}:${entry.temperature_unit}`}><summary>{recoverySummary(entry)} · {entry.log_date} · Edit</summary><RecoveryForm date={date} workoutId={workoutId} type={entry.recovery_type} entry={entry}/></details>)}{missing.length>0&&<details key={missing.join()}><summary>Add recovery</summary>{missing.map(type=><RecoveryForm key={type} date={date} workoutId={workoutId} type={type}/>)}</details>}</section>;
+}

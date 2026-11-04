@@ -51,6 +51,8 @@ jobs:
 
       - name: Private announcements browser checks (isolated local database, email disabled)
         run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_ANNOUNCEMENTS_QA=yes node scripts/verify-beta-ui.mjs
+      - name: Client daily and recovery logs (isolated local database)
+        run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_CLIENT_LOG_QA=yes node scripts/verify-beta-ui.mjs
 
   secrets:
     runs-on: ubuntu-latest
