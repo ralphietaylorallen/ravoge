@@ -103,11 +103,16 @@ returns void language sql security invoker set search_path='' as $$
   on conflict(organization_id,client_user_id,log_date) do update set calories=excluded.calories,protein_grams=excluded.protein_grams;
 $$;
 create function public.save_client_activity(target_id uuid,target_organization_id uuid,target_date date,activity text,minutes numeric,activity_distance numeric,unit text,activity_effort smallint)
-returns uuid language sql security invoker set search_path='' as $$
+returns uuid language plpgsql security invoker set search_path='' as $$
+declare saved_id uuid;
+begin
   insert into public.client_activity_entries(id,organization_id,client_user_id,log_date,activity_type,duration_minutes,distance,distance_unit,effort)
   values(target_id,target_organization_id,(select auth.uid()),target_date,activity,minutes,activity_distance,unit,activity_effort)
   on conflict(id) do update set log_date=excluded.log_date,activity_type=excluded.activity_type,duration_minutes=excluded.duration_minutes,distance=excluded.distance,distance_unit=excluded.distance_unit,effort=excluded.effort
-  where client_activity_entries.organization_id=excluded.organization_id and client_activity_entries.client_user_id=excluded.client_user_id returning id;
+  where client_activity_entries.organization_id=excluded.organization_id and client_activity_entries.client_user_id=excluded.client_user_id returning id into saved_id;
+  if saved_id is null then raise exception 'Activity access denied' using errcode='42501'; end if;
+  return saved_id;
+end;
 $$;
 create function public.save_client_recovery(target_organization_id uuid,target_workout_id uuid,target_date date,recovery text,minutes numeric,temperature numeric,unit text)
 returns void language sql security invoker set search_path='' as $$
