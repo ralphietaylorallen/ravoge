@@ -99,6 +99,7 @@ try {
     // organizations, users, passwords and imports are never addressed.
     sql(`begin;
       do $$ begin if not exists(select 1 from public.organizations where id='${org}' and name='Ravoge Beta Verification ${run}') then raise exception 'QA cleanup identity mismatch'; end if; end $$;
+      ${env.RAVOGE_CLIENT_LOG_QA === "yes" ? `delete from public.client_recovery_entries where organization_id='${org}'; delete from public.client_activity_entries where organization_id='${org}'; delete from public.client_daily_totals where organization_id='${org}';` : ""}
       delete from public.workout_assignments where organization_id='${org}';
       delete from public.generated_prescriptions where organization_id='${org}';
       delete from public.client_states where organization_id='${org}';
