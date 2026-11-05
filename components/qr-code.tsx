@@ -5,7 +5,7 @@ import { QRCodeCanvas } from "qrcode.react";
 
 import styles from "./dashboard.module.css";
 
-export function QrCode({ label, url }: { label: string; url: string }) {
+export function QrCode({ label, url, compact = false }: { label: string; url: string; compact?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   function downloadQrCode() {
@@ -46,14 +46,14 @@ export function QrCode({ label, url }: { label: string; url: string }) {
       <div className={styles.qrCanvas}>
         <QRCodeCanvas bgColor="#ffffff" fgColor="#171918" includeMargin level="M" ref={canvasRef} size={168} title={label} value={url} />
       </div>
-      <div>
+      {!compact && <div>
         <strong>Scan</strong>
         <p>Open this exact app link on an iPad or phone.</p>
         <div className={styles.accessActions}>
           <button className={styles.secondaryAction} onClick={downloadQrCode} type="button">Download QR</button>
           <button className={styles.secondaryAction} onClick={printQrCode} type="button">Print QR</button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

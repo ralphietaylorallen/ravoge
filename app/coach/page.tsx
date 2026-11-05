@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth";
 import { getProfileThumbnailUrl as getProfileImageUrl } from "@/lib/profile-images";
 import { MutationActionForm } from "@/components/mutation-action-form";
 import { ClaimClientForm } from "@/components/claim-client-form";
+import { ClientInstallCard } from "@/components/client-install-card";
 
 type PendingInvitation = { accepted_at: string | null; delivery_status: string; email: string; expires_at: string; id: string; revoked_at: string | null };
 
@@ -54,6 +55,7 @@ export default async function CoachPage() {
         <section className={styles.panel}>
           <h2>Invite a client</h2>
           <InviteForm role="client" />
+          <ClientInstallCard />
           {pendingInvitations.length ? (
             <>
               <h3 className={styles.subheading}>Invitation history</h3>
