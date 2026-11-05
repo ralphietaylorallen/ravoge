@@ -1,6 +1,6 @@
 export type DailyTotal = { log_date: string; calories: number | null; protein_grams: number | null };
 export type ActivityEntry = { id: string; log_date: string; activity_type: string; duration_minutes: number; distance: number | null; distance_unit: string; effort: number | null };
-export type RecoveryEntry = { id: string; log_date: string; workout_assignment_id: string; recovery_type: string; duration_minutes: number; water_temperature: number | null; temperature_unit: string };
+export type RecoveryEntry = { id: string; log_date: string; workout_assignment_id: string; recovery_type: string; duration_minutes: number; water_temperature: number | null; temperature_unit: string; occurred_at?:string|null; notes?:string|null; felt_after?:string|null };
 export const ACTIVITY_LABELS: Record<string,string> = { walk: "Walk", jog: "Jog", run: "Run", other: "Other workout" };
 export const RECOVERY_LABELS: Record<string,string> = { sauna: "Sauna", cold_plunge: "Cold plunge" };
 export const LOG_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

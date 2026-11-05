@@ -29,9 +29,10 @@ if (process.env.RAVOGE_ANNOUNCEMENTS_QA === "yes") roles.push("client");
 if (process.env.RAVOGE_CLIENT_LOG_QA === "yes") roles.push("client");
 const users = roles.map((role, index) => ({ role, id: randomUUID(), email: `${prefix}-${index}@example.test`, password, name: `Beta QA ${role} ${index}` }));
 const newCoachEmail = `${prefix}-new-coach@example.test`, newClientEmail = `${prefix}-new-client@example.test`, expiredInviteEmail = `${prefix}-expired@example.test`;
+const reportWorkout=randomUUID(),reportExercise=randomUUID();
 const logWorkout = randomUUID(), logDate = new Date(Date.now()-2*86400000).toISOString().slice(0,10);
 const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: apiUrl, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
-  BETA_QA_LOG_WORKOUT:logWorkout, BETA_QA_LOG_DATE:logDate,
+  BETA_QA_REPORT_WORKOUT:reportWorkout, BETA_QA_LOG_WORKOUT:logWorkout, BETA_QA_LOG_DATE:logDate,
   BETA_QA_USERS: JSON.stringify(users), BETA_QA_PASSWORD: password, BETA_QA_NEW_COACH_EMAIL: newCoachEmail, BETA_QA_NEW_CLIENT_EMAIL: newClientEmail, BETA_QA_EXPIRED_INVITE_EMAIL: expiredInviteEmail };
 mkdirSync(".temp", { recursive: true });
 writeFileSync(".temp/beta-qa-state.json", JSON.stringify({ organizationId: org, prefix, userIds: users.map(user => user.id) }));
@@ -60,7 +61,10 @@ try {
     ${env.RAVOGE_INVITATION_CLEAR_QA === "yes" ? `insert into public.organization_invitations(organization_id,invited_by,email,role,token_hash,created_at,expires_at) values('${org}','${users[0].id}','${expiredInviteEmail}','client',encode(extensions.digest('${randomBytes(32).toString("hex")}','sha256'),'hex'),now()-interval '2 days',now()-interval '1 day');` : ""}
     ${env.RAVOGE_MEMBER_REMOVE_QA === "yes" ? `insert into public.bookings(organization_id,coach_user_id,client_user_id,starts_at,ends_at,timezone,blocked_span,booked_by) values('${org}','${users[3].id}','${users.at(-1).id}',now()+interval '3 days',now()+interval '3 days 1 hour','UTC',tstzrange(now(),now()+interval '1 hour'),'${users[0].id}');` : ""}
     ${env.RAVOGE_CLIENT_LOG_QA === "yes" ? `insert into public.workout_assignments(id,organization_id,coach_user_id,client_user_id,title,scheduled_date,status,completed_at) values('${logWorkout}','${org}','${users[3].id}','${users.at(-1).id}','Completed logging QA session','${logDate}','completed','${logDate}T23:30:00Z');
-    insert into public.workout_exercises(workout_assignment_id,exercise_name,sets,reps,load,load_unit,sort_order,completed_at) values('${logWorkout}','Recorded QA movement',1,8,25,'lb',0,'${logDate}T23:30:00Z');` : ""}
+    insert into public.workout_exercises(workout_assignment_id,exercise_name,sets,reps,load,load_unit,sort_order,completed_at) values('${logWorkout}','Recorded QA movement',1,8,25,'lb',0,'${logDate}T23:30:00Z');
+    insert into public.workout_assignments(id,organization_id,coach_user_id,client_user_id,title,scheduled_date) values('${reportWorkout}','${org}','${users[3].id}','${users.at(-1).id}','Report completion QA session','${logDate}');
+    -- The existing create_prescribed_sets trigger creates the real target set.
+    insert into public.workout_exercises(id,workout_assignment_id,exercise_name,sets,reps,load,load_unit,sort_order) values('${reportExercise}','${reportWorkout}','Report QA squat',1,10,25,'lb',0);` : ""}
     commit;`);
   created = true;
   console.log("Isolated fixtures ready. Starting authenticated browser checks.");

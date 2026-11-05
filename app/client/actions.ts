@@ -25,6 +25,7 @@ export async function setExerciseCompletionAction(
   if (error) redirect(`${path}?notice=not-available`);
 
   revalidatePath("/client");
+  revalidatePath("/client/profile");
   revalidatePath(path);
   redirect(path);
 }

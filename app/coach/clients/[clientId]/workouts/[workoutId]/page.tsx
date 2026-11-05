@@ -1,3 +1,4 @@
+import { SessionReportPage } from "@/components/session-report-page";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
@@ -10,6 +11,8 @@ export default async function WorkoutExecutionPage({params}:{params:Promise<{cli
   const {clientId,workoutId}=await params;
   if(![clientId,workoutId].every((id)=>/^[0-9a-f-]{36}$/i.test(id))) notFound();
   const {membership,supabase,userId}=await requireRole("coach");
+  const {data:savedReport}=await supabase.from("workout_session_reports").select("workout_assignment_id").eq("organization_id",membership.organization_id).eq("client_user_id",clientId).eq("workout_assignment_id",workoutId).maybeSingle();
+  if(savedReport)return <SessionReportPage role="coach" clientId={clientId} workoutId={workoutId}/>;
   const [{data:workout},{data:client},{data:actor},{data:org},{data:states},{data:recent}]=await Promise.all([
     supabase.from("workout_assignments").select("*,workout_exercises(*,exercise_library(coach_cue,equipment_requirements),workout_sets(*))").eq("id",workoutId).eq("client_user_id",clientId).eq("coach_user_id",userId).eq("organization_id",membership.organization_id).maybeSingle(),
     supabase.from("profiles").select("full_name,preferred_name").eq("id",clientId).maybeSingle(),
@@ -19,6 +22,7 @@ export default async function WorkoutExecutionPage({params}:{params:Promise<{cli
     supabase.from("workout_assignments").select("id,title,scheduled_date,status").eq("organization_id",membership.organization_id).eq("client_user_id",clientId).eq("coach_user_id",userId).neq("id",workoutId).order("scheduled_date",{ascending:false}).limit(4),
   ]);
   if(!workout||!client) notFound();
+  if(workout.status==="completed")return <SessionReportPage role="coach" clientId={clientId} workoutId={workoutId}/>;
   const exercises=[...workout.workout_exercises].sort((a,b)=>a.sort_order-b.sort_order) as ExecutionExercise[];
   const sets=exercises.flatMap((exercise)=>exercise.workout_sets);
   const locked=workout.status==="completed"||workout.status==="cancelled";

@@ -7,7 +7,7 @@ export async function ClientLogHistory({supabase,organizationId,clientId,clientV
   const [daily,activity,recovery]=await Promise.all([
     supabase.from("client_daily_totals").select("log_date,calories,protein_grams").eq("organization_id",organizationId).eq("client_user_id",clientId).order("log_date",{ascending:false}).limit(60),
     supabase.from("client_activity_entries").select("id,log_date,activity_type,duration_minutes,distance,distance_unit,effort").eq("organization_id",organizationId).eq("client_user_id",clientId).order("log_date",{ascending:false}).limit(200),
-    supabase.from("client_recovery_entries").select("id,log_date,workout_assignment_id,recovery_type,duration_minutes,water_temperature,temperature_unit").eq("organization_id",organizationId).eq("client_user_id",clientId).order("log_date",{ascending:false}).limit(200),
+    supabase.from("client_recovery_entries").select("id,log_date,workout_assignment_id,recovery_type,duration_minutes,water_temperature,temperature_unit,occurred_at,notes,felt_after").is("deleted_at",null).eq("organization_id",organizationId).eq("client_user_id",clientId).order("log_date",{ascending:false}).limit(200),
   ]);
   if(daily.error||activity.error||recovery.error) return <section className={styles.operationCard}><h3>Daily &amp; recovery history</h3><p role="alert">History could not be loaded. Please reload and try again.</p></section>;
   const totals=(daily.data??[]) as DailyTotal[],activities=(activity.data??[]) as ActivityEntry[],recoveries=(recovery.data??[]) as RecoveryEntry[];

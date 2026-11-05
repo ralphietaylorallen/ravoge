@@ -93,6 +93,17 @@ do $$ begin
   begin perform public.accept_organization_enrollment('assisted-generation-renewed-invite-0000001'); raise exception 'Revoked invitation accepted'; exception when others then if sqlerrm='Revoked invitation accepted' then raise; end if; end;
 end $$;
 
+-- Scoped recent context fixtures (never production data).
+reset role;
+insert into public.coach_client_assignments(organization_id,coach_user_id,client_user_id)
+values('ab200000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000005','ab100000-0000-4000-8000-000000000006');
+insert into public.workout_assignments(id,organization_id,coach_user_id,client_user_id,title,scheduled_date,status,completed_at,client_feedback) values
+('ab600000-0000-4000-8000-000000000001','ab200000-0000-4000-8000-000000000001','ab100000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000003','Report context',current_date-1,'completed',now()-interval '1 day','Own scoped feedback'),
+('ab600000-0000-4000-8000-000000000002','ab200000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000005','ab100000-0000-4000-8000-000000000006','Other gym',current_date-1,'completed',now()-interval '1 day','MUST NOT LEAK');
+insert into public.client_recovery_entries(organization_id,client_user_id,workout_assignment_id,log_date,recovery_type,duration_minutes,occurred_at,notes) values
+('ab200000-0000-4000-8000-000000000001','ab100000-0000-4000-8000-000000000003','ab600000-0000-4000-8000-000000000001',((now()-interval '1 day') at time zone (select timezone from public.organizations where id='ab200000-0000-4000-8000-000000000001'))::date,'sauna',12,now()-interval '1 day','Own recovery'),
+('ab200000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000006','ab600000-0000-4000-8000-000000000002',((now()-interval '1 day') at time zone (select timezone from public.organizations where id='ab200000-0000-4000-8000-000000000002'))::date,'sauna',15,now()-interval '1 day','MUST NOT LEAK');
+set local role authenticated;
 -- Coach-led intake -> published source -> draft -> approval -> Client visibility.
 select set_config('request.jwt.claim.sub','ab100000-0000-4000-8000-000000000002',true);
 insert into beta_ids values('intake',public.upsert_client_intake('ab100000-0000-4000-8000-000000000003',
@@ -105,6 +116,11 @@ select public.confirm_intake_generation_safety((select id from beta_ids where ki
 select pg_temp.assert_true(public.get_workout_generation_readiness('ab100000-0000-4000-8000-000000000003')->>'sourceType'='organization_workout','Published gym workout was not preferred');
 insert into beta_ids values('prescription',public.generate_initial_prescription_v0('ab100000-0000-4000-8000-000000000003'));
 
+do $$ declare context jsonb; begin
+ context:=public.get_recent_session_report_context((select id from beta_ids where kind='prescription'));
+ if jsonb_array_length(context->'sessions')<>1 or jsonb_array_length(context->'recovery')<>1 or context::text like '%MUST NOT LEAK%' then raise exception 'Recent report context isolation failed'; end if;
+ if context->'sessions'->0->>'reportedFeedback'<>'Own scoped feedback' or (context->'recovery'->0->>'minutes')::numeric<>12 then raise exception 'Recent feedback/recovery missing'; end if;
+end $$;
 create temporary table ai_fixture as select public.get_prescription_generation_input((select id from beta_ids where kind='prescription')) as payload;
 grant select on ai_fixture to authenticated;
 select pg_temp.assert_true((select payload->>'goal'='strength' and jsonb_array_length(payload->'references')=1 from ai_fixture),'Published references not retrieved');
@@ -129,12 +145,12 @@ end $$;
 select set_config('request.jwt.claim.sub','ab100000-0000-4000-8000-000000000003',true);
 select pg_temp.assert_true(not exists(select 1 from public.generated_prescriptions),'Client saw assisted draft');
 do $$ begin
-  begin perform public.get_prescription_generation_input((select id from beta_ids where kind='prescription')); raise exception 'Client obtained Coach generation payload'; exception when others then if sqlerrm='Client obtained Coach generation payload' then raise; end if; end;
+  begin perform public.get_recent_session_report_context((select id from beta_ids where kind='prescription')); raise exception 'Client obtained Coach generation payload'; exception when others then if sqlerrm='Client obtained Coach generation payload' then raise; end if; end;
   begin perform public.complete_assisted_prescription((select id from beta_ids where kind='prescription'),null,null,'{}'); raise exception 'Client wrote assisted draft'; exception when others then if sqlerrm='Client wrote assisted draft' then raise; end if; end;
 end $$;
 select set_config('request.jwt.claim.sub','ab100000-0000-4000-8000-000000000005',true);
 do $$ begin
-  begin perform public.get_prescription_generation_input((select id from beta_ids where kind='prescription')); raise exception 'Cross-gym Coach read inputs'; exception when others then if sqlerrm='Cross-gym Coach read inputs' then raise; end if; end;
+  begin perform public.get_recent_session_report_context((select id from beta_ids where kind='prescription')); raise exception 'Cross-gym Coach read inputs'; exception when others then if sqlerrm='Cross-gym Coach read inputs' then raise; end if; end;
   begin perform public.complete_assisted_prescription((select id from beta_ids where kind='prescription'),null,null,'{}'); raise exception 'Cross-gym Coach changed draft'; exception when others then if sqlerrm='Cross-gym Coach changed draft' then raise; end if; end;
 end $$;
 
@@ -146,7 +162,7 @@ select set_config('request.jwt.claim.sub','ab100000-0000-4000-8000-000000000002'
 insert into beta_ids values('fallback-assisted',public.generate_initial_prescription_v0('ab100000-0000-4000-8000-000000000003'));
 select public.complete_assisted_prescription((select id from beta_ids where kind='fallback-assisted'),null,null,'{"reason":"not_configured"}');
 select pg_temp.assert_true((select engine_version='prescription-v0.3-fallback' and status='draft' and generation_context->>'fallbackReason'='not_configured' from public.generated_prescriptions where id=(select id from beta_ids where kind='fallback-assisted')),'Fallback was not truthful or safe draft');
-select pg_temp.assert_true((select jsonb_array_length(public.get_prescription_generation_input((select id from beta_ids where kind='fallback-assisted'))->'history')=1),'Prior assigned workout missing');
+select pg_temp.assert_true((select jsonb_array_length(public.get_prescription_generation_input((select id from beta_ids where kind='fallback-assisted'))->'history')=2),'Prior assigned workout missing');
 
 -- A new intake invalidates both generated inputs and approval, rather than reusing stale goals.
 insert into beta_ids values('new-intake',public.upsert_client_intake('ab100000-0000-4000-8000-000000000003',

@@ -3,15 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { activityInput, dailyInput, LOG_UUID, recoveryInput } from "@/lib/client-logs";
-import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
+import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone, zonedLocalDateTimeToIso } from "@/lib/timezone";
 
 export type LogState = { status: "idle" | "success" | "error"; message: string };
 const failure = (message: string): LogState => ({status:"error",message});
 function refreshLogs(clientId: string,workoutId?: string) {
   revalidatePath("/client/my-day");
+  revalidatePath("/client/profile");
+  revalidatePath("/client/progress");
+  revalidatePath(`/coach/clients/${clientId}/progress`);
+  revalidatePath(`/owner/clients/${clientId}/progress`);
   revalidatePath(`/coach/clients/${clientId}`);
   revalidatePath(`/owner/clients/${clientId}`);
-  if(workoutId) revalidatePath(`/client/workouts/${workoutId}`);
+  if(workoutId) { revalidatePath(`/client/workouts/${workoutId}`); revalidatePath(`/coach/clients/${clientId}/workouts/${workoutId}`); revalidatePath(`/owner/clients/${clientId}/workouts/${workoutId}`); }
 }
 async function checkDate(supabase: Awaited<ReturnType<typeof requireRole>>["supabase"],org: string,date: string) {
   const {data,error}=await supabase.from("organizations").select("timezone").eq("id",org).single();
@@ -47,13 +51,24 @@ export async function deleteActivityAction(id: string,_previous: LogState,_data:
 }
 export async function saveRecoveryAction(workoutId: string,_previous: LogState,data: FormData): Promise<LogState> {
   const {membership,supabase,userId}=await requireRole("client");
-  if(!LOG_UUID.test(workoutId)) return failure("Workout is unavailable.");
+  const entryId=String(data.get("entry_id")??"");
+  if(!LOG_UUID.test(workoutId)||!LOG_UUID.test(entryId)) return failure("Recovery is unavailable. Reload and try again.");
   let input: ReturnType<typeof recoveryInput>;
   try {input=recoveryInput(data);await checkDate(supabase,membership.organization_id,input.date);} catch(e) {return failure(e instanceof Error?e.message:"Review recovery.");}
-  const {data:workout,error:workoutError}=await supabase.from("workout_assignments").select("id").eq("id",workoutId).eq("organization_id",membership.organization_id).eq("client_user_id",userId).eq("status","completed").maybeSingle();
-  if(workoutError||!workout) return failure("Recovery can be added to your completed workouts only.");
-  const {error}=await supabase.rpc("save_client_recovery",{target_organization_id:membership.organization_id,target_workout_id:workoutId,target_date:input.date,recovery:input.recovery,minutes:input.minutes,temperature:input.temperature,unit:input.unit});
-  if(error) return failure("Recovery could not be saved. Reload and try again.");
+  const {data:organization,error:zoneError}=await supabase.from("organizations").select("timezone").eq("id",membership.organization_id).single();
+  if(zoneError)return failure("The gym timezone could not be checked. Please reload.");
+  const time=String(data.get("time")??""),occurred=time?zonedLocalDateTimeToIso(input.date+"T"+time,organization.timezone??DEFAULT_ORGANIZATION_TIMEZONE):null;
+  const notes=String(data.get("notes")??"").trim(),feeling=String(data.get("felt_after")??"").trim();
+  if(time&&!occurred||notes.length>1000||feeling.length>500)return failure("Check the actual recovery time and notes. This time may not exist in the gym timezone.");
+  const {error}=await supabase.rpc("save_client_recovery_entry",{target_id:entryId,target_workout_id:workoutId,target_date:input.date,occurred,recovery:input.recovery,minutes:input.minutes,temperature:input.temperature,unit:input.unit,entry_notes:notes,feeling});
+  if(error)return failure("Recovery could not be saved. Check the actual time, that it is not in the future, and that this is your completed workout. Reload before retrying.");
   refreshLogs(userId,workoutId);
   return {status:"success",message:"Recovery saved. Training results are unchanged."};
+}
+export async function deleteRecoveryAction(workoutId:string,entryId:string,_previous:LogState,data:FormData):Promise<LogState> {
+  const {supabase,userId}=await requireRole("client");
+  if(!LOG_UUID.test(workoutId)||!LOG_UUID.test(entryId)||data.get("confirmed")!=="yes")return failure("Confirm the recovery entry to remove.");
+  const {error}=await supabase.rpc("remove_client_recovery_entry",{target_id:entryId});
+  if(error)return failure("Recovery could not be removed. Reload and try again.");
+  refreshLogs(userId,workoutId);return {status:"success",message:"Recovery removed. Workout results are unchanged."};
 }

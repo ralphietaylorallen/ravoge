@@ -19,7 +19,7 @@ const CACHE_TTL = 5*60_000;
 // its bounded intent is used to search already-reviewed structured records.
 export function planningProjection(input: GenerationInput) {
   const p=deidentifiedGenerationInput(input);
-  return {age:p.age,previousDrafts:p.previousDrafts,sessionPlanning:p.sessionPlanning,goal:p.goal,secondaryGoal:p.secondaryGoal,trainingFocus:p.trainingFocus,experience:p.experience,
+  return {age:p.age,recentSessionContext:p.recentSessionContext,previousDrafts:p.previousDrafts,sessionPlanning:p.sessionPlanning,goal:p.goal,secondaryGoal:p.secondaryGoal,trainingFocus:p.trainingFocus,experience:p.experience,
     ...(input.intakeContext?.version===2?{savedIntake:p.savedIntake,injurySpots:p.injurySpots,assessments:p.assessments,evidence:p.evidence}:{}),
     weeklyFrequency:p.weeklyFrequency,requestedDurationMinutes:p.requestedDurationMinutes,bodyComposition:p.bodyComposition,
     optionalTargets:p.optionalTargets,restrictions:p.restrictions,weightUnit:p.weightUnit,equipment:p.equipment,

@@ -7,6 +7,8 @@ export type ExecutionState = { status: "idle" | "success" | "error"; message?: s
 const UUID = /^[0-9a-f-]{36}$/i;
 const reasons = new Set(["failed_reps","too_heavy","form_breakdown","pain_discomfort","fatigue","coach_stopped","other"]);
 function refresh(clientId: string, workoutId: string) {
+  revalidatePath("/client/profile");
+  revalidatePath("/client/progress");
   revalidatePath(`/coach/clients/${clientId}`);
   revalidatePath(`/coach/clients/${clientId}/workouts/${workoutId}`);
   revalidatePath(`/owner/clients/${clientId}`);
