@@ -80,6 +80,7 @@ export default async function OwnerTeamPage() {
       gymName={organization?.name ?? "Ravoge gym"}
       name={profile?.full_name ?? "Owner"}
       role="owner"
+      compact
     >
       <div className={styles.pageHeading}>
         <div>
@@ -90,10 +91,31 @@ export default async function OwnerTeamPage() {
       </div>
 
       <div className={styles.grid}>
-        <section className={styles.panel}><h2>Invite your team</h2><BulkInvitations /></section>
-        {(["owner", "coach", "client"] as const).map((role) => (
-          <section className={styles.panel} key={role}>
-            <h2>{role === "coach" ? "Coaches" : role === "client" ? "Clients" : "Owners"}</h2>
+        <details className={`${styles.panel} ${styles.ownerSection}`} data-owner-disclosure open id="invite-people">
+          <summary><h2>Invite people</h2></summary>
+          <div className={styles.ownerSectionBody}>
+            <details className={styles.formSection} data-owner-disclosure open id="invite-team">
+              <summary>Invite your team · multiple emails</summary>
+              <div className={styles.sectionFields}><BulkInvitations /></div>
+            </details>
+            <details className={styles.formSection} data-owner-disclosure id="invite-coach">
+              <summary>Invite coach</summary>
+              <div className={styles.sectionFields}><p className={styles.empty}>The recipient must use the exact invited email with their own Ravoge account.</p><InviteForm role="coach" /></div>
+            </details>
+            <details className={styles.formSection} data-owner-disclosure id="invite-client">
+              <summary>Invite client</summary>
+              <div className={styles.sectionFields}><p className={styles.empty}>Creates a secure, email-bound invitation for an individual client account.</p><InviteForm role="client" /></div>
+            </details>
+            <details className={styles.formSection} data-owner-disclosure id="invite-owner">
+              <summary>Invite owner</summary>
+              <div className={styles.sectionFields}><p className={styles.empty}>Adds an operational owner. The primary owner remains the owner of record.</p><InviteForm role="owner" /></div>
+            </details>
+          </div>
+        </details>
+        {(["coach", "client", "owner"] as const).map((role) => (
+          <details className={`${styles.panel} ${styles.ownerSection}`} data-owner-disclosure key={role} open={role === "coach"} id={`${role}-members`}>
+            <summary><h2>{role === "coach" ? "Coaches" : role === "client" ? "Clients" : "Owners"}</h2><span className={styles.ownerSectionCount}>{memberRows.filter((row) => row.role === role && row.status === "active").length}</span></summary>
+            <div className={styles.ownerSectionBody}>
             {memberRows.some((row) => row.role === role && row.status === "active") ? (
               <ul className={`${styles.list} ${styles.teamMembers}`}>
                 {memberRows
@@ -116,7 +138,7 @@ export default async function OwnerTeamPage() {
                         </span>
                       </div>
                       <small>{row.status}</small>
-                      {role!=="owner"&&row.user_id!==userId&&<Link href={`/owner/team/${row.user_id}/remove`}>{role==="coach"?"Remove Coach":"Remove Client"}</Link>}
+                      {role!=="owner"&&row.user_id!==userId&&<Link className={styles.secondaryAction} href={`/owner/team/${row.user_id}/remove`}>{role==="coach"?"Remove Coach":"Remove Client"}</Link>}
                     </li>
                     );
                   })}
@@ -124,30 +146,17 @@ export default async function OwnerTeamPage() {
             ) : (
               <p className={styles.empty}>No {role} memberships yet.</p>
             )}
-          </section>
+            </div>
+          </details>
         ))}
 
-        {removals?.length ? <section className={styles.panel}><details><summary>Removed members — audit history</summary><ul className={styles.activityList}>{removals.map((r:{member_user_id:string;member_name:string;member_role:string;created_at:string},i:number)=><li key={`${r.member_user_id}-${i}`}><span>{r.member_name} · {r.member_role}</span><small>Access removed {new Date(r.created_at).toLocaleDateString("en-US",{timeZone:"UTC"})}</small></li>)}</ul></details></section>:null}
-
-        <section className={styles.panel}>
-          <h2>Invite owner</h2>
-          <p className={styles.empty}>Adds an operational owner. The primary owner remains the owner of record.</p>
-          <InviteForm role="owner" />
-        </section>
-        <section className={styles.panel}>
-          <h2>Invite coach</h2>
-          <p className={styles.empty}>The recipient must use the exact invited email with their own Ravoge account.</p>
-          <InviteForm role="coach" />
-        </section>
-        <section className={styles.panel}>
-          <h2>Invite client</h2>
-          <p className={styles.empty}>Creates a secure, email-bound invitation for an individual client account.</p>
-          <InviteForm role="client" />
-        </section>
-        <section className={styles.panel}>
-          <h2>Invitations</h2>
-          <TeamInvitationList invitations={(invitations ?? []) as InvitationRow[]} nowIso={nowIso} />
-        </section>
+        <details className={`${styles.panel} ${styles.ownerSection}`} data-owner-disclosure id="invitations">
+          <summary><h2>Invitations</h2><span className={styles.ownerSectionCount}>{invitations?.length ?? 0}</span></summary>
+          <div className={styles.ownerSectionBody}>
+            <TeamInvitationList invitations={(invitations ?? []) as InvitationRow[]} nowIso={nowIso} />
+            {removals?.length ? <details><summary>Removed members — audit history</summary><ul className={styles.activityList}>{removals.map((r:{member_user_id:string;member_name:string;member_role:string;created_at:string},i:number)=><li key={`${r.member_user_id}-${i}`}><span>{r.member_name} · {r.member_role}</span><small>Access removed {new Date(r.created_at).toLocaleDateString("en-US",{timeZone:"UTC"})}</small></li>)}</ul></details>:null}
+          </div>
+        </details>
       </div>
     </DashboardShell>
   );

@@ -21,7 +21,7 @@ test("Owner clears selected invitations, retains audit and memberships, and can 
   }
   await login(page, owner);
   async function invite(email: string, role: "client" | "coach") {
-    await page.goto("/owner/team");
+    await page.goto("/owner/team#invitations");
     const form = page.locator("section").filter({ has: page.getByRole("heading", { name: `Invite ${role}`, exact: true }) }).locator("form");
     await form.getByLabel("Email", { exact: true }).fill(email);
     await form.getByRole("button", { name: role === "client" ? "Send invite" : "Send Coach Invite", exact: true }).click();

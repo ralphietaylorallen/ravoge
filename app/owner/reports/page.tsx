@@ -149,7 +149,7 @@ export default async function OwnerReportsPage({ searchParams }: { searchParams:
   const uniqueClients = new Set(completedSessions.map((row) => row.client_user_id)).size;
 
   return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
+    <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
       <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Factual organization reporting</p><h2>Reports</h2></div><p>{range.startDate} through {range.endDate} · {timezone}</p></div>
       <form className={styles.reportFilters}>
         <label className={styles.field}>Range<select defaultValue={range.range} name="range"><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option><option value="custom">Custom</option></select></label>

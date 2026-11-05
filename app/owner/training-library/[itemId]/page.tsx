@@ -19,7 +19,7 @@ export default async function TrainingReviewPage({ params }: { params: Promise<{
   if (!item) notFound();
   const suggestion = suggestTrainingReview(item.normalized_content, library ?? []);
   const review = reviews?.[0];
-  return <DashboardShell gymName={org?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
+  return <DashboardShell compact gymName={org?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
     <Link className={styles.backLink} href="/owner/training-library">← Training library</Link>
     <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Optional advanced template editing</p><h2>{review?.title ?? (suggestion.title || item.title)}</h2></div><span className={styles.statusPill}>Raw reference ≠ verified template</span></div>
     <p>Mapping and template publication are optional. Enabled raw references already guide gym programming style without reconstructing this workout.</p>

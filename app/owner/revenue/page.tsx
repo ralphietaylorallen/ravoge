@@ -56,7 +56,7 @@ export default async function OwnerRevenuePage() {
   const currency = pricing?.currency ?? "USD";
 
   return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
+    <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
       <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Reporting foundation</p><h2>Revenue</h2></div><p>Exact session-value and estimated compensation snapshots. No payment processing occurs in Ravoge yet.</p></div>
 
       <section className={styles.kpiGrid} aria-label="Revenue snapshots">

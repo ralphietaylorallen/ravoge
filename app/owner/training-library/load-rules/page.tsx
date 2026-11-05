@@ -16,7 +16,7 @@ export default async function LoadRulesPage() {
     const previous = current.get(rule.exercise_id);
     if (!previous || !previous.organization_id && rule.organization_id) current.set(rule.exercise_id, rule as LoadRule);
   }
-  return <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
+  return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
     <Link href="/owner/training-library">← Training library</Link><div className={styles.pageHeading}><h2>Starting-load rules</h2></div>
     <p>Rounds down to confirmed equipment, never up. Each-hand dumbbell work requires a separately recorded matching pair at each usable size (quantity 2 or more). Unknown inventory is not proof of an available load.</p>
     {(library ?? []).map(e => current.has(e.id) && <LoadRuleEditor key={current.get(e.id)!.id} rule={current.get(e.id)!} name={e.name} library={library ?? []}/>)}
