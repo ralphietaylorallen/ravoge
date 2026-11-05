@@ -29,7 +29,7 @@ function WorkoutList({ empty, workouts }: { empty: string; workouts: ClientWorko
                 <time dateTime={workout.scheduled_date}>{workout.scheduled_date}</time>
               </div>
               <span>
-                {workout.status.replaceAll("_", " ")} · {completedExercises}/{workout.workout_exercises.length}
+                {workout.status.replaceAll("_", " ")} · {completedExercises}/{workout.workout_exercises.length} exercises
               </span>
             </Link>
           </li>
@@ -65,7 +65,8 @@ export default async function ClientPage() {
   const completed = workouts.filter((workout) => workout.status === "completed").reverse().slice(0, 5);
 
   return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Client"} role="client">
+    <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Client"} role="client">
+      <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Your training</p><h1 className={styles.clientHeading}>Welcome, {profile?.full_name ?? "Client"}.</h1></div></div>
       <div className={styles.clientMeta}>
         <ProfilePhoto name={coachName} size="small" url={coachPhotoUrl} />
         <span>Your coach</span>

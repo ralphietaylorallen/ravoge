@@ -441,7 +441,7 @@
   text-decoration: none;
 }
 
-:global(.install-primary-wrap) {
+.shell :global(.install-primary-wrap) {
   display: grid;
   max-width: 28rem;
   margin-top: 2rem;
@@ -452,7 +452,7 @@
   width: 100%;
 }
 
-:global(.install-primary-wrap) p {
+.shell :global(.install-primary-wrap) p {
   margin: 0;
   color: #aaa397;
   font-size: 0.72rem;
@@ -692,6 +692,18 @@
 .formNotice { border-radius: 8px; color: #ead6b3; background: #bd8d3c12; }
 .formError { background: #361d1b; color: #ffbcb1; }
 .intentNote { font-size: .76rem; }
+.shell[data-audience="client"] .frame { max-width: 64rem; padding-top: 2rem; }
+.shell[data-audience="client"] .stage { margin: 0 auto; padding-top: 1.75rem; }
+.shell[data-audience="client"] .stageWide { max-width: 48rem; }
+.shell[data-audience="client"] .panel { border-color: #665537; }
+.shell[data-audience="client"] :is(.installHeading,.heading) { overflow-wrap: anywhere; }
+.shell[data-audience="client"] .installActions { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.shell[data-audience="client"] .intentNote { line-height: 1.6; }
+.shell[data-audience="client"] .field label { font-size: .8rem; letter-spacing: 0; text-transform: none; }
+.shell[data-audience="client"] .field input { font-size: 1rem; }
+.shell[data-audience="client"] .installGrid { margin-top: 1.5rem; }
+.shell[data-audience="client"] .installGrid section { padding-block: 1rem; }
+.shell[data-audience="client"] :global(.install-primary-wrap) { margin-top: 1.25rem; }
 @media (max-width: 767px) {
   .frame { padding: 1.75rem 1rem; }
   .stage, .stageWide { padding-top: 2rem; }

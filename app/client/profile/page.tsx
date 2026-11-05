@@ -16,15 +16,15 @@ export default async function ClientProfilePage() {
   const imageUrl = await getProfileImageUrl(supabase, profile?.avatar_path);
   const name = profile?.preferred_name || profile?.full_name || "Client";
   const intake = intakeRows?.[0];
-  return <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={name} role="client">
-    <div className={styles.profileHero}><ProfilePhotoForm imageUrl={imageUrl} name={name} role="client" /><div><p className={styles.eyebrow}>Client profile</p><h2 className={styles.detailTitle}>{name}</h2><p className={styles.profileMeta}>Training account details and your editable profile</p></div></div>
+  return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={name} role="client">
+    <div className={styles.profileHero}><ProfilePhotoForm imageUrl={imageUrl} name={name} role="client" /><div><p className={styles.eyebrow}>Client profile</p><h1 className={styles.detailTitle}>{name}</h1><p className={styles.profileMeta}>Training account details and your editable profile</p></div></div>
     <section className={styles.profileOverview}>
       <article className={styles.metricCard}><span>Primary goal</span><strong>{intake?.primary_goal?.replaceAll("_", " ") ?? "Pending"}</strong><small>Managed through your intake</small></article>
-      <article className={styles.metricCard}><span>Assigned coach</span><strong>{coach?.preferred_name || coach?.full_name || "Pending"}</strong><small>Protected organization assignment</small></article>
+      <article className={styles.metricCard}><span>Your Coach</span><strong>{coach?.preferred_name || coach?.full_name || "Pending"}</strong><small>Assigned by your gym</small></article>
       <article className={styles.metricCard}><span>Intake / account</span><strong>{intake ? "Complete" : "Pending"}</strong><small>{membership.status} membership · {profile?.account_status ?? "active"} account</small></article>
     </section>
     <div className={`${styles.detailGrid} ${styles.workspaceSection}`}>
-      <section className={styles.panel}><h2>About</h2>{profile && <ProfileDetailsForm defaults={profile} role="client" />}<p className={styles.securityNote}>Organization, role, coach assignment, goal, intake status, and account status cannot be changed here.</p></section>
+      <section className={styles.panel}><h2>About you</h2>{profile && <ProfileDetailsForm defaults={profile} role="client" />}<p className={styles.formHint}>Your gym manages your Coach, goals and account access.</p></section>
     </div>
     <AnnouncementPreferences />
   </DashboardShell>;

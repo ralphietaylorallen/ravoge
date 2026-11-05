@@ -38,7 +38,7 @@ export async function RoleSignupShell({
     : "/signup";
 
   return (
-    <AuthEntryShell>
+    <AuthEntryShell audience={role}>
       <Link className={styles.backAction} href={backHref}>
         <span aria-hidden="true">←</span>
         {clientInvitation ? "Sign in instead" : "Back"}
@@ -61,7 +61,7 @@ export async function RoleSignupShell({
       )}
 
       <p className={styles.intentNote}>
-        Account type is identity intent only. Active database membership determines gym access.
+        {role === "client" ? "Your gym manages your training access." : "Account type is identity intent only. Active database membership determines gym access."}
       </p>
     </AuthEntryShell>
   );

@@ -19,7 +19,7 @@ export async function UnaffiliatedOnboarding({ role }: { role: "coach" | "client
   const name = profile?.preferred_name || profile?.full_name || (role === "coach" ? "Coach" : "Client");
 
   return (
-    <VisualTheme><main className={styles.onboardingShell}>
+    <VisualTheme><main className={styles.onboardingShell} data-account-role={role}>
       <header className={styles.onboardingHeader}>
         <Logo />
         <form action={logoutAction}>

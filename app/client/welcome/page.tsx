@@ -31,7 +31,7 @@ export default async function ClientWelcomePage() {
     : { data: null };
 
   return (
-    <AuthEntryShell wide>
+    <AuthEntryShell wide audience="client">
       <p className={styles.eyebrow}>You&apos;re in</p>
       <h1 className={styles.installHeading}>{organization?.name ?? "Your gym"}</h1>
       <p className={styles.lede}>

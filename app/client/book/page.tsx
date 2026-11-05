@@ -34,7 +34,7 @@ export default async function ClientBookPage({ searchParams }: { searchParams: P
   const clientName = profile?.preferred_name || profile?.full_name || "Client";
   const coachName = coach?.preferred_name || coach?.full_name || "Coach";
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={clientName} role="client">
-    <div className={styles.pageHeading}><div><p className={styles.eyebrow}>{params.reschedule ? "Reschedule" : "Book session"}</p><h2>{params.reschedule ? "Choose a new time" : "Train with your Coach"}</h2></div><p>Availability is calculated from gym hours, Coach availability, closures, blocks, existing sessions, and buffer rules.</p></div>
+    <div className={styles.pageHeading}><div><p className={styles.eyebrow}>{params.reschedule ? "Reschedule" : "Book session"}</p><h1 className={styles.clientHeading}>{params.reschedule ? "Choose a new time" : "Train with your Coach"}</h1><p>Choose a day and an available time.</p></div></div>
     {coach ? <>
       <div className={styles.coachCard}><ProfilePhoto name={coachName} url={coachPhotoUrl} /><div><p className={styles.eyebrow}>Your Coach</p><h3>{coachName}</h3><p>{coach.bio || "Your assigned Ravoge Coach."}</p>{coach.specialties?.length ? <small>{coach.specialties.join(" · ")}</small> : null}</div></div>
       <RollingDateStrip basePath="/client/book" selectedDate={date} today={today} timezone={organizationTimezone} duration={duration} durations={allowed} extraParams={{ reschedule: params.reschedule }} />
