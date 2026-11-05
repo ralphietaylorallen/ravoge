@@ -67,8 +67,11 @@ browser's existing print dialog; there is no email dependency.
 
 ## Release safety
 
-Migration: `20261105015204_session_reports_and_recovery.sql`.
+Migration: `20261105032234_session_reports_and_recovery.sql`.
+Applied once to the verified Ravoge project after isolated CI passed. The file
+timestamp matches the version assigned by Supabase's migration API; its SQL is
+unchanged from the tested authoring file. Do not apply it again.
 Hosted history has a remote-only historical email migration; do not repair or
-reapply it. Apply only the new verified migration once after isolated CI tests.
+reapply it. Always check hosted migration history before applying later changes.
 Database fixtures and authenticated browser writes run only against CI's local
 Supabase. Production smoke checks must preserve real Client records.
