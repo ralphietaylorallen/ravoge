@@ -33,7 +33,7 @@ export default async function OwnerClientsPage() {
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("organizations").select("name,timezone").eq("id", organizationId).single(),
     supabase
-      .from("organization_memberships")
+      .from("organization_member_roles")
       .select("user_id,status,invitation_id,created_at")
       .eq("organization_id", organizationId)
       .eq("role", "client")

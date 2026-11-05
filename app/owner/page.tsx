@@ -28,7 +28,7 @@ export default async function OwnerPage() {
   const [{ data: profile }, { data: organization }, { data: memberships }] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("organizations").select("name,timezone").eq("id", organizationId).single(),
-    supabase.from("organization_memberships").select("role,status").eq("organization_id", organizationId),
+    supabase.from("organization_member_roles").select("role,status").eq("organization_id", organizationId),
   ]);
   const timezone = organization?.timezone ?? "America/Denver";
   const todayWindow = organizationTodayWindow(timezone);

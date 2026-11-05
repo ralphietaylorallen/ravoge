@@ -50,6 +50,8 @@ jobs:
         run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_INVITATION_CLEAR_QA=yes node scripts/verify-beta-ui.mjs
       - name: Member removal browser checks (isolated local database)
         run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_MEMBER_REMOVE_QA=yes node scripts/verify-beta-ui.mjs
+      - name: Authorized Coach and Client modes (isolated local database)
+        run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_ACCESS_MODES_QA=yes node scripts/verify-beta-ui.mjs
 
       - name: Private announcements browser checks (isolated local database, email disabled)
         run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_ANNOUNCEMENTS_QA=yes node scripts/verify-beta-ui.mjs

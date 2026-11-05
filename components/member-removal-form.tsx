@@ -4,7 +4,7 @@ import { removeTeamMemberAction } from "@/app/owner/team/removal-actions";
 import styles from "./dashboard.module.css";
 
 export function MemberRemovalForm({memberId,name,role,assignmentIds,blocked}:{memberId:string;name:string;role:"coach"|"client";assignmentIds:string[];blocked:boolean}) {
-  const [state,action,pending]=useActionState(removeTeamMemberAction.bind(null,memberId,assignmentIds),{status:"idle",message:""});
+  const [state,action,pending]=useActionState(removeTeamMemberAction.bind(null,memberId,role,assignmentIds),{status:"idle",message:""});
   const label=role === "coach" ? "Remove Coach" : "Remove Client";
   return <form action={action} className={styles.form} onSubmit={event=>{if(!window.confirm(`${label}: ${name}? This removes access to this gym and ends ${assignmentIds.length} confirmed Coach assignment(s). Their login and historical intake, workout and result records stay intact. No appointments will be cancelled by this action.`))event.preventDefault();}}>
     {assignmentIds.length>0&&<label className={styles.checkboxLabel}><input name="endAssignments" value="yes" type="checkbox" required disabled={blocked||pending}/>End the {assignmentIds.length} Coach assignment(s) listed above. Clients who remain at the gym will need an Owner to assign a new Coach.</label>}

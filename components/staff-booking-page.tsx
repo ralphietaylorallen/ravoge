@@ -17,14 +17,14 @@ export async function StaffBookingPage({ clientId, role, searchParams, embedded 
   const organizationId = membership.organization_id;
   const [{ data: organization }, { data: clientMembership }, { data: actor }, { data: settings }, { data: assignments }] = await Promise.all([
     supabase.from("organizations").select("name,timezone").eq("id", organizationId).single(),
-    supabase.from("organization_memberships").select("user_id").eq("organization_id", organizationId).eq("user_id", clientId).eq("role", "client").eq("status", "active").maybeSingle(),
+    supabase.from("organization_member_roles").select("user_id").eq("organization_id", organizationId).eq("user_id", clientId).eq("role", "client").eq("status", "active").maybeSingle(),
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("organization_session_settings").select("default_duration_minutes,permitted_durations").eq("organization_id", organizationId).maybeSingle(),
     supabase.from("coach_client_assignments").select("coach_user_id").eq("organization_id", organizationId).eq("client_user_id", clientId).eq("status", "active"),
   ]);
   if (!clientMembership) notFound();
   if (role === "coach" && !(assignments ?? []).some((row) => row.coach_user_id === userId)) notFound();
-  const { data: coachMembers } = role === "owner" ? await supabase.from("organization_memberships").select("user_id").eq("organization_id", organizationId).eq("role", "coach").eq("status", "active") : { data: [{ user_id: userId }] };
+  const { data: coachMembers } = role === "owner" ? await supabase.from("organization_member_roles").select("user_id").eq("organization_id", organizationId).eq("role", "coach").eq("status", "active") : { data: [{ user_id: userId }] };
   const { data: rescheduledBooking } = searchParams.reschedule && UUID.test(searchParams.reschedule) ? await supabase.from("bookings").select("id,coach_user_id,client_user_id,status,session_type").eq("id", searchParams.reschedule).eq("organization_id", organizationId).eq("client_user_id", clientId).eq("status", "scheduled").maybeSingle() : { data: null };
   if (searchParams.reschedule && !rescheduledBooking) notFound();
   const coachIds = (coachMembers ?? []).map((row) => row.user_id);
