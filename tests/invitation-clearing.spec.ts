@@ -45,6 +45,7 @@ test("Owner clears selected invitations, retains audit and memberships, and can 
   const before = await db.from("organization_memberships").select("*").order("id");
   expect(before.error).toBeNull(); expect(before.data!.some(row => row.user_id === existing.id && row.invitation_id === accepted.id)).toBe(true);
   await page.goto("/owner/team#invitations");
+  await page.reload();
   const row = (id: string) => page.locator(`[data-invitation-id="${id}"]`);
   const acceptedRow = row(accepted.id);
   await expect(acceptedRow).toContainText("accepted");
@@ -92,6 +93,7 @@ test("Owner clears selected invitations, retains audit and memberships, and can 
   await visitor.goto(fresh.signup); await expect(visitor.getByLabel("Email", { exact: true })).toHaveValue(clientEmail);
   await expect(visitor.getByRole("button", { name: "Create account", exact: true })).toBeVisible();
   await page.goto("/owner/team#invitations");
+  await page.reload();
   page.once("dialog", async dialog => { expect(dialog.message()).toContain("Clear 1 email invitation?"); await dialog.accept(); });
   await row(fresh.id).getByRole("button", { name: "Clear", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "1 email invitation cleared" })).toBeVisible();
