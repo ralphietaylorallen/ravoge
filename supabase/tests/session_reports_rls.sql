@@ -72,6 +72,7 @@ do $$ declare w uuid;s uuid;shared uuid;again uuid;revision uuid; begin
  perform public.save_coach_workout_session(w,'Actual saved recap',35,true);
  if not exists(select 1 from public.workout_session_reports where workout_assignment_id=w and source_snapshot->'workout'->>'execution_duration_minutes'='35' and source_snapshot->'workout'->>'execution_coach_notes'='Actual saved recap') then raise exception 'Completion trigger did not archive real result'; end if;
  perform public.ensure_completed_session_report(w);
+ if not exists(select 1 from jsonb_array_elements(public.get_session_report_week(w)->'completed') c where c->>'id'=w::text) then raise exception 'Gym-week completed sessions missing'; end if;
  if (select count(*) from public.workout_session_reports where workout_assignment_id=w)<>1 then raise exception 'Completion report duplicated'; end if;
 end $$;
 select set_config('request.jwt.claim.sub','bd000000-0000-4000-8000-000000000003',true);

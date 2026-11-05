@@ -23,7 +23,7 @@ function RecoveryForm({date,workoutId,type,entry,newId,timezone}:{date:string;wo
   const [state,action,pending]=useActionState(saveRecoveryAction.bind(null,workoutId),initial);
   const [removed,remove,removing]=useActionState(deleteRecoveryAction.bind(null,workoutId,id),initial);
   const time=entry?.occurred_at?new Intl.DateTimeFormat("en-GB",{timeZone:timezone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(entry.occurred_at)):"";
-  return <><form action={action} className={styles.form} aria-label={`${entry?"Edit":"Add"} ${RECOVERY_LABELS[type]}`}>
+  return <><form action={action} onReset={event=>event.preventDefault()} className={styles.form} aria-label={`${entry?"Edit":"Add"} ${RECOVERY_LABELS[type]}`}>
     <h3>{RECOVERY_LABELS[type]}</h3><input type="hidden" name="entry_id" value={id}/><input type="hidden" name="recovery_type" value={type}/>
     <div className={styles.formColumns}>
       <label className={styles.field}>Recovery date<input name="date" type="date" required defaultValue={entry?.log_date??date}/></label>

@@ -116,11 +116,11 @@ select public.confirm_intake_generation_safety((select id from beta_ids where ki
 select pg_temp.assert_true(public.get_workout_generation_readiness('ab100000-0000-4000-8000-000000000003')->>'sourceType'='organization_workout','Published gym workout was not preferred');
 insert into beta_ids values('prescription',public.generate_initial_prescription_v0('ab100000-0000-4000-8000-000000000003'));
 
-do $ declare context jsonb; begin
+do $$ declare context jsonb; begin
  context:=public.get_recent_session_report_context((select id from beta_ids where kind='prescription'));
  if jsonb_array_length(context->'sessions')<>1 or jsonb_array_length(context->'recovery')<>1 or context::text like '%MUST NOT LEAK%' then raise exception 'Recent report context isolation failed'; end if;
  if context->'sessions'->0->>'reportedFeedback'<>'Own scoped feedback' or context->'recovery'->0->>'minutes'<>'12' then raise exception 'Recent feedback/recovery missing'; end if;
-end $;
+end $$;
 create temporary table ai_fixture as select public.get_prescription_generation_input((select id from beta_ids where kind='prescription')) as payload;
 grant select on ai_fixture to authenticated;
 select pg_temp.assert_true((select payload->>'goal'='strength' and jsonb_array_length(payload->'references')=1 from ai_fixture),'Published references not retrieved');
