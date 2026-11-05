@@ -1,5 +1,5 @@
 import "server-only";
-import type { WorkoutProtocol } from "./workout-protocol.ts";
+import { protocolTarget, type WorkoutProtocol } from "./workout-protocol.ts";
 import type { LoadPrescription } from "./starting-load.ts";
 import { loadInPounds, kilogramsToPounds } from "./weight-units.ts";
 import { localDateInTimeZone, shiftLocalDate } from "./timezone.ts";
@@ -39,6 +39,12 @@ export type SixWeekFacts={version:1;organizationId:string;clientId:string;period
 export type ProgressShare={id:string;period_start:string;period_end:string;revision:number;shared_at:string;coach_summary:string;next_priorities:string;source_snapshot:SixWeekFacts};
 export function finite(value:unknown):number|null {return typeof value==="number"&&Number.isFinite(value)?value:null;}
 export function displayNumber(value:number|null,unit="") {return value===null?"Not recorded":`${value.toLocaleString("en-US",{maximumFractionDigits:1})}${unit?` ${unit}`:""}`;}
+export function reportTargetSummary(exercise:ReportExercise) {
+ const measurement=exercise.exercise_library?.measurement;
+ if(!exercise.prescription_details&&(measurement==="time"||measurement==="distance"))
+  return `${exercise.sets} ${exercise.sets===1?"entry":"entries"} · ${measurement==="time"?"Time":"Distance"} target not recorded`;
+ return protocolTarget(exercise.sets,exercise.reps,exercise.prescription_details);
+}
 export function recordedStatus(set:ReportSet):"complete"|"modified"|"missed"|"unrecorded" {
  if(!set.completed_at)return "unrecorded";
  const result=set.client_result??set.execution_result;

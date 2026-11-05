@@ -4,9 +4,8 @@ import { Logo } from "./logo";
 import { ReportIcon } from "./report-icons";
 import { ReportPrintButton } from "./report-print-button";
 import { RecoveryLog } from "./client-log-forms";
-import { cardioSummary,displayNumber,effortSummary,exerciseVolume,factualRecap,personalComparisons,recordedStatus,sessionVolume,workingSets,type ReportExercise,type ReportSet } from "@/lib/session-report";
+import { cardioSummary,displayNumber,effortSummary,exerciseVolume,factualRecap,personalComparisons,recordedStatus,reportTargetSummary,sessionVolume,workingSets,type ReportExercise,type ReportSet } from "@/lib/session-report";
 import type { SessionReportData } from "@/lib/session-report-data";
-import { protocolTarget } from "@/lib/workout-protocol";
 import { loadLabel } from "@/lib/weight-units";
 import { formatZonedDateTime,localDateInTimeZone,shiftLocalDate } from "@/lib/timezone";
 import { recoverySummary } from "@/lib/client-logs";
@@ -17,7 +16,9 @@ function ActualSet({exercise,set,timezone}:{exercise:ReportExercise;set:ReportSe
  const value=measurement==="time"?displayNumber(set.actual_work_seconds,"sec"):measurement==="distance"?displayNumber(set.actual_distance,p?.distanceUnit??""):displayNumber(set.actual_reps,"reps");
  const label=status==="complete"?"Complete":status==="modified"?"Adjusted":status==="missed"?"Missed":"Not recorded";
  const prescribed=measurement==="time"?displayNumber(p?.workSeconds??null,"sec"):measurement==="distance"?displayNumber(p?.distance??null,p?.distanceUnit??""):displayNumber(set.prescribed_reps,"reps");
- return <li className={styles.setRow}><span>{p?.format==="emom"?"Visit":p?.format==="amrap"?"Entry":"Set"} {set.set_number}</span><div>{value}{set.actual_load!==null&&<> · {loadLabel(set.actual_load,set.actual_load_unit)}{exercise.load_prescription?.semantics==="each_hand"?" per hand":""}</>}
+ const loadBasisKnown=["total","each_hand","added","sled"].includes(exercise.load_prescription?.semantics??"");
+ return <li className={styles.setRow}><span>{p?.format==="emom"?"Visit":p?.format==="amrap"?"Entry":"Set"} {set.set_number}</span><div>{value}{set.actual_load!==null&&(measurement==="reps"||loadBasisKnown)&&<> · {loadLabel(set.actual_load,set.actual_load_unit)}{exercise.load_prescription?.semantics==="each_hand"?" per hand":""}</>}
+  {measurement!=="reps"&&!loadBasisKnown&&set.actual_load!==null&&<small>Recorded load: {loadLabel(set.actual_load,set.actual_load_unit)} · basis not recorded</small>}
   {measurement==="distance"&&set.actual_work_seconds!==null&&<small>{displayNumber(set.actual_work_seconds,"sec")} recorded</small>}
   <small>Prescribed: {prescribed}{set.prescribed_load!==null?` · ${loadLabel(set.prescribed_load,set.prescribed_load_unit)}`:""}{p?.perSide?" each side":""}</small></div>
   <span className={styles.status} data-result={status}>{label}</span>
@@ -50,7 +51,7 @@ export function SessionReport({data,role}:{data:SessionReportData;role:"client"|
    <div className={`${styles.card} ${styles.tile}`}><ReportIcon kind={volume.value!==null?"weight":"cardio"} className={styles.icon}/><div><strong>{third.value}</strong><span>{third.label}</span><p className={styles.hint}>{third.hint}</p></div></div>
    <div className={`${styles.card} ${styles.tile}`}><ReportIcon kind="effort" className={styles.icon}/><div><strong>{effort.average===null?"Not recorded":`${displayNumber(effort.average)} / 10`}</strong><span>Recorded effort · RPE</span><p className={styles.hint}>{effort.compared?`${effort.compared} matched targets; average recorded-minus-target ${displayNumber(effort.averageDeviation)} RPE.`:"No complete recorded/prescribed effort comparison."}</p></div></div>
   </section>
-  <h2 className={styles.sectionTitle}>Your workout</h2><ol className={styles.exercises}>{[...facts.exercises].sort((a,b)=>a.sort_order-b.sort_order).map(e=>{const v=exerciseVolume(e);return <li className={`${styles.card} ${styles.exercise}`} key={e.id}><ReportIcon kind={e.prescription_details?.measurement==="reps"?"weight":"cardio"} className={styles.icon}/><div className={styles.exerciseBody}><h3>{e.exercise_name}</h3><p className={styles.hint}>{protocolTarget(e.sets,e.reps,e.prescription_details)}{e.load_prescription?.semantics==="each_hand"?" · load per hand":""}</p>{e.prescription_details?.format==="amrap"&&<p className={styles.hint}>Block: {displayNumber(e.prescription_details.blockDurationSeconds,"sec")}. Actual rounds: Not recorded.</p>}
+  <h2 className={styles.sectionTitle}>Your workout</h2><ol className={styles.exercises}>{[...facts.exercises].sort((a,b)=>a.sort_order-b.sort_order).map(e=>{const v=exerciseVolume(e);return <li className={`${styles.card} ${styles.exercise}`} key={e.id}><ReportIcon kind={e.prescription_details?.measurement==="reps"?"weight":"cardio"} className={styles.icon}/><div className={styles.exerciseBody}><h3>{e.exercise_name}</h3><p className={styles.hint}>{reportTargetSummary(e)}{e.load_prescription?.semantics==="each_hand"?" · load per hand":""}</p>{e.prescription_details?.format==="amrap"&&<p className={styles.hint}>Block: {displayNumber(e.prescription_details.blockDurationSeconds,"sec")}. Actual rounds: Not recorded.</p>}
    {e.workout_sets.length?<ol className={styles.setList}>{[...e.workout_sets].sort((a,b)=>a.set_number-b.set_number).map(s=><ActualSet exercise={e} set={s} timezone={facts.timezone} key={s.id}/>)}</ol>:<p className={styles.muted}>Actual set/interval results not recorded.</p>}
    {e.notes&&<p className={styles.hint}>Prescription note: {e.notes}</p>}
    <p className={styles.exerciseFooter}>{v.value===null?"Lifting volume: Not recorded or not applicable.":<><strong>{displayNumber(v.value,"lb")}</strong> recorded volume{e.load_prescription?.semantics==="each_hand"?" · both dumbbells":""} · {v.covered}/{v.eligible} performed sets with known volume</>}</p></div></li>;})}</ol>
