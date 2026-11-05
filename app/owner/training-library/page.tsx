@@ -32,13 +32,12 @@ export default async function TrainingLibraryPage({ searchParams }: { searchPara
   const reviewedTitles = new Map<string, string>();
   for (const row of titles ?? []) if (!reviewedTitles.has(row.training_item_id)) reviewedTitles.set(row.training_item_id, row.title);
   return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
+    <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
       <div className={styles.pageHeading}>
         <div><p className={styles.eyebrow}>Owner workspace</p><h2>Training library</h2></div>
         <Link className={styles.action} href="/owner/training-library/import">Import workout history</Link>
       </div>
       <p role="status">{catalogCounts?.referenceEnabled ?? 0} gym references enabled · {catalogCounts?.imported ?? count ?? 0} workouts saved</p>
-      <details><summary>Advanced: gym style and starting weights</summary><Link className={styles.secondaryAction} href="/owner/training-library/load-rules">Review starting-load rules</Link><ProgrammingProfileForm key={programmingProfile?.version ?? 0} profile={programmingProfile as ProgrammingProfile | undefined} published={published ?? 0} references={catalogCounts?.referenceEnabled??0}/></details>
       <section className={`${styles.panel} ${styles.libraryShell}`}>
         <span className={styles.statusPill}>{count ?? 0} workouts</span>
         <h3>{archived ? "Deleted workouts" : "Your gym’s workouts"}</h3>
@@ -54,6 +53,7 @@ export default async function TrainingLibraryPage({ searchParams }: { searchPara
         <span>Page {Math.floor(page)} · showing {Math.min(offset + 1, count ?? 0)}–{Math.min(offset + 30, count ?? 0)} of {count ?? 0}</span>
         {offset + 30 < (count ?? 0) && <Link className={styles.secondaryAction} href={`/owner/training-library?page=${page + 1}&search=${encodeURIComponent(search)}${archived?'&archived=1':''}`}>Next</Link>}
       </nav>
+      <details className={`${styles.panel} ${styles.ownerSection}`} data-owner-disclosure id="library-advanced"><summary>Advanced: gym style and starting weights</summary><div className={styles.ownerSectionBody}><Link className={styles.secondaryAction} href="/owner/training-library/load-rules">Review starting-load rules</Link><ProgrammingProfileForm key={programmingProfile?.version ?? 0} profile={programmingProfile as ProgrammingProfile | undefined} published={published ?? 0} references={catalogCounts?.referenceEnabled??0}/></div></details>
     </DashboardShell>
   );
 }

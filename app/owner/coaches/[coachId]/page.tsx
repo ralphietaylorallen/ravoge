@@ -68,7 +68,7 @@ export default async function OwnerCoachDetailPage({ params }: { params: Promise
   const coachName = coach?.preferred_name || coach?.full_name || "Coach";
 
   return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
+    <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
       <Link className={styles.backLink} href="/owner/team">← Back to team</Link>
       <div className={styles.detailHeader}>
         <div className={styles.profileHero}><ProfilePhotoForm imageUrl={coachImageUrl} name={coachName} organizationId={membership.organization_id} role="owner" targetUserId={coachId} /><div><p className={styles.eyebrow}>Owner View · Coach</p><h2 className={styles.detailTitle}>{coachName}</h2><p className={styles.profileMeta}>{coach?.specialties?.length ? coach.specialties.join(" · ") : "Operational oversight · you remain signed in as Owner"}</p></div></div>

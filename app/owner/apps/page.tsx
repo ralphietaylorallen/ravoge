@@ -14,7 +14,7 @@ export default async function OwnerAppsPage() {
   ]);
 
   return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
+    <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
       <div className={styles.pageHeading}>
         <div><p className={styles.eyebrow}>Owner distribution</p><h2>Apps &amp; access</h2></div>
         <p>Send each Coach a secure Ravoge invitation. Share your gym’s Client QR with members.</p>

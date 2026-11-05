@@ -37,7 +37,7 @@ export default async function OwnerSetupPage() {
   ];
 
   return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
+    <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
       <div className={styles.pageHeading}>
         <div><p className={styles.eyebrow}>First-time setup</p><h2>Prepare your gym</h2></div>
         <p>Complete the operational foundation in order. Coach availability is added after each Coach accepts an invitation.</p>

@@ -12,7 +12,7 @@ export default async function TrainingLibraryImportPage() {
   ]);
 
   return (
-    <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
+    <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
       <Link className={styles.backLink} href="/owner/training-library">← Back to training library</Link>
       <div className={styles.pageHeading}>
         <div><p className={styles.eyebrow}>Owner training library</p><h2>Import workout history</h2></div>

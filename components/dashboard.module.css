@@ -776,3 +776,70 @@
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .sidebar nav a[aria-current="page"] { box-shadow: none; background: #c897351a; }
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .frame { padding-bottom: calc(8rem + env(safe-area-inset-bottom)); }
 }
+/* Owner workspace organization. Coach, Client and report-specific layouts retain their styles. */
+.shell[data-account-role="owner"] { align-content: start; }
+.shell[data-account-role="owner"] .frame { min-width: 0; }
+.shell[data-account-role="owner"] .hero { padding-block: 1.5rem; }
+.shell[data-account-role="owner"] .title { font-size: clamp(1.8rem, 3vw, 2.5rem); }
+.shell[data-account-role="owner"] .operationTopSpace { height: 1.5rem; }
+.shell[data-account-role="owner"] .pageHeading { align-items: center; flex-wrap: wrap; gap: .75rem 1.5rem; margin-bottom: 1.5rem; }
+.shell[data-account-role="owner"] .pageHeading h2,
+.shell[data-account-role="owner"] .detailTitle { margin-top: .25rem; font-size: clamp(1.65rem, 2.8vw, 2.35rem); line-height: 1.15; overflow-wrap: anywhere; }
+.shell[data-account-role="owner"] .pageHeading > p { margin: 0; line-height: 1.6; }
+.shell[data-account-role="owner"] .grid,
+.shell[data-account-role="owner"] .detailGrid,
+.shell[data-account-role="owner"] .accessGrid { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+.shell[data-account-role="owner"] .panelWide { grid-column: auto; }
+.shell[data-account-role="owner"] :is(.panel, .operationCard, .accessCard) { padding: clamp(1rem, 2vw, 1.5rem); }
+.shell[data-account-role="owner"] :is(.panel, .operationCard, .accessCard) > :first-child { margin-top: 0; }
+.shell[data-account-role="owner"] :is(.panel, .operationCard, .accessCard) > :last-child { margin-bottom: 0; }
+.shell[data-account-role="owner"] :is(.panel h2, .operationCard h3, .sectionHeading h3) { font-size: 1.05rem; line-height: 1.35; letter-spacing: -.01em; text-transform: none; }
+.shell[data-account-role="owner"] .workspaceSection { margin-top: 1.5rem; padding-top: 1.5rem; }
+.shell[data-account-role="owner"] .sectionHeading { align-items: center; flex-wrap: wrap; gap: .75rem 1.5rem; margin-bottom: 1rem; }
+.shell[data-account-role="owner"] .sectionHeading p { margin-block: .25rem; }
+.shell[data-account-role="owner"] .metricCard { min-height: 7rem; padding: 1rem; }
+.shell[data-account-role="owner"] :is(.profileOverview, .kpiGrid) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
+.shell[data-account-role="owner"] :is(.bookingActions, .accessActions, .profileActions) { flex-wrap: wrap; align-items: center; gap: .65rem; }
+.shell[data-account-role="owner"] form.accessActions { align-items: flex-end; }
+.shell[data-account-role="owner"] form.accessActions .field { flex: 1 1 16rem; }
+.shell[data-account-role="owner"] form.accessActions > button { flex: 0 0 auto; }
+.shell[data-account-role="owner"] :is(.action, .secondaryAction, .dangerAction) { max-width: 100%; text-align: center; overflow-wrap: anywhere; }
+.shell[data-account-role="owner"] .field { min-width: 0; }
+.shell[data-account-role="owner"] .field select option { background: #151616; color: #f6f5f1; }
+.shell[data-account-role="owner"] .bookingFilters { flex-wrap: wrap; }
+.shell[data-account-role="owner"] .bookingFilters .field { flex: 1 1 11rem; }
+.shell[data-account-role="owner"] .libraryShell { max-width: none; padding-block: 1.5rem; }
+.shell[data-account-role="owner"] .libraryShell h3 { font-size: 1.2rem; }
+.shell[data-account-role="owner"] .ownerSection { padding: 0; }
+.shell[data-account-role="owner"] .frame > :is(.ownerSection, .accessGrid) { margin-bottom: 1rem; }
+.shell[data-account-role="owner"] .formSection > summary::after { content: "+"; margin-left: auto; color: var(--ui-gold); }
+.shell[data-account-role="owner"] .formSection[open] > summary::after { content: "−"; }
+.shell[data-account-role="owner"] .ownerSection > summary { display: flex; align-items: center; gap: .75rem; min-height: 3.75rem; padding: 1rem 1.5rem; cursor: pointer; list-style: none; }
+.shell[data-account-role="owner"] .ownerSection > summary::-webkit-details-marker { display: none; }
+.shell[data-account-role="owner"] .ownerSection > summary::after { content: "+"; margin-left: auto; color: var(--ui-gold); font-size: 1.3rem; }
+.shell[data-account-role="owner"] .ownerSection[open] > summary::after { content: "−"; }
+.shell[data-account-role="owner"] .ownerSection > summary h2 { margin: 0; }
+.shell[data-account-role="owner"] .ownerSection[open] > summary { border-bottom: 1px solid var(--ui-divider); }
+.shell[data-account-role="owner"] .ownerSectionBody { display: grid; gap: 1rem; padding: 1.25rem 1.5rem; min-width: 0; }
+.shell[data-account-role="owner"] .ownerSectionBody > :is(.list, .empty, .form) { margin: 0; }
+.shell[data-account-role="owner"] .ownerSectionBody .sectionFields > .form { margin-top: 0; }
+.shell[data-account-role="owner"] .ownerSectionCount { padding: .2rem .55rem; border: 1px solid var(--ui-border); border-radius: 5px; color: var(--ui-muted); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.shell[data-account-role="owner"] .teamMembers > li[data-member-id] { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 1rem; }
+.shell[data-account-role="owner"] .memberIdentity { flex-wrap: nowrap; }
+.shell[data-account-role="owner"] .memberIdentity > :first-child { flex-shrink: 0; }
+.shell[data-account-role="owner"] .memberIdentity > span:last-child { flex-direction: column; align-items: flex-start; }
+.shell[data-account-role="owner"] .teamMembers > li[data-member-id] > small { color: var(--ui-gold); text-transform: capitalize; }
+.shell[data-account-role="owner"] .teamMembers > li[data-member-id] > .secondaryAction { min-height: 2.5rem; font-size: .7rem; }
+@media (min-width: 1001px) {
+  .shell[data-account-role="owner"] .sidebar { padding: 1.4rem .85rem; }
+  .shell[data-account-role="owner"] .sidebar nav { margin-top: 1.5rem; gap: .25rem; }
+  .shell[data-account-role="owner"] .sidebar nav a { min-height: 44px; padding: .65rem .8rem; font-size: .8rem; }
+}
+@media (max-width: 700px) {
+  .shell[data-account-role="owner"] .pageHeading { align-items: flex-start; }
+  .shell[data-account-role="owner"] .ownerSection > summary { padding: 1rem; }
+  .shell[data-account-role="owner"] .ownerSectionBody { padding: 1rem; }
+  .shell[data-account-role="owner"] .teamMembers > li[data-member-id] { grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; }
+  .shell[data-account-role="owner"] .teamMembers > li[data-member-id] > .secondaryAction { grid-column: 1 / -1; justify-self: end; }
+  .shell[data-account-role="owner"] :is(.formColumns, .threeColumns) { grid-template-columns: minmax(0, 1fr); }
+}

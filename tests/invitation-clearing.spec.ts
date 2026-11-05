@@ -22,7 +22,8 @@ test("Owner clears selected invitations, retains audit and memberships, and can 
   await login(page, owner);
   async function invite(email: string, role: "client" | "coach") {
     await page.goto("/owner/team");
-    const form = page.locator("section").filter({ has: page.getByRole("heading", { name: `Invite ${role}`, exact: true }) }).locator("form");
+    await page.locator(`#invite-${role} > summary`).click();
+    const form = page.locator(`#invite-${role}`).locator("form");
     await form.getByLabel("Email", { exact: true }).fill(email);
     await form.getByRole("button", { name: role === "client" ? "Send invite" : "Send Coach Invite", exact: true }).click();
     await expect(form.getByRole("status")).toContainText("not configured");
@@ -43,7 +44,8 @@ test("Owner clears selected invitations, retains audit and memberships, and can 
   await expect(client).toHaveURL(/\/client$/, { timeout: 25_000 });
   const before = await db.from("organization_memberships").select("*").order("id");
   expect(before.error).toBeNull(); expect(before.data!.some(row => row.user_id === existing.id && row.invitation_id === accepted.id)).toBe(true);
-  await page.goto("/owner/team");
+  await page.goto("/owner/team#invitations");
+  await page.reload();
   const row = (id: string) => page.locator(`[data-invitation-id="${id}"]`);
   const acceptedRow = row(accepted.id);
   await expect(acceptedRow).toContainText("accepted");
@@ -90,7 +92,8 @@ test("Owner clears selected invitations, retains audit and memberships, and can 
   expect(fresh.id).not.toBe(pending.id); expect(fresh.link === pending.link).toBe(false);
   await visitor.goto(fresh.signup); await expect(visitor.getByLabel("Email", { exact: true })).toHaveValue(clientEmail);
   await expect(visitor.getByRole("button", { name: "Create account", exact: true })).toBeVisible();
-  await page.goto("/owner/team");
+  await page.goto("/owner/team#invitations");
+  await page.reload();
   page.once("dialog", async dialog => { expect(dialog.message()).toContain("Clear 1 email invitation?"); await dialog.accept(); });
   await row(fresh.id).getByRole("button", { name: "Clear", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "1 email invitation cleared" })).toBeVisible();
