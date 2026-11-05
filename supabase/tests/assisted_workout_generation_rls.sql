@@ -119,7 +119,7 @@ insert into beta_ids values('prescription',public.generate_initial_prescription_
 do $$ declare context jsonb; begin
  context:=public.get_recent_session_report_context((select id from beta_ids where kind='prescription'));
  if jsonb_array_length(context->'sessions')<>1 or jsonb_array_length(context->'recovery')<>1 or context::text like '%MUST NOT LEAK%' then raise exception 'Recent report context isolation failed'; end if;
- if context->'sessions'->0->>'reportedFeedback'<>'Own scoped feedback' or context->'recovery'->0->>'minutes'<>'12' then raise exception 'Recent feedback/recovery missing'; end if;
+ if context->'sessions'->0->>'reportedFeedback'<>'Own scoped feedback' or (context->'recovery'->0->>'minutes')::numeric<>12 then raise exception 'Recent feedback/recovery missing'; end if;
 end $$;
 create temporary table ai_fixture as select public.get_prescription_generation_input((select id from beta_ids where kind='prescription')) as payload;
 grant select on ai_fixture to authenticated;
