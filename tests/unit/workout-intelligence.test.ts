@@ -153,3 +153,67 @@ test("unchanged executable draft is repaired once; changing only title does not 
   const result=await generateAssistedWorkout(input,sdk as never);
   assert.ok(result.workout);assert.equal(calls,2);assert.equal(result.workout.exercises[0].reps,13);
 });
+
+function performanceContext(): GenerationInput {
+  const input=context("strength");
+  input.trainingFocus=null;
+  input.candidates=[
+    {id:"squat",name:"Goblet squat",pattern:"squat",equipment:["dumbbells"],difficulty:"beginner",quality:"strength",measurement:"reps"},
+    {id:"box-squat",name:"Box squat",pattern:"squat",equipment:["dumbbells"],difficulty:"beginner",quality:"strength",measurement:"reps"},
+    {id:"hinge",name:"Dumbbell hinge",pattern:"hinge",equipment:["dumbbells"],difficulty:"beginner",quality:"strength",measurement:"reps"},
+    {id:"pull",name:"Dumbbell row",pattern:"horizontal_pull",equipment:["dumbbells"],difficulty:"beginner",quality:"strength",measurement:"reps"},
+  ];
+  input.references=["squat","box-squat"].map((id,index)=>({id:`source-${index}`,title:"Synthetic gym strength reference",revision:1,goal:"strength",duration:40,
+    exercises:[id,"hinge","pull"].map(libraryExerciseId=>({libraryExerciseId,sets:3,reps:8,restSeconds:90,protocol:defaultProtocol("reps")}))}));
+  input.knowledgeCatalog=input.references;
+  const performance=(problematic:number,averageReps:number,averageLoad:number)=>({recorded:3,problematic,averageReps,averageLoad,averageRpe:problematic?8:6,averageWorkSeconds:null,averageDistance:null});
+  input.history=[
+    {status:"completed",exercises:[{id:"squat",sets:3,reps:8,restSeconds:90,performance:performance(2,5,15)}]},
+    {status:"completed",exercises:[{id:"squat",sets:3,reps:8,restSeconds:90,performance:performance(0,8,20)}]},
+  ];
+  return input;
+}
+
+test("planner can connect actual performance aliases to movement and measurement without source or identity leakage",()=>{
+  const input=performanceContext(),projected=planningProjection(input);
+  assert.deepEqual(projected.exerciseContext,[
+    {exerciseKey:"exercise_1",movementPattern:"squat",measurement:"reps"},
+    {exerciseKey:"exercise_2",movementPattern:"squat",measurement:"reps"},
+    {exerciseKey:"exercise_3",movementPattern:"hinge",measurement:"reps"},
+    {exerciseKey:"exercise_4",movementPattern:"horizontal_pull",measurement:"reps"},
+  ]);
+  assert.equal(projected.historyOrdering,"most_recent_first");
+  assert.ok(projected.recentPerformance);
+  const [latest,older]=projected.recentPerformance;
+  assert.ok("exercises" in latest && "exercises" in older);
+  assert.equal(latest.exercises[0].performance?.problematic,2);
+  assert.equal(latest.exercises[0].performance?.averageLoadLb,15*2.20462262185);
+  assert.equal(older.exercises[0].performance?.averageLoadLb,20*2.20462262185);
+  for(const privateValue of ["private-intake","private-snapshot","source-0","Synthetic gym strength reference"]) assert.ok(!JSON.stringify(projected).includes(privateValue));
+});
+
+test("reference ranking uses latest recorded outcomes, not an older success or an unperformed assignment",()=>{
+  for(const raw of [false,true]) {
+    const input=performanceContext();
+    if(raw) input.knowledgeCatalog=input.references.map(r=>({...r,sourceKind:"raw_reference",rawStyle:{exerciseIds:r.exercises.map(e=>e.libraryExerciseId!),formats:["straight"],terms:["strength"],rawProtocolsUnverified:true}}));
+    const intent=analysis("strength");
+    assert.equal(retrieveGymKnowledge(input,intent)[0].id,"source-1");
+    // An unperformed future plan is not evidence of recovery or capability.
+    input.history.unshift({status:"assigned",exercises:[{id:"squat",sets:3,reps:8,restSeconds:90,performance:{recorded:0,problematic:0,averageReps:null,averageLoad:null,averageRpe:null,averageWorkSeconds:null,averageDistance:null}}]});
+    assert.equal(retrieveGymKnowledge(input,intent)[0].id,"source-1");
+    // When actual newer performance improves, an older problem must not win either.
+    input.history=[input.history[2],input.history[1]];
+    assert.equal(retrieveGymKnowledge(input,intent)[0].id,"source-0");
+  }
+});
+
+test("contrasting beginner fat-loss context retains its gym combination and treats recovery as self-report",()=>{
+  const input=context("fat_loss"); input.experience="beginner";input.duration=25;input.frequency=2;
+  input.todayReadiness={answers:[6,6,6,6,6,6,6,6],hasPain:false,coachDecision:"proceed"};
+  input.recentSessionContext={version:1,sessions:[],recovery:[{type:"sauna",minutes:12,hoursAgo:18,occurrenceTimeKnown:true,reportedFeeling:"Relaxed",reportedNotes:null}]};
+  const projected=planningProjection(input);
+  assert.equal(projected.goal,"fat_loss");assert.equal(projected.requestedDurationMinutes,25);assert.equal(projected.weeklyFrequency,2);
+  assert.equal(projected.experience,"beginner");assert.equal(retrieveGymKnowledge(input,analysis("fat_loss"))[0].id,"private-source-2");
+  assert.match(projected.recentSessionContext!.interpretation,/Sauna\/plunge alone never justifies increasing load/);
+  assert.equal(projected.exerciseContext.find(e=>e.exerciseKey==="exercise_4")?.measurement,"time");
+});
