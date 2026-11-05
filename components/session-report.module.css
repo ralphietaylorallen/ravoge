@@ -1,6 +1,7 @@
 .report { --report-gold:#f0ca76; display:grid; gap:1rem; max-width:68rem; margin:0 auto 2rem; color:var(--ui-text,#f6f5f3); min-width:0; }
 .brand { display:flex; align-items:center; flex-wrap:wrap; gap:.8rem; color:var(--ui-muted,#c5c4bd); font:600 .85rem/1.5 "Space Grotesk Variable",sans-serif; letter-spacing:.04em; }
 .brand img { width:2.2rem;height:2.7rem;object-fit:contain; }
+.brand a { display:inline-flex;align-items:center;min-height:44px;min-width:44px; }
 .header { padding:.5rem 0; }
 .header h1 { margin:.75rem 0 .4rem; font:600 clamp(2.2rem,5vw,3.6rem)/1.08 "Space Grotesk Variable",sans-serif; letter-spacing:-.035em; }
 .header p { margin:.4rem 0; color:var(--ui-muted,#c5c4bd); font-size:clamp(1rem,2.2vw,1.3rem);line-height:1.5;overflow-wrap:anywhere; }
@@ -82,7 +83,7 @@
 .shareForm { display:grid;gap:1rem; }
 .shareForm label,.period label { display:grid;gap:.5rem;line-height:1.5; }
 .shareForm textarea,.period input { min-width:0;max-width:100%;min-height:48px;border:1px solid #807451;border-radius:8px;padding:.8rem;background:#141715;color:inherit;font:inherit; }
-.shareForm .confirm { display:flex;align-items:center;gap:.75rem; }
+.shareForm .confirm { display:flex;align-items:center;gap:.75rem;min-height:44px; }
 .confirm input { width:24px;height:24px;flex-shrink:0; }
 .measurements li { padding:.75rem 0;border-bottom:1px solid #545043;line-height:1.5; }
 @media(max-width:600px) {

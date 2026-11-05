@@ -101,8 +101,8 @@ insert into public.workout_assignments(id,organization_id,coach_user_id,client_u
 ('ab600000-0000-4000-8000-000000000001','ab200000-0000-4000-8000-000000000001','ab100000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000003','Report context',current_date-1,'completed',now()-interval '1 day','Own scoped feedback'),
 ('ab600000-0000-4000-8000-000000000002','ab200000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000005','ab100000-0000-4000-8000-000000000006','Other gym',current_date-1,'completed',now()-interval '1 day','MUST NOT LEAK');
 insert into public.client_recovery_entries(organization_id,client_user_id,workout_assignment_id,log_date,recovery_type,duration_minutes,occurred_at,notes) values
-('ab200000-0000-4000-8000-000000000001','ab100000-0000-4000-8000-000000000003','ab600000-0000-4000-8000-000000000001',current_date-1,'sauna',12,now()-interval '1 day','Own recovery'),
-('ab200000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000006','ab600000-0000-4000-8000-000000000002',current_date-1,'sauna',15,now()-interval '1 day','MUST NOT LEAK');
+('ab200000-0000-4000-8000-000000000001','ab100000-0000-4000-8000-000000000003','ab600000-0000-4000-8000-000000000001',((now()-interval '1 day') at time zone (select timezone from public.organizations where id='ab200000-0000-4000-8000-000000000001'))::date,'sauna',12,now()-interval '1 day','Own recovery'),
+('ab200000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000006','ab600000-0000-4000-8000-000000000002',((now()-interval '1 day') at time zone (select timezone from public.organizations where id='ab200000-0000-4000-8000-000000000002'))::date,'sauna',15,now()-interval '1 day','MUST NOT LEAK');
 set local role authenticated;
 -- Coach-led intake -> published source -> draft -> approval -> Client visibility.
 select set_config('request.jwt.claim.sub','ab100000-0000-4000-8000-000000000002',true);

@@ -36,6 +36,7 @@ do $$ declare facts jsonb; begin
  if (select score_snapshot->>'status' from public.workout_session_reports)<>'pending' or (select score_snapshot->>'value' from public.workout_session_reports) is not null then raise exception 'Invented score'; end if;
  if (select count(*) from public.client_recovery_entries where deleted_at is null)<>2 then raise exception 'Separate sauna sessions or save idempotence failed'; end if;
  if not exists(select 1 from public.client_recovery_entries where duration_minutes=12 and notes='Edited' and occurred_at is not null) then raise exception 'Recovery edit lost'; end if;
+ begin update public.client_recovery_entries set log_date=current_date-2 where id='bd400000-0000-4000-8000-000000000001'; raise exception 'Date changed without its known occurrence'; exception when check_violation then null; end;
  facts:=public.get_six_week_report_context('bd100000-0000-4000-8000-000000000001','bd000000-0000-4000-8000-000000000003',current_date);
  if jsonb_array_length(facts->'reports')<>1 or jsonb_array_length(facts->'recovery')<>2 then raise exception 'Period coverage failed'; end if;
  begin perform public.share_six_week_report('bd100000-0000-4000-8000-000000000001','bd000000-0000-4000-8000-000000000003',current_date,'Self','No'); raise exception 'Client published Coach report'; exception when insufficient_privilege then null; end;

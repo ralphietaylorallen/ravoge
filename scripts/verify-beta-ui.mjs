@@ -29,7 +29,7 @@ if (process.env.RAVOGE_ANNOUNCEMENTS_QA === "yes") roles.push("client");
 if (process.env.RAVOGE_CLIENT_LOG_QA === "yes") roles.push("client");
 const users = roles.map((role, index) => ({ role, id: randomUUID(), email: `${prefix}-${index}@example.test`, password, name: `Beta QA ${role} ${index}` }));
 const newCoachEmail = `${prefix}-new-coach@example.test`, newClientEmail = `${prefix}-new-client@example.test`, expiredInviteEmail = `${prefix}-expired@example.test`;
-const reportWorkout=randomUUID(),reportExercise=randomUUID(),reportSet=randomUUID();
+const reportWorkout=randomUUID(),reportExercise=randomUUID();
 const logWorkout = randomUUID(), logDate = new Date(Date.now()-2*86400000).toISOString().slice(0,10);
 const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: apiUrl, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
   BETA_QA_REPORT_WORKOUT:reportWorkout, BETA_QA_LOG_WORKOUT:logWorkout, BETA_QA_LOG_DATE:logDate,
@@ -63,8 +63,8 @@ try {
     ${env.RAVOGE_CLIENT_LOG_QA === "yes" ? `insert into public.workout_assignments(id,organization_id,coach_user_id,client_user_id,title,scheduled_date,status,completed_at) values('${logWorkout}','${org}','${users[3].id}','${users.at(-1).id}','Completed logging QA session','${logDate}','completed','${logDate}T23:30:00Z');
     insert into public.workout_exercises(workout_assignment_id,exercise_name,sets,reps,load,load_unit,sort_order,completed_at) values('${logWorkout}','Recorded QA movement',1,8,25,'lb',0,'${logDate}T23:30:00Z');
     insert into public.workout_assignments(id,organization_id,coach_user_id,client_user_id,title,scheduled_date) values('${reportWorkout}','${org}','${users[3].id}','${users.at(-1).id}','Report completion QA session','${logDate}');
-    insert into public.workout_exercises(id,workout_assignment_id,exercise_name,sets,reps,load,load_unit,sort_order) values('${reportExercise}','${reportWorkout}','Report QA squat',1,10,25,'lb',0);
-    insert into public.workout_sets(id,workout_exercise_id,set_number,prescribed_reps,prescribed_load,prescribed_load_unit) values('${reportSet}','${reportExercise}',1,10,25,'lb');` : ""}
+    -- The existing create_prescribed_sets trigger creates the real target set.
+    insert into public.workout_exercises(id,workout_assignment_id,exercise_name,sets,reps,load,load_unit,sort_order) values('${reportExercise}','${reportWorkout}','Report QA squat',1,10,25,'lb',0);` : ""}
     commit;`);
   created = true;
   console.log("Isolated fixtures ready. Starting authenticated browser checks.");

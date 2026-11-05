@@ -118,6 +118,22 @@ alter table public.client_recovery_entries
 alter table public.client_recovery_entries drop constraint client_recovery_entries_workout_assignment_id_recovery_type_key;
 create index recovery_active_workout_time on public.client_recovery_entries(workout_assignment_id,occurred_at) where deleted_at is null;
 
+-- Keep legacy column-level updates consistent with a known occurrence time too.
+create function private.validate_recovery_occurrence() returns trigger language plpgsql security definer set search_path='' as $$
+declare zone text;
+begin
+ select timezone into strict zone from public.organizations where id=new.organization_id;
+ if new.occurred_at is not null and (new.log_date is distinct from (new.occurred_at at time zone zone)::date or new.occurred_at>now()+interval '1 minute') then
+  raise exception 'Recovery date must match the actual occurrence in the gym timezone' using errcode='23514';
+ end if;
+ if tg_op='UPDATE' and old.occurred_at is not null and new.occurred_at is null then
+  raise exception 'A recorded recovery time cannot be cleared' using errcode='23514';
+ end if;
+ return new;
+end $$;
+revoke all on function private.validate_recovery_occurrence() from public,anon,authenticated;
+create trigger validate_recovery_occurrence before insert or update of log_date,occurred_at on public.client_recovery_entries for each row execute function private.validate_recovery_occurrence();
+
 -- Compatibility for the previous one-entry-per-type form/RPC. New UI uses explicit IDs.
 create or replace function public.save_client_recovery(target_organization_id uuid,target_workout_id uuid,target_date date,recovery text,minutes numeric,temperature numeric,unit text)
 returns void language plpgsql security invoker set search_path='' as $$
