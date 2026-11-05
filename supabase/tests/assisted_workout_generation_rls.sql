@@ -95,6 +95,8 @@ end $$;
 
 -- Scoped recent context fixtures (never production data).
 reset role;
+insert into public.coach_client_assignments(organization_id,coach_user_id,client_user_id)
+values('ab200000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000005','ab100000-0000-4000-8000-000000000006');
 insert into public.workout_assignments(id,organization_id,coach_user_id,client_user_id,title,scheduled_date,status,completed_at,client_feedback) values
 ('ab600000-0000-4000-8000-000000000001','ab200000-0000-4000-8000-000000000001','ab100000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000003','Report context',current_date-1,'completed',now()-interval '1 day','Own scoped feedback'),
 ('ab600000-0000-4000-8000-000000000002','ab200000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000005','ab100000-0000-4000-8000-000000000006','Other gym',current_date-1,'completed',now()-interval '1 day','MUST NOT LEAK');
