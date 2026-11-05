@@ -21,7 +21,7 @@ test("Client logs actual recovery and daily activity without changing completed 
  await recovery.getByText(`Sauna · 12 min · ${date} · Edit`,{exact:true}).click();
  const editSauna=page.getByRole("form",{name:"Edit Sauna",exact:true});await editSauna.getByLabel("Actual minutes completed").fill("15");await editSauna.getByLabel("Recovery date").fill(corrected);await editSauna.getByRole("button",{name:"Save recovery",exact:true}).click();
  await expect(recovery.getByText(`Sauna · 15 min · ${corrected} · Edit`,{exact:true})).toBeVisible();
- await recovery.getByText("Add recovery",{exact:true}).click();const plunge=page.getByRole("form",{name:"Add Cold plunge",exact:true});await plunge.getByLabel("Actual recovery time").fill("12:30");await plunge.getByLabel("Actual minutes completed").fill("2");await plunge.getByLabel("Water temperature (optional)",{exact:true}).fill("46");await plunge.getByRole("button",{name:"Save recovery",exact:true}).click();
+ await recovery.getByText("Log plunge",{exact:true}).click();const plunge=page.getByRole("form",{name:"Add Cold plunge",exact:true});await plunge.getByLabel("Actual recovery time").fill("12:30");await plunge.getByLabel("Actual minutes completed").fill("2");await plunge.getByLabel("Water temperature (optional)",{exact:true}).fill("46");await plunge.getByRole("button",{name:"Save recovery",exact:true}).click();
  await expect(recovery.getByText(/Cold plunge · 2 min · 46 °F/)).toBeVisible();
  await page.getByRole("navigation",{name:"client navigation"}).getByRole("link",{name:"My day",exact:true}).click();
  await page.getByLabel("Date",{exact:true}).fill(date);await page.getByRole("button",{name:"Open date",exact:true}).click();
