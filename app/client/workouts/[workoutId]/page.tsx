@@ -1,3 +1,4 @@
+import { SessionReportPage } from "@/components/session-report-page";
 import { loadLabel, poundsInText } from "@/lib/weight-units";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,9 +9,6 @@ import { PreworkoutCheckin } from "@/components/preworkout-checkin";
 import { requireRole } from "@/lib/auth";
 import { ClientWorkoutPlayer, type PlayerExercise } from "@/components/client-workout-player";
 import { TrainingReadinessForm } from "@/components/training-readiness";
-import { RecoveryLog } from "@/components/client-log-forms";
-import type { RecoveryEntry } from "@/lib/client-logs";
-import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
 
 type ClientExercise = {
   completed_at: string | null;
@@ -66,6 +64,7 @@ export default async function ClientWorkoutPage({
       .maybeSingle(),
   ]);
   if (!workoutRow) notFound();
+  if (workoutRow.status === "completed") return <SessionReportPage role="client" workoutId={workoutId}/>;
   const workout = { ...workoutRow, workout_exercises: workoutRow.workout_exercises.map(e => ({ ...e, exercise_library: Array.isArray(e.exercise_library) ? e.exercise_library[0] ?? null : e.exercise_library })) } as ClientWorkout;
   const { data: coach } = await supabase
     .from("profiles")
@@ -81,10 +80,6 @@ export default async function ClientWorkoutPage({
     supabase.from("organization_preworkout_questions").select("position,question_text,scale_min,scale_max").eq("organization_id", membership.organization_id).order("position"),
     supabase.from("preworkout_checkins").select("id", { count: "exact", head: true }).eq("organization_id", membership.organization_id).eq("client_user_id", userId).eq("workout_assignment_id", workoutId),
   ]);
-  const {data:recovery,error:recoveryError}=workout.status==="completed"
-    ? await supabase.from("client_recovery_entries").select("id,log_date,workout_assignment_id,recovery_type,duration_minutes,water_temperature,temperature_unit").eq("organization_id",membership.organization_id).eq("client_user_id",userId).eq("workout_assignment_id",workoutId).order("recovery_type")
-    : {data:[],error:null};
-  const workoutDate=workout.completed_at?localDateInTimeZone(workout.completed_at,organization?.timezone??DEFAULT_ORGANIZATION_TIMEZONE):workout.scheduled_date;
 
   return (
     <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Client"} role="client">
@@ -139,7 +134,6 @@ export default async function ClientWorkoutPage({
           </button>
         </form>
       </section>}
-      {workout.status==="completed"&&<div id="recovery">{recoveryError?<p role="alert">Recovery could not be loaded. Reload before editing.</p>:<RecoveryLog date={workoutDate} workoutId={workoutId} entries={(recovery??[]) as RecoveryEntry[]}/>}<Link className={styles.backLink} href={`/client/my-day?date=${workoutDate}`}>My day &amp; history →</Link></div>}
       <PreworkoutCheckin questions={questions ?? []} previousCount={previousCheckins ?? 0} workoutId={workoutId} />
     </DashboardShell>
   );

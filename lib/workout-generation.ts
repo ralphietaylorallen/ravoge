@@ -11,6 +11,7 @@ import type { TrainingAnalysis } from "./workout-intelligence.ts";
 import type { InjurySpot, IntakeContext } from "./intake-history.ts";
 import type { EvidenceCollection } from "./exercise-evidence.ts";
 import type { ProvenanceAudit } from "./workout-provenance.ts";
+import { projectRecentSessionContext, type RecentSessionContext } from "./session-report-context.ts";
 
 export const PROGRAMMING_RULES_VERSION = "ravoge-reviewed-2026.1";
 export const FALLBACK_MESSAGE = "Ravoge used safe fallback generation for this workout.";
@@ -26,6 +27,7 @@ export type GenerationInput = {
   references: { id: string; title: string; revision: number; goal: string; duration: number; exercises: SourceExercise[];
     sourceKind?: "raw_reference"; segments?:{key:string;exerciseIds:string[]}[]; rawStyle?: {exerciseIds:string[];formats:string[];terms:string[];rawProtocolsUnverified:boolean} }[];
   history: { status: string; exercises: SourceExercise[] }[];
+  recentSessionContext?:RecentSessionContext;
   age?: number | null;
   recentDrafts?: { exercises: { libraryExerciseId:string; sets:number; reps:number; restSeconds?:number; targetRpe?:number; protocol?:WorkoutProtocol }[] }[];
   schemaVersion?: number; facilities?: { type: string; length: number; unit: string }[]; publishedCount?: number;
@@ -83,6 +85,7 @@ export function deidentifiedGenerationInput(input: GenerationInput) {
     rules: input.schemaVersion === 2 ? QUALITY_RULES : RULES,
     age: input.intakeContext?.age ?? input.age ?? null,
     todayReadiness: input.todayReadiness ?? null,
+    recentSessionContext: projectRecentSessionContext(input.recentSessionContext),
     previousDrafts: (input.recentDrafts ?? []).map(d=>({sequence:d.exercises.filter(e=>keys.has(e.libraryExerciseId)).map(e=>({exerciseKey:keys.get(e.libraryExerciseId),sets:e.sets,reps:e.reps,restSeconds:e.restSeconds,targetRpe:e.targetRpe,protocol:e.protocol?{block:e.protocol.block,format:e.protocol.format,measurement:e.protocol.measurement,workSeconds:e.protocol.workSeconds,distance:e.protocol.distance,distanceUnit:e.protocol.distanceUnit,perSide:e.protocol.perSide,targetRpe:e.protocol.targetRpe,intervalSeconds:e.protocol.intervalSeconds,blockDurationSeconds:e.protocol.blockDurationSeconds}:undefined}))})),
     sessionPlanning: "Plan the next session using actual recorded outcomes and today’s readiness. Preserve useful main lifts for skill/progression; rotate compatible accessory patterns or training emphasis across the planned weekly days. Completed sets are evidence; unrecorded sets and unperformed drafts are not. Previous drafts show alternatives already offered, not completed work. Do not reproduce the same draft unchanged or vary only its title/rationale/order. Make a purposeful change to main-work targets, emphasis or compatible accessory selection, with a short factual reason. Do not increase effort when pain, failed reps or poor recovery suggest regression. Unknown effort does not justify increasing load. Never swap exercises merely for novelty.",
     goal: input.goal, secondaryGoal: input.secondaryGoal, experience: input.experience,

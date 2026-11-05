@@ -48,15 +48,16 @@ export async function createGeneratedWorkoutDraft({
     };
   }
 
-  const [{data:intake,error:ageError},{data:recent,error:recentError}]=await Promise.all([
+  const [{data:intake,error:ageError},{data:recent,error:recentError},{data:sessionContext,error:contextError}]=await Promise.all([
     supabase.from("client_intakes").select("birth_year").eq("id",input.intakeId).eq("client_user_id",clientId).abortSignal(AbortSignal.timeout(5000)).maybeSingle(),
     supabase.from("generated_prescriptions").select("original_recommendation").eq("client_user_id",clientId).eq("coach_user_id",userId).neq("id",data).order("generated_at",{ascending:false}).limit(3).abortSignal(AbortSignal.timeout(5000)),
+    supabase.rpc("get_recent_session_report_context",{target_prescription_id:data}).abortSignal(AbortSignal.timeout(5000)),
   ]);
-  if(ageError||recentError){
+  if(ageError||recentError||contextError){
     await supabase.rpc("discard_incomplete_quality_draft",{target_prescription_id:data});
     return {ok:false,status:503,message:"The saved intake or recent sessions could not be loaded. Try again."};
   }
-  const generationInput:GenerationInput={...input,age:ageFromBirthYear(intake?.birth_year),recentDrafts:(recent??[]).filter(d=>Array.isArray(d.original_recommendation)).map(d=>({exercises:d.original_recommendation}))};
+  const generationInput:GenerationInput={...input,recentSessionContext:sessionContext,age:ageFromBirthYear(intake?.birth_year),recentDrafts:(recent??[]).filter(d=>Array.isArray(d.original_recommendation)).map(d=>({exercises:d.original_recommendation}))};
 
   // Paid calls are bounded per authenticated Coach; repeated submissions still
   // have a safe deterministic path instead of an unbounded provider loop.

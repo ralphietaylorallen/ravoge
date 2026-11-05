@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import type { ExecutionState } from "@/app/coach/workout-actions";
 
-function refresh(id: string) { revalidatePath(`/client/workouts/${id}`); revalidatePath("/client"); revalidatePath("/coach"); }
+function refresh(id: string) { revalidatePath("/client/profile"); revalidatePath("/client/progress"); revalidatePath("/coach/clients/[clientId]", "page"); revalidatePath("/owner/clients/[clientId]", "page"); revalidatePath(`/client/workouts/${id}`); revalidatePath("/client"); revalidatePath("/coach"); }
 export async function playerSessionAction(role: "client" | "coach", workoutId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
   const { supabase } = await requireRole(role);
   if (!/^[0-9a-f-]{36}$/i.test(workoutId)) return { status: "error", message: "Workout unavailable." };

@@ -1,3 +1,4 @@
+import { SessionReportHistory } from "@/components/session-report-history";
 import { ProfileDetailsForm, ProfilePhotoForm } from "@/components/profile-forms";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { requireRole } from "@/lib/auth";
@@ -26,6 +27,7 @@ export default async function ClientProfilePage() {
     <div className={`${styles.detailGrid} ${styles.workspaceSection}`}>
       <section className={styles.panel}><h2>About you</h2>{profile && <ProfileDetailsForm defaults={profile} role="client" />}<p className={styles.formHint}>Your gym manages your Coach, goals and account access.</p></section>
     </div>
+    <SessionReportHistory supabase={supabase} organizationId={membership.organization_id} clientId={userId} role="client"/>
     <AnnouncementPreferences />
   </DashboardShell>;
 }

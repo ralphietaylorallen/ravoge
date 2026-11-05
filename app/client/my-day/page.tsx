@@ -16,7 +16,7 @@ export default async function MyDayPage({searchParams}:{searchParams:Promise<{da
   const [daily,activity,recovery,workouts]=await Promise.all([
     supabase.from("client_daily_totals").select("log_date,calories,protein_grams").eq("organization_id",membership.organization_id).eq("client_user_id",userId).eq("log_date",date).maybeSingle(),
     supabase.from("client_activity_entries").select("id,log_date,activity_type,duration_minutes,distance,distance_unit,effort").eq("organization_id",membership.organization_id).eq("client_user_id",userId).eq("log_date",date).order("updated_at"),
-    supabase.from("client_recovery_entries").select("id,log_date,workout_assignment_id,recovery_type,duration_minutes,water_temperature,temperature_unit").eq("organization_id",membership.organization_id).eq("client_user_id",userId).eq("log_date",date),
+    supabase.from("client_recovery_entries").select("id,log_date,workout_assignment_id,recovery_type,duration_minutes,water_temperature,temperature_unit,occurred_at,notes,felt_after").is("deleted_at",null).eq("organization_id",membership.organization_id).eq("client_user_id",userId).eq("log_date",date),
     supabase.from("workout_assignments").select("id,title,status").eq("organization_id",membership.organization_id).eq("client_user_id",userId).eq("scheduled_date",date).order("created_at"),
   ]);
   const entries=(activity.data??[]) as ActivityEntry[];
