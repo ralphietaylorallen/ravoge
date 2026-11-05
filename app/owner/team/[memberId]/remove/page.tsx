@@ -8,10 +8,12 @@ import { cancelRemovalAppointmentAction } from "@/app/owner/team/removal-actions
 import { formatZonedDateTime } from "@/lib/timezone";
 
 type Context={name:string;role:"coach"|"client";status:string;gym:string;assignments:{id:string;coach:string;client:string;clientId:string}[];bookings:{id:string;coachName:string;clientName:string;clientUserId:string;startsAt:string;endsAt:string;timezone:string;sessionType:string}[]};
-export default async function RemoveMemberPage({params}:{params:Promise<{memberId:string}>}) {
+export default async function RemoveMemberPage({params,searchParams}:{params:Promise<{memberId:string}>;searchParams:Promise<{role?:string}>}) {
   const {memberId}=await params; const {supabase,userId}=await requireRole("owner");
+  const role=(await searchParams).role;
+  if(role && role!=="coach" && role!=="client")notFound();
   if(!/^[0-9a-f-]{36}$/i.test(memberId))notFound();
-  const [{data:context,error},{data:owner}]=await Promise.all([supabase.rpc("member_removal_context",{target_user_id:memberId}),supabase.from("profiles").select("full_name").eq("id",userId).single()]);
+  const [{data:context,error},{data:owner}]=await Promise.all([supabase.rpc("member_removal_context",{target_user_id:memberId,...(role?{target_role:role}:{})}),supabase.from("profiles").select("full_name").eq("id",userId).single()]);
   if(error||!context)notFound(); const c=context as Context;
   return <DashboardShell compact gymName={c.gym} name={owner?.full_name??"Owner"} role="owner">
     <Link href="/owner/team">← Back to Team</Link><div className={styles.pageHeading}><div><h2>{c.role==="coach"?"Remove Coach":"Remove Client"}</h2><p>{c.name} · {c.gym}</p></div></div>

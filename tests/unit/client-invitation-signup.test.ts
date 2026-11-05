@@ -25,6 +25,7 @@ function harness(valid = true) {
   };
   const cookies = { get: () => undefined, set: () => {}, delete: () => {} };
   const dependencies: Record<string, unknown> = {
+    "@/lib/access-selection": { ACCESS_COOKIE: "ravoge_view" },
     "node:crypto": { createHash, randomBytes },
     "next/cache": { revalidatePath: () => {} },
     "next/headers": { cookies: async () => cookies, headers: async () => ({ get: () => "ravoge.com" }) },

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { ACCESS_COOKIE, parseAccessSelection, selectAuthorizedMembership, type AuthorizedMembership } from "@/lib/access-selection";
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,29 +21,25 @@ export async function getVerifiedUser() {
   return { supabase, userId: subject };
 }
 
-export async function getActiveMembership(
+export async function getActiveMemberships(
   userId: string,
   authenticatedClient?: SupabaseClient,
 ) {
   const supabase = authenticatedClient ?? await createClient();
-  const { data } = await supabase
-    .from("organization_memberships")
-    .select("id, organization_id, role, status")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("get_my_authorized_memberships");
+  if (error) throw new Error("Ravoge access could not be verified. Please retry.");
+  // The RPC derives the identity from auth.uid(), never from this argument.
+  return ((data ?? []) as (AuthorizedMembership & { user_id: string })[])
+    .filter(m => m.user_id === userId && m.status === "active" && ["owner", "coach", "client"].includes(m.role));
+}
 
-  if (!data || !["owner", "coach", "client"].includes(data.role)) {
-    return null;
-  }
-
-  return data as {
-    id: string;
-    organization_id: string;
-    role: AccountRole;
-    status: "active";
-  };
+export async function getActiveMembership(userId: string, authenticatedClient?: SupabaseClient) {
+  const memberships = await getActiveMemberships(userId, authenticatedClient);
+  const selection = parseAccessSelection((await cookies()).get(ACCESS_COOKIE)?.value);
+  const selected = selectAuthorizedMembership(memberships, selection);
+  // Ambiguous access goes to the chooser, never an arbitrary organization.
+  if (!selected && memberships.length) redirect("/access");
+  return selected;
 }
 
 export async function getAccountType(

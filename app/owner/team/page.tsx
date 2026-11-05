@@ -39,7 +39,7 @@ export default async function OwnerTeamPage() {
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("organizations").select("name").eq("id", organizationId).single(),
     supabase
-      .from("organization_memberships")
+      .from("organization_member_roles")
       .select("user_id, role, status, is_primary_owner")
       .eq("organization_id", organizationId)
       .order("created_at"),
@@ -138,7 +138,7 @@ export default async function OwnerTeamPage() {
                         </span>
                       </div>
                       <small>{row.status}</small>
-                      {role!=="owner"&&row.user_id!==userId&&<Link className={styles.secondaryAction} href={`/owner/team/${row.user_id}/remove`}>{role==="coach"?"Remove Coach":"Remove Client"}</Link>}
+                      {role!=="owner"&&row.user_id!==userId&&<Link className={styles.secondaryAction} href={`/owner/team/${row.user_id}/remove?role=${role}`}>{role==="coach"?"Remove Coach":"Remove Client"}</Link>}
                     </li>
                     );
                   })}

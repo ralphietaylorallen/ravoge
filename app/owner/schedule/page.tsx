@@ -19,8 +19,8 @@ export default async function OwnerSchedulePage({ searchParams }: { searchParams
     supabase.from("organizations").select("name,timezone,address").eq("id", organizationId).single(),
     supabase.from("organization_hours").select("day_of_week,is_closed,opens_at,closes_at").eq("organization_id", organizationId).order("day_of_week"),
     supabase.from("organization_session_settings").select("default_duration_minutes,permitted_durations,slot_increment_minutes,minimum_notice_minutes,maximum_advance_days,cancellation_cutoff_minutes,buffer_before_minutes,buffer_after_minutes").eq("organization_id", organizationId).maybeSingle(),
-    supabase.from("organization_memberships").select("user_id").eq("organization_id", organizationId).eq("role", "coach").eq("status", "active"),
-    supabase.from("organization_memberships").select("user_id").eq("organization_id", organizationId).eq("role", "client").eq("status", "active"),
+    supabase.from("organization_member_roles").select("user_id").eq("organization_id", organizationId).eq("role", "coach").eq("status", "active"),
+    supabase.from("organization_member_roles").select("user_id").eq("organization_id", organizationId).eq("role", "client").eq("status", "active"),
     supabase.from("coach_availability").select("id,coach_user_id,day_of_week,starts_at,ends_at").eq("organization_id", organizationId).order("coach_user_id").order("day_of_week").order("starts_at"),
   ]);
   const { data: closures } = await supabase.from("organization_special_hours").select("id,local_date,label").eq("organization_id", organizationId).gte("local_date", localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)).order("local_date");

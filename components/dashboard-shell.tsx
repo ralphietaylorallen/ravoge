@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 import { logoutAction } from "@/app/auth/actions";
 import { Logo } from "@/components/logo";
@@ -53,6 +54,7 @@ export async function DashboardShell({
           <div><span className={styles.mobileBrand}><Logo /></span><small>{gymName}</small></div>
           <div className={styles.headerActions}>
             <span className={styles.role}>{role} access</span>
+            {role !== "owner" && <Link className={styles.logout} href="/access">Switch view</Link>}
             <form action={logoutAction}>
               <button className={styles.logout} type="submit">Log out</button>
             </form>

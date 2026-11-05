@@ -77,7 +77,7 @@ export default async function OwnerClientDetailPage({ params, searchParams }: { 
   const organizationId = membership.organization_id;
 
   const { data: clientMembership } = await supabase
-    .from("organization_memberships")
+    .from("organization_member_roles")
     .select("user_id,status,invitation_id,created_at")
     .eq("organization_id", organizationId)
     .eq("user_id", clientId)
@@ -105,7 +105,7 @@ export default async function OwnerClientDetailPage({ params, searchParams }: { 
     supabase.from("organizations").select("name,timezone").eq("id", organizationId).single(),
     supabase.from("profiles").select("full_name,preferred_name,bio,avatar_path,account_status").eq("id", clientId).maybeSingle(),
     supabase.from("coach_client_assignments").select("coach_user_id,status").eq("organization_id", organizationId).eq("client_user_id", clientId).order("updated_at", { ascending: false }),
-    supabase.from("organization_memberships").select("user_id").eq("organization_id", organizationId).eq("role", "coach").eq("status", "active").order("created_at"),
+    supabase.from("organization_member_roles").select("user_id").eq("organization_id", organizationId).eq("role", "coach").eq("status", "active").order("created_at"),
     supabase.from("client_intakes").select("version,completed_at,training_frequency_goal,primary_goal,experience_level,recent_consistency,current_injuries,movement_limitations").eq("organization_id", organizationId).eq("client_user_id", clientId).order("version", { ascending: false }).limit(1),
     supabase.from("client_states").select("training_experience,recovery_capacity,current_readiness,movement_tolerance,volume_tolerance,constraint_tags,confidence,calculated_at").eq("organization_id", organizationId).eq("client_user_id", clientId).order("calculated_at", { ascending: false }).limit(1),
     supabase.from("generated_prescriptions").select("id,title,status,generated_at,coach_user_id").eq("organization_id", organizationId).eq("client_user_id", clientId).order("generated_at", { ascending: false }),
@@ -176,7 +176,7 @@ export default async function OwnerClientDetailPage({ params, searchParams }: { 
   const formatDate = (value: string) => new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: timezone }).format(new Date(value));
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
     <Link className={styles.backLink} href="/owner/clients">← Clients</Link>
-    <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhotoForm imageUrl={clientImageUrl} name={clientName} organizationId={membership.organization_id} role="owner" targetUserId={clientId} /><div><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>Client · {organization?.name} · Joined {formatDate(clientMembership.created_at)}</p></div></div><div className={styles.bookingActions}><span className={clientMembership.status === "active" ? styles.successPill : styles.mutedPill}>{clientMembership.status}</span>{clientMembership.status === "active" && clientId !== userId && <Link className={styles.secondaryAction} href={`/owner/team/${clientId}/remove`}>Remove Client</Link>}</div></div>
+    <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhotoForm imageUrl={clientImageUrl} name={clientName} organizationId={membership.organization_id} role="owner" targetUserId={clientId} /><div><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>Client · {organization?.name} · Joined {formatDate(clientMembership.created_at)}</p></div></div><div className={styles.bookingActions}><span className={clientMembership.status === "active" ? styles.successPill : styles.mutedPill}>{clientMembership.status}</span>{clientMembership.status === "active" && clientId !== userId && <Link className={styles.secondaryAction} href={`/owner/team/${clientId}/remove?role=client`}>Remove Client</Link>}</div></div>
     <OperationsTabs active={tab} basePath={basePath} tabs={[{id:"overview",label:"Overview"},{id:"schedule",label:"Schedule"},{id:"intake",label:"Intake"},{id:"progress",label:"Progress"},{id:"workouts",label:"Workouts"},{id:"notes",label:"Notes"}]} />
     {tab === "overview" && <div className={styles.overviewCards}>
       <section className={styles.operationCard}><h3>Assigned Coach</h3>{activeAssignment ? <div className={styles.coachIdentity}><ProfilePhoto name={names.get(activeAssignment.coach_user_id) ?? "Coach"} url={coachPhotos.get(activeAssignment.coach_user_id)} size="small" /><strong>{names.get(activeAssignment.coach_user_id) ?? "Coach"}</strong></div> : <div className={styles.emptyAssignment}><span aria-hidden="true">♙</span><strong>No coach assigned yet</strong><p>Assign a coach to plan training and book the first session.</p></div>}<ClientCoachAssignmentForm clientId={clientId} clientName={clientName} coaches={coaches} currentCoachId={activeAssignment?.coach_user_id} />{activeAssignment && <div className={styles.bookingActions}><Link className={styles.secondaryAction} href={`${basePath}?tab=schedule&kind=intake`}>Schedule intake</Link><Link className={styles.secondaryAction} href={`${basePath}?tab=schedule`}>Schedule session →</Link></div>}</section>

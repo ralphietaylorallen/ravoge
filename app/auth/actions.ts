@@ -19,6 +19,7 @@ import { sendInvitationEmail } from "@/lib/invitation-email";
 import { normalizeInvitationEmail, parseInvitationEmails, MAX_BULK_INVITATIONS } from "@/lib/invitation-input";
 import { clearEnrollmentHandoff, getEnrollmentHandoff } from "@/lib/enrollment";
 import { createClient } from "@/lib/supabase/server";
+import { ACCESS_COOKIE } from "@/lib/access-selection";
 
 const SIGNUP_INVITE_COOKIE = "ravoge_signup_invite";
 const SIGNUP_OWNER_TOKEN_COOKIE = "ravoge_signup_owner_token";
@@ -160,6 +161,7 @@ export async function loginAction(
     return { message: "Enter your email and password.", status: "error" };
   }
 
+  (await cookies()).delete(ACCESS_COOKIE);
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user) {
@@ -167,7 +169,6 @@ export async function loginAction(
     return { message: "Email or password was not accepted.", status: "error" };
   }
 
-  let membership = await getActiveMembership(data.user.id, supabase);
   if (invitationToken) {
     const { error: invitationError } = await supabase.rpc(
       "accept_organization_enrollment",
@@ -177,8 +178,9 @@ export async function loginAction(
       logAuthError("existing-user invitation acceptance", invitationError);
       return { message: "This enrollment is invalid, disabled, belongs to another email, or conflicts with your existing account role.", status: "error" };
     }
-    membership = await getActiveMembership(data.user.id, supabase);
+    await clearEnrollmentHandoff();
   }
+  let membership = await getActiveMembership(data.user.id, supabase);
   if (membership) {
     await clearEnrollmentHandoff();
     redirect(dashboardForRole(membership.role));
@@ -414,6 +416,7 @@ export async function updatePasswordAction(
 }
 
 export async function logoutAction() {
+  (await cookies()).delete(ACCESS_COOKIE);
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "local" });
   await clearEnrollmentHandoff();
