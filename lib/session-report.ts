@@ -166,6 +166,7 @@ export function sixWeekSummary(facts:SixWeekFacts) {
  return {consistency:weeklyConsistency(facts.bookings,ordered.map(r=>r.source),facts.timezone,facts.periodStart,facts.periodEnd),
   comparisons,effort:{average:effort.length?effort.reduce((a,b)=>a+b,0)/effort.length:null,recorded:effort.length,total:sets.length},
   adjusted:sets.filter(s=>recordedStatus(s)==="modified").length,missed:sets.filter(s=>recordedStatus(s)==="missed").length,
+  unclassified:ordered.reduce((n,r)=>n+r.source.exercises.filter(e=>isWorking(e)===null).reduce((count,e)=>count+e.workout_sets.length,0),0),
   scoreTrend:scoreVersions.length===1?scores.map(r=>({date:r.source.workout.scheduled_date,value:r.score.value!,version:r.score.version,coverage:r.score.components})):[],
   recovery,body,firstDate:dates.at(0)??null,lastDate:dates.at(-1)??null,coveredDays:new Set(dates).size};
 }
