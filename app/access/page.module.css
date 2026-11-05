@@ -1,6 +1,6 @@
 .page { min-height:100svh; background:#050606; color:#f6f5f3; padding:clamp(1.25rem,5vw,4rem); }
 .content { max-width:36rem; margin:auto; display:grid; gap:1.2rem; }
-.content h1 { font:500 clamp(1.8rem,5vw,2.6rem)/1.1 var(--font-space-grotesk),sans-serif; margin:1rem 0 0; }
+.content h1 { font:500 clamp(1.8rem,5vw,2.6rem)/1.1 var(--font-display); margin:1rem 0 0; }
 .content p { color:#b4ac9b; line-height:1.6; margin:0; }
 .gym { display:grid; gap:.8rem; border:1px solid #53544d; padding:1.2rem; border-radius:6px; min-width:0; }
 .gym h2 { font-size:1.15rem; margin:0 0 .4rem; overflow-wrap:anywhere; }
