@@ -9,6 +9,11 @@ test("Owner resolves appointments and assignments, removes gym access and preser
  async function login(p:Page,u:typeof owner){await p.goto("/login");await p.getByLabel("Email",{exact:true}).fill(u.email);await p.getByLabel("Password",{exact:true}).fill(u.password);await p.getByRole("button",{name:"Login",exact:true}).click();await expect(p).toHaveURL(new RegExp(`/${u.role}$`),{timeout:25000});}
  const cc=await browser.newContext(),cp=await cc.newPage(),clc=await browser.newContext(),cl=await clc.newPage();
  await login(page,owner);await login(cp,coach);await login(cl,client);
+ const installCard=cp.getByRole("complementary",{name:"Get the Client app"});
+ await expect(installCard.getByText("Scan to get the Client app. Sign in with your invited email.",{exact:true})).toBeVisible();
+ await expect(installCard.locator("[data-qr-value]")).toHaveAttribute("data-qr-value","https://ravoge.com/client/install");
+ await expect(installCard.locator("canvas")).toBeVisible();
+ await expect(installCard.getByRole("link",{name:"Open installation page",exact:true})).toHaveAttribute("href","/client/install");
  await page.goto("/owner/team");await expect(page.locator(`[data-member-id="${owner.id}"]`).getByRole("link",{name:/Remove/})).toHaveCount(0);
  // Short desktop viewports must scroll the menu without losing its last link.
  await page.setViewportSize({width:1180,height:600});

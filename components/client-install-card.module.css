@@ -1,0 +1,6 @@
+.card { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1.25rem; padding: 1rem; border: 1px solid var(--ui-border, #48402d); border-radius: 10px; background: var(--ui-input, #151616); }
+.card > [data-qr-value] { display: block; flex: 0 0 auto; padding: 0; border: 0; background: transparent; }
+.card > div { flex: 1 1 12rem; min-width: 0; }
+.card h3 { margin: 0 0 .4rem; font-size: 1rem; }
+.card p { margin: 0 0 .8rem; font-size: .85rem; line-height: 1.6; color: var(--ui-muted, #bbbcb7); }
+.card a { max-width: 100%; text-align: center; }
