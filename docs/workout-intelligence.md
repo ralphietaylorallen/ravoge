@@ -69,3 +69,10 @@ review, not automatic load progression, medical clearance or a promised outcome.
   `RAVOGE_LIVE_WORKOUT_QA=yes` additionally requires actual OpenAI analysis and
   generation (fallback fails that check). It verifies source audit, untouched raw
   imports, mobile/tablet overflow and Coach review → assignment → Client execution.
+
+## Bounded planning audit (November 2026)
+
+See [the focused audit and reproducible synthetic comparison](workout-planning-audit-2026-11-05.md)
+for current reference-ranking/input-projection corrections and their limits.
+It distinguishes mocked pipeline output from unverified real-model quality and
+records the existing same-Coach, three-draft repeat-guard boundary.

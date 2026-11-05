@@ -25,6 +25,8 @@ export function planningProjection(input: GenerationInput) {
     optionalTargets:p.optionalTargets,restrictions:p.restrictions,weightUnit:p.weightUnit,equipment:p.equipment,
     availableFacilities:input.facilities?.map(f=>({type:f.type,length:f.length,unit:f.unit})),
     compatiblePatterns:[...new Set(input.candidates.map(c=>c.pattern))].sort(),
+    exerciseContext:p.approvedExercises.map((exercise,index)=>({exerciseKey:exercise.exerciseKey,movementPattern:exercise.movementPattern,measurement:input.candidates[index].measurement??"reps"})),
+    historyOrdering:"most_recent_first" as const,
     recentPerformance:input.schemaVersion===2 ? p.recentPerformance : p.priorWorkouts,
     todayReadiness:input.todayReadiness ? {answers:input.todayReadiness.answers,hasPain:input.todayReadiness.hasPain,coachDecision:input.todayReadiness.coachDecision} : null};
 }
@@ -73,14 +75,25 @@ export async function analyzeTrainingIntent(input:GenerationInput,client?:Client
 // embeddings, bulk reclassification, raw-import processing or new datastore.
 export function retrieveGymKnowledge(input:GenerationInput,analysis:TrainingAnalysis) {
   const candidates=new Map(input.candidates.map(c=>[c.id,c]));
-  const performance=new Map(input.history.flatMap(w=>w.exercises.filter(e=>e.id&&e.performance).map(e=>[e.id!,e.performance!] as const)));
+  // The saved history is newest first. Keep the first actual outcome rather
+  // than letting older success overwrite a recent reduction/missed effort.
+  // An assigned but unperformed plan is not performance evidence.
+  const performance=new Map<string,NonNullable<GenerationInput["history"][number]["exercises"][number]["performance"]>>();
+  for(const workout of input.history) for(const exercise of workout.exercises) {
+    const id=exercise.id??exercise.libraryExerciseId, result=exercise.performance;
+    if(id && result && !performance.has(id) && (result.recorded>0 || result.problematic>0)) performance.set(id,result);
+  }
+  const performanceScore=(ids:string[])=>[...new Set(ids)].reduce((n,id)=>{
+    const p=performance.get(id);
+    return n+(p?Math.max(-10,Math.min(6,p.recorded*2-p.problematic*5)):0);
+  },0);
   const objectives:Record<string,string[]>={strength:["strength"],muscle_gain:["hypertrophy"],conditioning:["aerobic_endurance"],athletic_performance:["running_economy","aerobic_endurance"],general_fitness:["general_fitness"],fat_loss:["fat_loss_support"],body_recomposition:["hypertrophy","fat_loss_support"]};
   const ranked = (input.knowledgeCatalog??input.references).map(reference=>{
     if(reference.sourceKind==="raw_reference" && reference.rawStyle) {
       const ids=reference.rawStyle.exerciseIds.filter(id=>candidates.has(id));
       const patterns=[...new Set(ids.map(id=>candidates.get(id)!.pattern))];
       const score=10+(reference.goal===input.goal?100:0)+patterns.reduce((n,p)=>{const rank=analysis.priorityPatterns.indexOf(p);return n+(rank<0?3:24-rank*3);},0)
-        +ids.reduce((n,id)=>{const p=performance.get(id);return n+(p?Math.max(-10,Math.min(6,p.recorded*2-p.problematic*5)):0);},0)
+        +performanceScore(ids)
         +reference.rawStyle.formats.filter(f=>analysis.preferredFormats.includes(f)).length*10
         -(reference.duration?Math.min(30,Math.abs(reference.duration-input.duration)/2):0);
       return {reference:{...reference,rawStyle:{...reference.rawStyle,exerciseIds:ids}},score};
@@ -95,7 +108,8 @@ export function retrieveGymKnowledge(input:GenerationInput,analysis:TrainingAnal
     const goalMatch=reference.goal===input.goal?100:reference.goal===input.secondaryGoal?70:(objectives[reference.goal]??[]).some(g=>analysis.objectives.includes(g))?60:0;
     if(!rows.length || (!overlap && !goalMatch)) return {reference,score:0};
     const methods=new Set(rows.map(e=>e.protocol?.block)),formats=new Set(rows.map(e=>e.protocol?.format??"straight"));
-    const score=goalMatch+overlap+analysis.methods.filter(m=>methods.has(m as never)).length*8+analysis.preferredFormats.filter(f=>formats.has(f as never)).length*10-Math.min(30,Math.abs(reference.duration-input.duration)/2);
+    const score=goalMatch+overlap+analysis.methods.filter(m=>methods.has(m as never)).length*8+analysis.preferredFormats.filter(f=>formats.has(f as never)).length*10
+      +performanceScore(rows.map(e=>e.libraryExerciseId!))-Math.min(30,Math.abs(reference.duration-input.duration)/2);
     return {reference:{...reference,exercises:rows},score};
   }).filter(r=>r.score>0).sort((a,b)=>b.score-a.score||a.reference.id.localeCompare(b.reference.id));
   // Sources are alternative programming examples, not three full sessions to
