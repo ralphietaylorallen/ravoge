@@ -18,24 +18,26 @@ test("coach opens an assigned client and saves a workout", async ({ page }, test
   await page.getByRole("button", { name: "Login" }).click();
 
   await expect(page).toHaveURL(/\/coach$/);
-  await page.getByRole("link", { name: /Ravoge E2E Client/i }).click();
-  await expect(page).toHaveURL(new RegExp(`/coach/clients/${assignedClientId}$`));
-  await expect(page.getByRole("heading", { name: "Ravoge E2E Client" })).toBeVisible();
+  await page.getByRole("link", { name: "Plan Workouts" }).click();
+  await expect(page).toHaveURL(/\/coach\/plan-workouts$/);
 
-  await page.getByText("Create a workout", { exact: true }).click();
+  const clientSelect = page.getByLabel("Client");
+  await clientSelect.selectOption(assignedClientId!);
+  const uniqueMinute = String((new Date().getUTCMinutes() + 7) % 60).padStart(2, "0");
   await page.getByLabel("Workout name").fill("E2E Strength Session");
-  await page.getByLabel("Date").fill("2026-09-21");
-  await page.getByLabel("Coach instructions").fill("Controlled tempo throughout.");
-  await page.getByLabel("Name", { exact: true }).fill("Back Squat");
+  await page.getByLabel("Date").fill("2027-09-21");
+  await page.getByLabel("Time").fill(`14:${uniqueMinute}`);
+  await page.getByLabel("Coach instructions / workout notes").fill("Controlled tempo throughout.");
+  await page.getByLabel("Exercise", { exact: true }).fill("Back Squat");
   await page.getByLabel("Sets").fill("4");
   await page.getByLabel("Reps").fill("6");
-  await page.getByLabel("Weight").fill("100");
+  await page.getByLabel("Weight (lb)").fill("100");
   await page.getByLabel("Notes").fill("RPE 7");
-  await page.getByRole("button", { name: "Save workout" }).click();
+  await page.getByRole("button", { name: "Save Planned Workout" }).click();
 
-  await expect(page.getByRole("status")).toContainText("Workout assigned successfully");
+  await expect(page.getByRole("status")).toContainText("Workout planned");
   await expect(page.getByText("E2E Strength Session")).toBeVisible();
-  await page.getByRole("link", { name: /E2E Strength Session/ }).click();
+  await page.getByRole("link", { name: "Open workout →" }).first().click();
   await expect(page.getByText("Back Squat", { exact: true })).toBeVisible();
 
   if (unassignedClientId) {
