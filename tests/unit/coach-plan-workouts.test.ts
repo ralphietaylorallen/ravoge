@@ -19,10 +19,10 @@ test("Coach Plan Workouts supports client/date/time, paste, reps, weights and ti
   assert.match(form, /name="scheduledDate"/);
   assert.match(form, /name="scheduledTime"/);
   assert.match(form, /Paste a workout/);
-  assert.match(form, /name="exerciseSets"/);
-  assert.match(form, /name="exerciseReps"/);
-  assert.match(form, /name="exerciseLoad"/);
-  assert.match(form, /name="exerciseDurationSeconds"/);
+  assert.match(form, /name=\{\`\\$\{prefix\}ExerciseSets\`\}/);
+  assert.match(form, /name=\{\`\\$\{prefix\}ExerciseReps\`\}/);
+  assert.match(form, /name=\{\`\\$\{prefix\}ExerciseLoad\`\}/);
+  assert.match(form, /name=\{\`\\$\{prefix\}ExerciseDurationSeconds\`\}/);
   assert.match(form, /Turn pasted workout into rows/);
   assert.match(form, /Save & Keep Planning/);
   assert.match(actions, /create_planned_workout_assignment_lb/);
@@ -43,4 +43,28 @@ test("A saved workout opens after readiness instead of generating another draft"
   assert.match(route, /existingWorkout/);
   assert.ok(route.indexOf("if (existingWorkout)") < route.lastIndexOf("createGeneratedWorkoutDraft"));
   assert.match(train, /Save readiness & open planned workout/);
+});
+
+test("Paired workouts share structure but keep each client's prescription separate", async () => {
+  const [form, actions, workoutPage, planPage, migration] = await Promise.all([
+    read("components/plan-workout-form.tsx"),
+    read("app/coach/actions.ts"),
+    read("app/coach/clients/[clientId]/workouts/[workoutId]/page.tsx"),
+    read("app/coach/plan-workouts/page.tsx"),
+    read("supabase/migrations/20261109020815_paired_planned_workouts.sql"),
+  ]);
+
+  assert.match(form, /Add a training partner/);
+  assert.match(form, /name="secondaryClientId"/);
+  assert.match(form, /role="tab"/);
+  assert.match(form, /Client B’s weight starts blank/);
+  assert.match(actions, /create_paired_planned_workout_assignments_lb/);
+  assert.match(actions, /primary_exercises: primary\.exercises/);
+  assert.match(actions, /secondary_exercises: secondary\.exercises/);
+  assert.match(migration, /paired_workout_group_id uuid/);
+  assert.match(migration, /primary_name <> secondary_name/);
+  assert.match(migration, /primary_mode <> secondary_mode/);
+  assert.match(workoutPage, /paired_workout_group_id/);
+  assert.match(workoutPage, /Paired session clients/);
+  assert.match(planPage, /clientNames.*join\("\s\+\s"\)/s);
 });
