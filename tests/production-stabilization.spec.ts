@@ -36,7 +36,7 @@ async function logout(page: Page) {
 }
 
 async function createInvite(page: Page, role: "owner" | "coach" | "client", email: string, actor: "owner" | "coach" = "owner") {
-  await page.goto(actor === "owner" ? "/owner/team" : "/coach");
+  await page.goto(actor === "owner" ? "/owner/team" : "/coach/add-client");
   const heading = actor === "coach" && role === "client" ? "Invite a client" : `Invite ${role}`;
   const section = page.locator("section").filter({
     has: page.getByRole("heading", { name: heading }),

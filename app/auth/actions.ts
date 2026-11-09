@@ -515,6 +515,7 @@ async function createInvitation(role: AccountRole, formData: FormData): Promise<
   revalidatePath("/owner/team");
   revalidatePath("/owner/apps");
   revalidatePath("/owner/clients");
+  revalidatePath("/coach/add-client");
   return {
     emailDeliveryStatus: emailResult.status,
     invitationId: invitation.invitation_id,
@@ -554,6 +555,7 @@ export async function revokeInvitationAction(invitationId: string, _state: Actio
   }
   revalidatePath("/owner/team");
   revalidatePath("/coach");
+  revalidatePath("/coach/add-client");
   return { message: "Invitation revoked.", status: "success" };
 }
 
@@ -619,6 +621,7 @@ export async function refreshInvitationAction(invitationId: string, _state: Acti
   revalidatePath("/owner/team");
   revalidatePath("/owner/apps");
   revalidatePath("/owner/clients");
+  revalidatePath("/coach/add-client");
   return { status: "success", invitationId, invitationRole: invitation.role, invitationUrl, recipientEmail: invitation.email, emailDeliveryStatus: delivery?.status,
     message: delivery?.status === "sent" ? `Invitation sent to ${invitation.email}.` : delivery?.status === "not_configured" ? "Email is not configured. Copy the new secure link below." : delivery?.status === "failed" ? delivery.error ?? "Email delivery failed. Copy the new secure link below." : "New secure link ready. The previous link no longer works." };
 }

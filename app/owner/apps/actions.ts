@@ -20,6 +20,7 @@ export async function rotateEnrollmentQrAction(formData: FormData) {
   if (!userId) throw new Error("Authentication is required.");
   await rotateOrganizationEnrollmentCredential(supabase, role);
   revalidatePath("/owner/apps");
+  revalidatePath("/coach/add-client");
 }
 
 export async function disableEnrollmentQrAction(formData: FormData) {
@@ -31,4 +32,5 @@ export async function disableEnrollmentQrAction(formData: FormData) {
   });
   if (error) throw new Error("Ravoge could not disable this enrollment QR.");
   revalidatePath("/owner/apps");
+  revalidatePath("/coach/add-client");
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { revokeInvitationAction } from "@/app/auth/actions";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
+import { ClientInstallCard } from "@/components/client-install-card";
 import { InviteForm } from "@/components/invite-form";
 import { MutationActionForm } from "@/components/mutation-action-form";
 import { ClientSignupTools } from "@/components/client-signup-tools";
@@ -27,6 +28,7 @@ export default async function AddClientPage() {
         <section className={styles.panel}>
           <h2>Invite a client</h2>
           <InviteForm role="client" />
+          <ClientInstallCard />
 
           {invitations.error ? <p role="alert">Invitation history could not be loaded. Reload to try again.</p> : pendingInvitations.length ? (
             <>

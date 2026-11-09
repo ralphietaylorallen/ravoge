@@ -11,7 +11,7 @@ export function ClientSignupTools({ url }: { url: string }) {
       else { await navigator.clipboard.writeText(url); setMessage("Signup link copied."); }
     } catch { setMessage("Sharing was cancelled or unavailable. Use Copy signup link."); }
   }
-  return <div className={styles.form}>
+  return <div className={styles.form} data-client-signup-tools>
     <p className={styles.formHint}>Scan to start Client signup. Use your invited email for gym access.</p>
     <QrCode label="Ravoge Client signup" url={url} />
     <div className={styles.accessActions}><CopyLinkButton label="Copy signup link" url={url} /><button className={styles.secondaryAction} onClick={share} type="button">Share signup link</button></div>

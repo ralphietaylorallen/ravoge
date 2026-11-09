@@ -60,7 +60,7 @@ test("Coach calendar persists daily selections and onboarding lives in Add Clien
     await page.getByRole("navigation", { name: "coach navigation" }).getByRole("link", { name: "Add Client", exact: true }).click();
     await expect(page).toHaveURL(/\/coach\/add-client$/);
     await expect(page.getByRole("heading", { name: "Add Client", exact: true })).toBeVisible();
-    await expect(page.locator('[data-qr-value]')).toHaveAttribute("data-qr-value", /\/enroll\/client\?token=/);
+    await expect(page.locator('[data-client-signup-tools] [data-qr-value]')).toHaveAttribute("data-qr-value", /\/enroll\/client\?token=/);
     await expect(page.getByRole("button", { name: "Copy signup link", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Share signup link", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Invite a client", exact: true })).toBeVisible();
@@ -68,9 +68,20 @@ test("Coach calendar persists daily selections and onboarding lives in Add Clien
     await page.screenshot({ path: `test-results/coach-ui-add-client-${width}.png`, fullPage: true });
     const logo = page.locator('a[aria-label="Ravoge home"]:visible').first();
     await expect(logo).toHaveAttribute("href", "/coach");
+    await expect(logo.locator("img")).toBeVisible();
+    expect(await logo.locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     await logo.focus(); await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/coach$/);
   }
+  await page.goto("/coach/add-client");
+  const recipient = process.env.BETA_QA_NEW_CLIENT_EMAIL!;
+  await page.getByLabel("Email", { exact: true }).fill(recipient);
+  await page.getByRole("button", { name: "Send invite", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Invitation history", exact: true })).toBeVisible();
+  await expect(page.locator("li").filter({ hasText: recipient })).toContainText("pending");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "Revoke", exact: true }).click();
+  await expect(page.locator("li").filter({ hasText: recipient })).toContainText("revoked");
   await page.goto("/home"); await expect(page).toHaveURL(/\/coach$/);
   const context = await browser.newContext();
   const p = await context.newPage();
