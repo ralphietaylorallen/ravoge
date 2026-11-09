@@ -135,7 +135,6 @@ export type PlannedWorkoutActionState = {
   message?: string;
   status: "idle" | "error" | "success";
   workoutId?: string;
-  clearForm?: boolean;
 };
 
 export async function planWorkoutAction(
@@ -229,7 +228,6 @@ export async function planWorkoutAction(
     status: "success",
     message: `Workout planned for ${scheduledDate} at ${scheduledTime}.`,
     workoutId,
-    clearForm: formData.get("saveIntent") === "another",
   };
 }
 
