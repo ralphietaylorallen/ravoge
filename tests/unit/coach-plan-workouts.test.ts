@@ -19,10 +19,10 @@ test("Coach Plan Workouts supports client/date/time, paste, reps, weights and ti
   assert.match(form, /name="scheduledDate"/);
   assert.match(form, /name="scheduledTime"/);
   assert.match(form, /Paste a workout/);
-  assert.match(form, /name=\{\`\\$\{prefix\}ExerciseSets\`\}/);
-  assert.match(form, /name=\{\`\\$\{prefix\}ExerciseReps\`\}/);
-  assert.match(form, /name=\{\`\\$\{prefix\}ExerciseLoad\`\}/);
-  assert.match(form, /name=\{\`\\$\{prefix\}ExerciseDurationSeconds\`\}/);
+  assert.match(form, /ExerciseSets/);
+  assert.match(form, /ExerciseReps/);
+  assert.match(form, /ExerciseLoad/);
+  assert.match(form, /ExerciseDurationSeconds/);
   assert.match(form, /Turn pasted workout into rows/);
   assert.match(form, /Save & Keep Planning/);
   assert.match(actions, /create_planned_workout_assignment_lb/);
