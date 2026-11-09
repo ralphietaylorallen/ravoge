@@ -38,6 +38,8 @@ test("A saved workout opens after readiness instead of generating another draft"
   ]);
 
   assert.match(route, /scheduled_date", today/);
+  assert.match(route, /currentMinutes/);
+  assert.match(route, /closestTimedWorkout/);
   assert.match(route, /existingWorkout/);
   assert.ok(route.indexOf("existingWorkout") < route.indexOf("createGeneratedWorkoutDraft"));
   assert.match(train, /Save readiness & open planned workout/);
