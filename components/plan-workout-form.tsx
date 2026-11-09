@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 
 import { planWorkoutAction, type PlannedWorkoutActionState } from "@/app/coach/actions";
 import styles from "./dashboard.module.css";
@@ -41,16 +41,6 @@ export function PlanWorkoutForm({ clients, defaultClientId = "" }: { clients: Cl
   const [rows, setRows] = useState<ExerciseRow[]>([blankRow(1)]);
   const [nextId, setNextId] = useState(2);
   const [paste, setPaste] = useState("");
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.status !== "success" || !state.clearForm) return;
-    formRef.current?.reset();
-    setRows([blankRow(1)]);
-    setNextId(2);
-    setPaste("");
-  }, [state]);
-
   function updateRow(id: number, patch: Partial<ExerciseRow>) {
     setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row));
   }
@@ -74,7 +64,7 @@ export function PlanWorkoutForm({ clients, defaultClientId = "" }: { clients: Cl
     setNextId(parsed.length + 1);
   }
 
-  return <form ref={formRef} action={action} className={styles.workoutForm}>
+  return <form action={action} className={styles.workoutForm}>
     <div className={styles.formColumns}>
       <label className={styles.field}><span>Client</span><select name="clientId" required defaultValue={defaultClientId}><option value="" disabled>Select client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
       <label className={styles.field}><span>Workout name</span><input name="title" maxLength={120} required placeholder="Lower body strength" /></label>
@@ -112,7 +102,7 @@ export function PlanWorkoutForm({ clients, defaultClientId = "" }: { clients: Cl
     <div className={styles.reviewFooter}>
       <p>Timed exercises automatically include Ravoge’s workout timer. Saving this plan makes it the Client’s scheduled workout and prevents a duplicate generated workout for that day.</p>
       <div className={styles.accessActions}>
-        <button className={styles.secondaryAction} name="saveIntent" value="another" disabled={pending}>Save + Plan Another</button>
+        <button className={styles.secondaryAction} name="saveIntent" value="another" disabled={pending}>Save & Keep Planning</button>
         <button className={styles.action} name="saveIntent" value="save" disabled={pending}>{pending ? "Saving…" : "Save Planned Workout"}</button>
       </div>
     </div>
