@@ -96,7 +96,7 @@ export function PlanWorkoutForm({ clients }: { clients: ClientOption[] }) {
     <div className={styles.exerciseList}>
       {rows.map((row, index) => <fieldset className={styles.exerciseRow} key={row.id}>
         <legend>Exercise {index + 1}</legend>
-        <label className={${styles.field} ${styles.exerciseName}}><span>Exercise</span><input name="exerciseName" value={row.name} onChange={(event) => updateRow(row.id, { name: event.target.value })} maxLength={120} required /></label>
+        <label className={`${styles.field} ${styles.exerciseName}`}><span>Exercise</span><input name="exerciseName" value={row.name} onChange={(event) => updateRow(row.id, { name: event.target.value })} maxLength={120} required /></label>
         <label className={styles.field}><span>Sets</span><input name="exerciseSets" value={row.sets} onChange={(event) => updateRow(row.id, { sets: event.target.value })} type="number" min={1} max={100} required /></label>
         <label className={styles.field}><span>Type</span><select name="exerciseMode" value={row.mode} onChange={(event) => updateRow(row.id, { mode: event.target.value as ExerciseRow["mode"] })}><option value="reps">Reps</option><option value="time">Timed</option></select></label>
         {row.mode === "reps"
@@ -104,7 +104,7 @@ export function PlanWorkoutForm({ clients }: { clients: ClientOption[] }) {
           : <label className={styles.field}><span>Time per set (seconds)</span><input name="exerciseDurationSeconds" value={row.duration} onChange={(event) => updateRow(row.id, { duration: event.target.value })} type="number" min={5} max={1200} required /><input type="hidden" name="exerciseReps" value="1" /></label>}
         <label className={styles.field}><span>Weight (lb)</span><input name="exerciseLoad" value={row.load} onChange={(event) => updateRow(row.id, { load: event.target.value })} type="number" min={0} max={100000} step="0.5" /></label>
         <label className={styles.field}><span>Rest (seconds, optional)</span><input name="exerciseRestSeconds" value={row.rest} onChange={(event) => updateRow(row.id, { rest: event.target.value })} type="number" min={0} max={1200} /></label>
-        <label className={${styles.field} ${styles.exerciseNotes}}><span>Notes</span><input name="exerciseNotes" value={row.notes} onChange={(event) => updateRow(row.id, { notes: event.target.value })} maxLength={1000} placeholder="Tempo, cues, modification, etc." /></label>
+        <label className={`${styles.field} ${styles.exerciseNotes}`}><span>Notes</span><input name="exerciseNotes" value={row.notes} onChange={(event) => updateRow(row.id, { notes: event.target.value })} maxLength={1000} placeholder="Tempo, cues, modification, etc." /></label>
         <button className={styles.removeAction} type="button" disabled={rows.length === 1} onClick={() => removeExercise(row.id)}>Remove</button>
       </fieldset>)}
     </div>
@@ -116,6 +116,6 @@ export function PlanWorkoutForm({ clients }: { clients: ClientOption[] }) {
         <button className={styles.action} name="saveIntent" value="save" disabled={pending}>{pending ? "Saving…" : "Save Planned Workout"}</button>
       </div>
     </div>
-    {state.message && <p className={${styles.notice} ${state.status === "error" ? styles.error : ""}} role="status">{state.message}</p>}
+    {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
   </form>;
 }
