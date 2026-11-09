@@ -50,10 +50,16 @@ declare
   client_a_load numeric;
   client_b_load numeric;
 begin
-  select count(*), min(paired_workout_group_id)
-  into group_count, group_id
+  select count(*)
+  into group_count
   from public.workout_assignments
   where organization_id = '71000000-0000-0000-0000-000000000010';
+
+  select paired_workout_group_id
+  into group_id
+  from public.workout_assignments
+  where organization_id = '71000000-0000-0000-0000-000000000010'
+  limit 1;
 
   if group_count <> 2 or group_id is null then
     raise exception 'Paired session did not create exactly two linked workout assignments';
