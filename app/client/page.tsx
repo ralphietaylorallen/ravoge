@@ -10,6 +10,7 @@ type ClientWorkout = {
   completed_at: string | null;
   id: string;
   scheduled_date: string;
+  scheduled_time: string | null;
   status: "assigned" | "in_progress" | "completed" | "cancelled";
   title: string;
   workout_exercises: { completed_at: string | null; id: string }[];
@@ -26,7 +27,7 @@ function WorkoutList({ empty, workouts }: { empty: string; workouts: ClientWorko
             <Link href={`/client/workouts/${workout.id}`}>
               <div>
                 <strong>{workout.title}</strong>
-                <time dateTime={workout.scheduled_date}>{workout.scheduled_date}</time>
+                <time dateTime={workout.scheduled_date}>{workout.scheduled_date}{workout.scheduled_time ? ` · ${workout.scheduled_time.slice(0, 5)}` : ""}</time>
               </div>
               <span>
                 {workout.status.replaceAll("_", " ")} · {completedExercises}/{workout.workout_exercises.length} exercises
@@ -47,7 +48,7 @@ export default async function ClientPage() {
     supabase.from("coach_client_assignments").select("coach_user_id").eq("organization_id", membership.organization_id).eq("status", "active").limit(1).maybeSingle(),
     supabase
       .from("workout_assignments")
-      .select("id,title,scheduled_date,status,completed_at,workout_exercises(id,completed_at)")
+      .select("id,title,scheduled_date,scheduled_time,status,completed_at,workout_exercises(id,completed_at)")
       .eq("organization_id", membership.organization_id)
       .eq("client_user_id", userId)
       .neq("status", "cancelled")

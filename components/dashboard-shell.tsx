@@ -33,7 +33,7 @@ export async function DashboardShell({
   const navigation = role === "owner"
     ? [{ href: "/owner", label: "Overview" }, { href: "/owner/team", label: "Team" }, { href: "/owner/schedule", label: "Schedule" }, { href: "/owner/clients", label: "Clients" }, { href: "/owner/reports", label: "Reports" }, { href: "/owner/revenue", label: "Revenue" }, { href: "/owner/equipment", label: "Equipment" }, { href: "/owner/training-library", label: "Training library" }, { href: "/owner/apps", label: "Apps & access" }, { href: "/owner/demo", label: "Demo" }]
     : role === "coach"
-      ? [{ href: "/coach", label: "Overview & clients" }, { href: "/coach/schedule", label: "Schedule" }, { href: "/coach/availability", label: "Availability" }, { href: "/coach/profile", label: "Profile" }]
+      ? [{ href: "/coach", label: "Overview & clients" }, { href: "/coach/plan-workouts", label: "Plan Workouts" }, { href: "/coach/schedule", label: "Schedule" }, { href: "/coach/availability", label: "Availability" }, { href: "/coach/profile", label: "Profile" }]
       : [{ href: "/client", label: "Workouts" }, { href: "/client/my-day", label: "My day" }, { href: "/client/book", label: "Book" }, { href: "/client/schedule", label: "Schedule" }, { href: "/client/profile", label: "Profile" }];
   if (role === "owner" || (role === "coach" && groupProgrammingAllowed === true)) navigation.push({ href: `/${role}/group-programming`, label: "Group Class Programming" });
   if (role === "owner") { navigation.splice(2,0,{href:"/owner/announcements",label:"Announcements"}); navigation.push({ href: "/owner/mindbody", label: "Mindbody Integration" }); }

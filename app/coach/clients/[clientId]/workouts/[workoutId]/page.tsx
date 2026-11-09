@@ -22,6 +22,34 @@ export default async function WorkoutExecutionPage({params}:{params:Promise<{cli
     supabase.from("workout_assignments").select("id,title,scheduled_date,status").eq("organization_id",membership.organization_id).eq("client_user_id",clientId).eq("coach_user_id",userId).neq("id",workoutId).order("scheduled_date",{ascending:false}).limit(4),
   ]);
   if(!workout||!client) notFound();
+
+  let pairedTabs: { workoutId: string; clientId: string; name: string; status: string }[] = [];
+  if (workout.paired_workout_group_id) {
+    const { data: pairedWorkouts } = await supabase
+      .from("workout_assignments")
+      .select("id,client_user_id,status")
+      .eq("organization_id", membership.organization_id)
+      .eq("coach_user_id", userId)
+      .eq("paired_workout_group_id", workout.paired_workout_group_id)
+      .order("created_at", { ascending: true });
+
+    const pairedClientIds = [...new Set((pairedWorkouts ?? []).map((item) => item.client_user_id))];
+    const { data: pairedProfiles } = pairedClientIds.length
+      ? await supabase.from("profiles").select("id,full_name,preferred_name").in("id", pairedClientIds)
+      : { data: [] };
+    const pairedProfileMap = new Map((pairedProfiles ?? []).map((profile) => [profile.id, profile]));
+
+    pairedTabs = (pairedWorkouts ?? []).map((item) => {
+      const profile = pairedProfileMap.get(item.client_user_id);
+      return {
+        workoutId: item.id,
+        clientId: item.client_user_id,
+        name: profile?.preferred_name || profile?.full_name || "Client",
+        status: item.status,
+      };
+    });
+  }
+
   if(workout.status==="completed")return <SessionReportPage role="coach" clientId={clientId} workoutId={workoutId}/>;
   const exercises=[...workout.workout_exercises].sort((a,b)=>a.sort_order-b.sort_order) as ExecutionExercise[];
   const sets=exercises.flatMap((exercise)=>exercise.workout_sets);
@@ -33,6 +61,15 @@ export default async function WorkoutExecutionPage({params}:{params:Promise<{cli
   const {data:substitutions}=substitutionIds.length?await supabase.from("exercise_library").select("id,name").in("id",substitutionIds).eq("is_active",true):{data:[]};
   return <DashboardShell compact gymName={org?.name??"Gym"} name={actor?.full_name??"Coach"} role="coach">
     <Link className={styles.backLink} href={`/coach/clients/${clientId}`}>← {name} · Workout plan</Link>
+    {pairedTabs.length > 1 && <nav className={styles.clientTabs} aria-label="Paired session clients">
+      {pairedTabs.map((tab) => <Link
+        key={tab.workoutId}
+        className={tab.workoutId === workoutId ? styles.clientTabActive : styles.clientTab}
+        href={`/coach/clients/${tab.clientId}/workouts/${tab.workoutId}`}
+      >
+        {tab.name}
+      </Link>)}
+    </nav>}
     <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Workout Plan</p><h2>{workout.title}</h2><p className={styles.profileMeta}>{name} · {workout.scheduled_date}</p></div><span className={locked?styles.successPill:styles.mutedPill}>{workout.status.replaceAll("_"," ")}</span></div>
     {workout.instructions&&<p className={styles.notice}>{workout.instructions}</p>}
     <TrainingReadinessHistory clientId={clientId}/>

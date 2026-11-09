@@ -111,6 +111,17 @@
 .choiceGrid label { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.55rem 0.7rem; border: 1px solid var(--ui-divider, #d8d4ca); background: var(--ui-input, #fff); color: var(--ui-muted, #525550); font-size: 0.72rem; }
 .choiceGrid input { accent-color: #8a6b3d; }
 .formHint { margin: 0; color: var(--ui-muted, #7b7e78); font-size: 0.75rem; line-height: 1.55; }
+.partnerPanel { display: grid; padding: 1rem 1.2rem; border: 1px solid var(--ui-divider, #dcd8cf); background: var(--ui-surface, #f6f1e8); gap: 0.8rem; }
+.partnerPanel > p { margin: 0; color: var(--ui-muted, #6f726d); font-size: 0.76rem; line-height: 1.55; }
+.partnerToggle { display: inline-flex; width: fit-content; align-items: center; gap: 0.55rem; color: var(--ui-text, #272a27); font-size: 0.8rem; font-weight: 700; }
+.partnerToggle input { width: 1rem; height: 1rem; accent-color: #8a6b3d; }
+.clientTabs { display: flex; gap: 0.45rem; margin: 0.5rem 0 0.9rem; padding: 0.35rem; border: 1px solid var(--ui-divider, #d7d2c8); background: var(--ui-surface, #f0ece3); overflow-x: auto; }
+.clientTab, .clientTabActive { min-width: 8rem; min-height: 2.8rem; padding: 0.65rem 1rem; border: 1px solid transparent; background: transparent; color: var(--ui-muted, #6f726d); cursor: pointer; font: inherit; font-size: 0.74rem; font-weight: 700; white-space: nowrap; }
+.clientTabActive { border-color: #171918; background: #171918; color: #fff; }
+.clientTab:hover, .clientTab:focus-visible { border-color: var(--ui-gold, #a98755); color: var(--ui-text, #272a27); outline: none; }
+.clientTabActive:focus-visible { outline: 2px solid #a98755; outline-offset: 2px; }
+.inputWithSuffix { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
+.inputWithSuffix > span { display: grid; min-width: 2.8rem; place-items: center; border: 1px solid var(--ui-divider, #d8d4ca); border-left: 0; background: var(--ui-surface, #f0eee8); color: var(--ui-muted, #6f726d); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; }
 .exerciseHeader { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.25rem; }
 .exerciseHeader h3 { margin: 0; color: var(--ui-muted, #656862); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; }
 .textAction, .removeAction { border: 0; background: transparent; color: var(--ui-gold, #7d5b2c); cursor: pointer; font: inherit; font-size: 0.63rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
