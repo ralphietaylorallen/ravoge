@@ -854,3 +854,54 @@
   .shell[data-account-role="owner"] .teamMembers > li[data-member-id] > .secondaryAction { grid-column: 1 / -1; justify-self: end; }
   .shell[data-account-role="owner"] :is(.formColumns, .threeColumns) { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* Coach weekly booking calendar */
+.calendarPanel { position: relative; padding: clamp(1rem, 2vw, 1.5rem); border: 1px solid var(--ui-divider, #d7d2c8); background: var(--ui-input, #fbfaf7); box-shadow: 0 12px 36px rgb(37 34 28 / 0.04); }
+.calendarToolbar { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; margin-bottom: 1rem; }
+.calendarToolbar h3 { margin: 0.35rem 0 0; font-family: "Space Grotesk Variable", sans-serif; font-size: clamp(1.35rem, 2.3vw, 2rem); font-weight: 600; letter-spacing: -0.035em; }
+.calendarControls { display: flex; align-items: end; gap: 0.65rem; flex-wrap: wrap; }
+.calendarControls .field { min-width: 9rem; }
+.calendarWeekButtons { display: flex; gap: 0.45rem; }
+.bigCalendarScroll { margin-top: 1rem; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--ui-divider, #d8d4ca); background: #fff; overscroll-behavior-x: contain; }
+.bigCalendar { display: grid; min-width: 70rem; position: relative; isolation: isolate; }
+.calendarCorner, .calendarDayHeader { position: sticky; top: 0; z-index: 8; border-right: 1px solid var(--ui-divider, #ddd8ce); border-bottom: 1px solid var(--ui-divider, #d3cec4); background: #f4f0e7; }
+.calendarCorner { left: 0; display: grid; place-items: end center; padding: 0.7rem 0.25rem; color: var(--ui-muted, #777a75); font-size: 0.58rem; font-weight: 750; letter-spacing: 0.11em; text-transform: uppercase; }
+.calendarDayHeader { display: grid; align-content: center; justify-items: center; gap: 0.25rem; padding: 0.65rem; }
+.calendarDayHeader strong { font-family: "Space Grotesk Variable", sans-serif; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; }
+.calendarDayHeader span { color: var(--ui-muted, #777a75); font-size: 0.65rem; }
+.calendarTimeLabel { position: sticky; left: 0; z-index: 5; display: flex; align-items: start; justify-content: end; padding: 0.1rem 0.45rem 0 0; border-right: 1px solid var(--ui-divider, #d8d4ca); border-bottom: 1px solid #eeeae2; background: #faf8f3; color: var(--ui-muted, #81847e); font-size: 0.58rem; line-height: 1; }
+.calendarCell { z-index: 0; border-right: 1px solid #ece8df; border-bottom: 1px solid #f0ece5; background: #fff; }
+.calendarOpenSlot { z-index: 2; min-width: 0; margin: 1px 3px; padding: 0 0.25rem; overflow: hidden; border: 1px dashed #b69b6e; background: #faf3e6; color: #6f5128; cursor: pointer; font: inherit; font-size: 0.58rem; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+.calendarOpenSlot:hover, .calendarOpenSlot:focus-visible { z-index: 6; border-style: solid; border-color: #7a5b2e; background: #e9dcc3; outline: 2px solid rgb(169 135 85 / 0.22); outline-offset: 1px; }
+.calendarBooking { z-index: 4; display: grid; align-content: start; margin: 2px 4px; padding: 0.45rem 0.5rem; overflow: hidden; border: 1px solid #3c3e39; border-radius: 3px; background: #202421; color: #fff; text-decoration: none; box-shadow: 0 4px 12px rgb(16 18 16 / 0.12); }
+.calendarBooking strong { overflow: hidden; font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; }
+.calendarBooking span { margin-top: 0.18rem; overflow: hidden; color: #d8d7cf; font-size: 0.56rem; text-overflow: ellipsis; white-space: nowrap; }
+.calendarBooking:hover, .calendarBooking:focus-visible { z-index: 7; background: #111412; outline: 2px solid #b99862; outline-offset: 1px; }
+.calendarConfirmBackdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 1rem; background: rgb(11 13 11 / 0.72); backdrop-filter: blur(3px); }
+.calendarConfirmCard { display: grid; width: min(100%, 34rem); max-height: calc(100svh - 2rem); padding: clamp(1.2rem, 3vw, 2rem); overflow-y: auto; border: 1px solid #9d835a; background: #f8f5ee; color: #171a18; box-shadow: 0 28px 80px rgb(0 0 0 / 0.35); gap: 1rem; }
+.calendarConfirmCard h3 { margin: 0.4rem 0 0; font-family: "Space Grotesk Variable", sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.04em; }
+.calendarConfirmFacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border: 1px solid #ddd6c9; }
+.calendarConfirmFacts div { min-width: 0; padding: 0.8rem; border-right: 1px solid #ddd6c9; }
+.calendarConfirmFacts div:last-child { border-right: 0; }
+.calendarConfirmFacts dt { color: #7a7469; font-size: 0.56rem; font-weight: 750; letter-spacing: 0.1em; text-transform: uppercase; }
+.calendarConfirmFacts dd { margin: 0.35rem 0 0; font-size: 0.76rem; font-weight: 600; line-height: 1.4; }
+.calendarConfirmActions { display: flex; justify-content: flex-end; gap: 0.6rem; }
+.calendarConfirmActions button { min-width: 9rem; }
+
+@media (max-width: 900px) {
+  .calendarToolbar { align-items: stretch; flex-direction: column; }
+  .calendarControls { display: grid; grid-template-columns: 1fr 1fr; }
+  .calendarWeekButtons { grid-column: 1 / -1; }
+  .calendarWeekButtons button { flex: 1; }
+  .bigCalendar { min-width: 62rem; }
+}
+@media (max-width: 600px) {
+  .calendarControls { grid-template-columns: 1fr; }
+  .calendarWeekButtons { grid-column: auto; }
+  .calendarConfirmFacts { grid-template-columns: 1fr; }
+  .calendarConfirmFacts div { border-right: 0; border-bottom: 1px solid #ddd6c9; }
+  .calendarConfirmFacts div:last-child { border-bottom: 0; }
+  .calendarConfirmActions { flex-direction: column-reverse; }
+  .calendarConfirmActions button { width: 100%; }
+}

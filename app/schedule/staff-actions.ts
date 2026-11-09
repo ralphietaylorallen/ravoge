@@ -29,6 +29,61 @@ export async function claimClientAction(clientId: string, _state: StaffScheduleS
   return { status: "success", message: "Client assigned. You can now schedule a session." };
 }
 
+export async function createCoachCalendarBookingAction(_state: StaffScheduleState, formData: FormData): Promise<StaffScheduleState> {
+  const { supabase, userId } = await requireRole("coach");
+  const clientId = String(formData.get("clientId") ?? "");
+  const startsAt = String(formData.get("startsAt") ?? "");
+  const duration = Number(formData.get("duration"));
+  const notes = String(formData.get("notes") ?? "").trim();
+  const kind = String(formData.get("kind") ?? "training");
+
+  if (
+    !UUID.test(clientId) ||
+    !Number.isFinite(Date.parse(startsAt)) ||
+    !Number.isInteger(duration) ||
+    duration < 15 ||
+    duration > 120 ||
+    notes.length > 1000 ||
+    (kind !== "intake" && kind !== "training")
+  ) {
+    return { status: "error", message: "Choose a client and an available calendar time." };
+  }
+
+  const { data: assigned } = await supabase
+    .from("coach_client_assignments")
+    .select("client_user_id")
+    .eq("coach_user_id", userId)
+    .eq("client_user_id", clientId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (!assigned) return { status: "error", message: "That Client is not currently assigned to you." };
+
+  const { error } = await supabase.rpc("create_staff_appointment", {
+    appointment_kind: kind,
+    staff_notes: notes || null,
+    target_client_user_id: clientId,
+    target_coach_user_id: userId,
+    target_duration: duration,
+    target_starts_at: new Date(startsAt).toISOString(),
+  });
+
+  if (error) {
+    return {
+      status: "error",
+      message: error.message.includes("just booked") || error.message.includes("not available")
+        ? "That calendar time is no longer available. Choose another."
+        : "The session could not be booked.",
+    };
+  }
+
+  refreshSchedules(clientId);
+  return {
+    status: "success",
+    message: "Session confirmed and booked. Coach and Client schedules are updated.",
+    confirmedStartsAt: new Date(startsAt).toISOString(),
+  };
+}
+
 export async function createStaffBookingAction(role: "owner" | "coach", clientId: string, coachId: string, _state: StaffScheduleState, formData: FormData): Promise<StaffScheduleState> {
   const { supabase } = await requireRole(role);
   const startsAt = String(formData.get("startsAt") ?? "");
