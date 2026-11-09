@@ -24,7 +24,7 @@ test("Coach Plan Workouts supports client/date/time, paste, reps, weights and ti
   assert.match(form, /name="exerciseLoad"/);
   assert.match(form, /name="exerciseDurationSeconds"/);
   assert.match(form, /Turn pasted workout into rows/);
-  assert.match(form, /Save \+ Plan Another/);
+  assert.match(form, /Save & Keep Planning/);
   assert.match(actions, /create_planned_workout_assignment_lb/);
   assert.match(migration, /scheduled_time time without time zone/);
   assert.match(migration, /'measurement','time'/);
