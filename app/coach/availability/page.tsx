@@ -1,23 +1,41 @@
-import { deleteAvailabilityAction, deleteAvailabilityExceptionAction } from "@/app/schedule/actions";
-import { AvailabilityExceptionForm, AvailabilityWindowForm } from "@/components/schedule-forms";
+import { CoachAvailabilityCalendar } from "@/components/coach-availability-calendar";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { requireRole } from "@/lib/auth";
-import { formatZonedDateTime } from "@/lib/timezone";
-import { MutationActionForm } from "@/components/mutation-action-form";
+import { availabilityForDate, monthDates, validLocalDate } from "@/lib/coach-availability";
+import { localDateInTimeZone, localDateStartIso, shiftLocalDate } from "@/lib/timezone";
 
-const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-export default async function CoachAvailabilityPage() {
+export default async function CoachAvailabilityPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+  const query = await searchParams;
   const { membership, supabase, userId } = await requireRole("coach");
-  const [{ data: profile }, { data: organization }, { data: windows }, { data: exceptions }] = await Promise.all([
+  const [profile, organization] = await Promise.all([
     supabase.from("profiles").select("full_name,preferred_name").eq("id", userId).single(),
     supabase.from("organizations").select("name,timezone").eq("id", membership.organization_id).single(),
-    supabase.from("coach_availability").select("id,day_of_week,starts_at,ends_at").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).order("day_of_week").order("starts_at"),
-    supabase.from("coach_availability_exceptions").select("id,kind,starts_at,ends_at,label").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).gte("ends_at", new Date().toISOString()).order("starts_at"),
   ]);
-  const timezone = organization?.timezone ?? "America/Denver";
-  return <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.preferred_name || profile?.full_name || "Coach"} role="coach">
-    <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Coach schedule</p><h2>Availability</h2></div><p>Weekly windows are intersected with gym hours. Blocks, time off, bookings, closures, and buffers are removed automatically.</p></div>
-    <div className={styles.detailGrid}><section className={styles.panel}><h2>Add weekly window</h2><AvailabilityWindowForm /></section><section className={styles.panel}><h2>Recurring availability</h2>{windows?.length ? <ul className={styles.list}>{windows.map((row: { id: string; day_of_week: number; starts_at: string; ends_at: string }) => <li key={row.id}><span>{days[row.day_of_week]} · {row.starts_at.slice(0,5)}–{row.ends_at.slice(0,5)}</span><MutationActionForm action={deleteAvailabilityAction.bind(null, row.id)} confirmMessage="Remove this weekly availability window?" label="Remove" /></li>)}</ul> : <p className={styles.empty}>No weekly availability yet.</p>}</section></div>
-    <section className={styles.workspaceSection}><div className={styles.detailGrid}><section className={styles.panel}><h2>Block or override</h2><AvailabilityExceptionForm timezone={timezone} /></section><section className={styles.panel}><h2>Upcoming exceptions</h2>{exceptions?.length ? <ul className={styles.activityList}>{exceptions.map((row: { id: string; kind: string; starts_at: string; ends_at: string; label: string | null }) => <li key={row.id}><div><strong>{row.label || row.kind.replaceAll("_", " ")}</strong><small>{formatZonedDateTime(row.starts_at, timezone)}–{formatZonedDateTime(row.ends_at, timezone, { hour: "numeric", minute: "2-digit", timeZone: timezone })}</small></div><MutationActionForm action={deleteAvailabilityExceptionAction.bind(null, row.id)} confirmMessage="Remove this availability exception?" label="Remove" /></li>)}</ul> : <p className={styles.empty}>No upcoming exceptions.</p>}</section></div></section>
+  const timezone = organization.data?.timezone ?? "America/Denver";
+  const today = localDateInTimeZone(new Date(), timezone);
+  const date = query.date && validLocalDate(query.date) ? query.date : today;
+  const dates = monthDates(date);
+  const start = localDateStartIso(dates[0], timezone)!;
+  const end = localDateStartIso(shiftLocalDate(dates.at(-1)!, 1)!, timezone)!;
+  const loadExceptions = async () => {
+    const data = [];
+    for (let offset = 0; ; offset += 500) {
+      const batch = await supabase.from("coach_availability_exceptions").select("kind,starts_at,ends_at,label").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).lt("starts_at", end).gt("ends_at", start).order("id").range(offset, offset + 499);
+      if (batch.error) return { data: [], error: batch.error };
+      data.push(...(batch.data ?? []));
+      if ((batch.data?.length ?? 0) < 500) return { data, error: null };
+    }
+  };
+  const [windows, exceptions, hours, specials] = await Promise.all([
+    supabase.from("coach_availability").select("day_of_week,starts_at,ends_at").eq("organization_id", membership.organization_id).eq("coach_user_id", userId),
+    loadExceptions(),
+    supabase.from("organization_hours").select("day_of_week,is_closed,opens_at,closes_at").eq("organization_id", membership.organization_id),
+    supabase.from("organization_special_hours").select("local_date,is_closed,opens_at,closes_at").eq("organization_id", membership.organization_id).gte("local_date", dates[0]).lte("local_date", dates.at(-1)!),
+  ]);
+  const failed = [profile, organization, windows, exceptions, hours, specials].some(result => result.error);
+  const days = Object.fromEntries(dates.map(d => [d, availabilityForDate(d, timezone, windows.data ?? [], exceptions.data ?? [], hours.data ?? [], specials.data ?? [])]));
+  return <DashboardShell compact gymName={organization.data?.name ?? "Ravoge gym"} name={profile.data?.preferred_name || profile.data?.full_name || "Coach"} role="coach">
+    <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Coach schedule</p><h2>Availability</h2></div><p>Choose a date and tap the hours you can train. Saved times use the same availability system as Client bookings.</p></div>
+    {failed ? <p className={`${styles.notice} ${styles.error}`} role="alert">Availability could not be loaded. Reload before editing.</p> : <CoachAvailabilityCalendar key={date} date={date} today={today} timezone={timezone} days={days} />}
   </DashboardShell>;
 }

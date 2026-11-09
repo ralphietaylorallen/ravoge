@@ -115,3 +115,10 @@ export async function rotateOrganizationEnrollmentCredential(
   });
   if (error) throw new Error("Ravoge could not rotate the organization enrollment credential.");
 }
+
+export async function getCoachClientEnrollmentCredential(supabase: SupabaseClient, organizationId: string) {
+  const { data, error } = await supabase.rpc("get_coach_client_enrollment_credential", { target_organization_id: organizationId });
+  if (error) throw new Error("Client signup link could not be loaded.");
+  const row = (data as CredentialRow[] | null)?.[0];
+  return row ? credentialFromRow(row) : null;
+}
