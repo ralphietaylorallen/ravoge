@@ -131,48 +131,36 @@ export async function createWorkoutAction(
 }
 
 
-export type PlannedWorkoutActionState = {
-  message?: string;
-  status: "idle" | "error" | "success";
-  workoutId?: string;
+type PlannedExerciseInput = {
+  name: string;
+  sets: number;
+  reps: number;
+  load: string | null;
+  notes: string | null;
+  mode: "reps" | "time";
+  durationSeconds: number | null;
+  restSeconds: number | null;
 };
 
-export async function planWorkoutAction(
-  _state: PlannedWorkoutActionState,
+function parsePlannedExercises(
   formData: FormData,
-): Promise<PlannedWorkoutActionState> {
-  const { supabase } = await requireRole("coach");
-  const clientId = String(formData.get("clientId") ?? "");
-  if (!UUID_PATTERN.test(clientId)) return { status: "error", message: "Choose an assigned client." };
+  prefix: "primary" | "secondary",
+  names: string[],
+  modes: string[],
+): { exercises?: PlannedExerciseInput[]; error?: string } {
+  const sets = getStrings(formData, `${prefix}ExerciseSets`);
+  const reps = getStrings(formData, `${prefix}ExerciseReps`);
+  const loads = getStrings(formData, `${prefix}ExerciseLoad`);
+  const notes = getStrings(formData, `${prefix}ExerciseNotes`);
+  const durations = getStrings(formData, `${prefix}ExerciseDurationSeconds`);
+  const rests = getStrings(formData, `${prefix}ExerciseRestSeconds`);
+  const columns = [sets, reps, loads, notes, durations, rests];
 
-  const title = String(formData.get("title") ?? "").trim();
-  const instructions = String(formData.get("instructions") ?? "").trim();
-  const scheduledDate = String(formData.get("scheduledDate") ?? "");
-  const scheduledTime = String(formData.get("scheduledTime") ?? "");
-  if (title.length < 2 || title.length > 120) return { status: "error", message: "Enter a workout name between 2 and 120 characters." };
-  if (instructions.length > 4000) return { status: "error", message: "Instructions must be 4,000 characters or fewer." };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate) || Number.isNaN(Date.parse(`${scheduledDate}T00:00:00Z`))) {
-    return { status: "error", message: "Choose a valid workout date." };
-  }
-  const timeMatch = /^(\d{2}):(\d{2})$/.exec(scheduledTime);
-  if (!timeMatch || Number(timeMatch[1]) > 23 || Number(timeMatch[2]) > 59) {
-    return { status: "error", message: "Choose a valid workout time." };
+  if (names.length < 1 || names.length > 30 || modes.length !== names.length || columns.some((values) => values.length !== names.length)) {
+    return { error: "Add between 1 and 30 complete exercises." };
   }
 
-  const names = getStrings(formData, "exerciseName");
-  const sets = getStrings(formData, "exerciseSets");
-  const reps = getStrings(formData, "exerciseReps");
-  const loads = getStrings(formData, "exerciseLoad");
-  const notes = getStrings(formData, "exerciseNotes");
-  const modes = getStrings(formData, "exerciseMode");
-  const durations = getStrings(formData, "exerciseDurationSeconds");
-  const rests = getStrings(formData, "exerciseRestSeconds");
-  const columns = [sets, reps, loads, notes, modes, durations, rests];
-  if (names.length < 1 || names.length > 30 || columns.some((values) => values.length !== names.length)) {
-    return { status: "error", message: "Add between 1 and 30 complete exercises." };
-  }
-
-  const exercises = [];
+  const exercises: PlannedExerciseInput[] = [];
   for (let index = 0; index < names.length; index += 1) {
     const mode = modes[index] === "time" ? "time" : "reps";
     const parsedSets = parsePositiveInteger(sets[index], 100);
@@ -180,6 +168,7 @@ export async function planWorkoutAction(
     const parsedDuration = mode === "time" ? parsePositiveInteger(durations[index], 1200) : null;
     const parsedRest = rests[index] === "" ? null : Number(rests[index]);
     const parsedLoad = loads[index] === "" ? null : Number(loads[index]);
+
     if (
       names[index].length < 1 || names[index].length > 120 ||
       parsedSets === null || parsedReps === null ||
@@ -188,8 +177,9 @@ export async function planWorkoutAction(
       (parsedRest !== null && (!Number.isInteger(parsedRest) || parsedRest < 0 || parsedRest > 1200)) ||
       notes[index].length > 1000
     ) {
-      return { status: "error", message: `Check the values for exercise ${index + 1}.` };
+      return { error: `Check the values for exercise ${index + 1} on the ${prefix === "primary" ? "first" : "second"} client tab.` };
     }
+
     exercises.push({
       name: names[index],
       sets: parsedSets,
@@ -202,31 +192,106 @@ export async function planWorkoutAction(
     });
   }
 
-  const { data: workoutId, error } = await supabase.rpc("create_planned_workout_assignment_lb", {
-    client_user_id: clientId,
-    workout_title: title,
-    workout_instructions: instructions || null,
-    workout_scheduled_date: scheduledDate,
-    workout_scheduled_time: scheduledTime,
-    exercises,
-  });
-  if (error || typeof workoutId !== "string") {
+  return { exercises };
+}
+
+export type PlannedWorkoutActionState = {
+  message?: string;
+  status: "idle" | "error" | "success";
+  workoutId?: string;
+};
+
+export async function planWorkoutAction(
+  _state: PlannedWorkoutActionState,
+  formData: FormData,
+): Promise<PlannedWorkoutActionState> {
+  const { supabase } = await requireRole("coach");
+  const clientId = String(formData.get("clientId") ?? "");
+  const secondaryClientId = String(formData.get("secondaryClientId") ?? "").trim();
+
+  if (!UUID_PATTERN.test(clientId)) return { status: "error", message: "Choose an assigned client." };
+  if (secondaryClientId && (!UUID_PATTERN.test(secondaryClientId) || secondaryClientId === clientId)) {
+    return { status: "error", message: "Choose a different assigned training partner." };
+  }
+
+  const title = String(formData.get("title") ?? "").trim();
+  const instructions = String(formData.get("instructions") ?? "").trim();
+  const scheduledDate = String(formData.get("scheduledDate") ?? "");
+  const scheduledTime = String(formData.get("scheduledTime") ?? "");
+
+  if (title.length < 2 || title.length > 120) return { status: "error", message: "Enter a workout name between 2 and 120 characters." };
+  if (instructions.length > 4000) return { status: "error", message: "Instructions must be 4,000 characters or fewer." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate) || Number.isNaN(Date.parse(`${scheduledDate}T00:00:00Z`))) {
+    return { status: "error", message: "Choose a valid workout date." };
+  }
+  const timeMatch = /^(\d{2}):(\d{2})$/.exec(scheduledTime);
+  if (!timeMatch || Number(timeMatch[1]) > 23 || Number(timeMatch[2]) > 59) {
+    return { status: "error", message: "Choose a valid workout time." };
+  }
+
+  const names = getStrings(formData, "exerciseName");
+  const modes = getStrings(formData, "exerciseMode");
+  const primary = parsePlannedExercises(formData, "primary", names, modes);
+  if (!primary.exercises) return { status: "error", message: primary.error || "Review the first client's workout." };
+
+  let workoutId: string | undefined;
+  let secondaryWorkoutId: string | undefined;
+  let errorMessage = "";
+
+  if (secondaryClientId) {
+    const secondary = parsePlannedExercises(formData, "secondary", names, modes);
+    if (!secondary.exercises) return { status: "error", message: secondary.error || "Review the training partner's workout." };
+
+    const { data, error } = await supabase.rpc("create_paired_planned_workout_assignments_lb", {
+      primary_client_user_id: clientId,
+      secondary_client_user_id: secondaryClientId,
+      workout_title: title,
+      workout_instructions: instructions || null,
+      workout_scheduled_date: scheduledDate,
+      workout_scheduled_time: scheduledTime,
+      primary_exercises: primary.exercises,
+      secondary_exercises: secondary.exercises,
+    });
+
+    if (error) errorMessage = error.message;
+    else if (data && typeof data === "object" && !Array.isArray(data)) {
+      const result = data as Record<string, unknown>;
+      workoutId = typeof result.primaryWorkoutId === "string" ? result.primaryWorkoutId : undefined;
+      secondaryWorkoutId = typeof result.secondaryWorkoutId === "string" ? result.secondaryWorkoutId : undefined;
+    }
+  } else {
+    const { data, error } = await supabase.rpc("create_planned_workout_assignment_lb", {
+      client_user_id: clientId,
+      workout_title: title,
+      workout_instructions: instructions || null,
+      workout_scheduled_date: scheduledDate,
+      workout_scheduled_time: scheduledTime,
+      exercises: primary.exercises,
+    });
+    if (error) errorMessage = error.message;
+    else workoutId = typeof data === "string" ? data : undefined;
+  }
+
+  if (errorMessage || !workoutId || (secondaryClientId && !secondaryWorkoutId)) {
     return {
       status: "error",
-      message: error?.message.includes("already planned")
-        ? "A workout is already planned for this client at that date and time."
-        : "The planned workout could not be saved. Confirm the client is still assigned to you.",
+      message: errorMessage.includes("already planned")
+        ? "A workout is already planned for one of these clients at that date and time."
+        : "The planned workout could not be saved. Confirm both clients are still assigned to you.",
     };
   }
 
   revalidatePath("/coach");
   revalidatePath("/coach/plan-workouts");
   revalidatePath(`/coach/clients/${clientId}`);
+  if (secondaryClientId) revalidatePath(`/coach/clients/${secondaryClientId}`);
   revalidatePath("/client");
 
   return {
     status: "success",
-    message: `Workout planned for ${scheduledDate} at ${scheduledTime}.`,
+    message: secondaryClientId
+      ? `Paired workout planned for ${scheduledDate} at ${scheduledTime}. Each client keeps separate loads, reps and history.`
+      : `Workout planned for ${scheduledDate} at ${scheduledTime}.`,
     workoutId,
   };
 }
