@@ -66,5 +66,5 @@ test("Paired workouts share structure but keep each client's prescription separa
   assert.match(migration, /primary_mode <> secondary_mode/);
   assert.match(workoutPage, /paired_workout_group_id/);
   assert.match(workoutPage, /Paired session clients/);
-  assert.match(planPage, /clientNames.*join\("\s\+\s"\)/s);
+  assert.match(planPage, /clientNames[\s\S]*join\("\s\+\s"\)/);
 });
