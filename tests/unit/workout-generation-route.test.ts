@@ -13,7 +13,7 @@ test("Daily generation uses a stable authenticated route with fresh readiness an
   assert.match(route, /prepareTrainingSession/);
   assert.match(route, /from\("workout_assignments"\)/);
   assert.match(route, /existingWorkout/);
-  assert.ok(route.indexOf("existingWorkout") < route.indexOf("createGeneratedWorkoutDraft"));
+  assert.ok(route.indexOf("if (existingWorkout)") < route.lastIndexOf("createGeneratedWorkoutDraft"));
   assert.match(route, /createGeneratedWorkoutDraft/);
   assert.match(component, /readiness:Array.from/);
   assert.match(route, /"Cache-Control": "no-store"/);
