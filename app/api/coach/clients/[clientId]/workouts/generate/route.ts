@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getActiveMembership, getVerifiedUser } from "@/lib/auth";
 import { createGeneratedWorkoutDraft } from "@/lib/create-workout-draft";
 import { prepareTrainingSession } from "@/lib/training-session";
+import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
 
 export const maxDuration=60;
 export const runtime = "nodejs";
@@ -30,6 +31,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ cli
   if(!/^[0-9a-f-]{36}$/i.test(clientId))return reply({error:"Client unavailable."},404);
   try{await prepareTrainingSession(supabase,clientId,await request.json());}
   catch(error){return reply({error:error instanceof Error?error.message:"Today’s check-in could not be saved."},422);}
+
+  const { data: organization } = await supabase
+    .from("organizations")
+    .select("timezone")
+    .eq("id", membership.organization_id)
+    .maybeSingle();
+  const today = localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE);
+  const { data: existingWorkouts } = await supabase
+    .from("workout_assignments")
+    .select("id,status,scheduled_time")
+    .eq("organization_id", membership.organization_id)
+    .eq("coach_user_id", userId)
+    .eq("client_user_id", clientId)
+    .eq("scheduled_date", today)
+    .in("status", ["assigned", "in_progress"])
+    .order("scheduled_time", { ascending: true, nullsFirst: false })
+    .limit(10);
+  const existingWorkout = existingWorkouts?.find((workout) => workout.status === "in_progress") ?? existingWorkouts?.[0];
+  if (existingWorkout) return reply({ url: `/coach/clients/${clientId}/workouts/${existingWorkout.id}` }, 200);
+
   const result = await createGeneratedWorkoutDraft({ clientId, supabase, userId });
   if (!result.ok) return reply({ error: result.message }, result.status);
 
