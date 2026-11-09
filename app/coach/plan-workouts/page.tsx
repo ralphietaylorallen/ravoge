@@ -13,6 +13,7 @@ type PlannedWorkout = {
   scheduled_date: string;
   scheduled_time: string | null;
   status: string;
+  paired_workout_group_id: string | null;
 };
 
 export default async function CoachPlanWorkoutsPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
@@ -30,7 +31,7 @@ export default async function CoachPlanWorkoutsPage({ searchParams }: { searchPa
   const today = localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE);
   const { data: workoutRows } = await supabase
     .from("workout_assignments")
-    .select("id,client_user_id,title,scheduled_date,scheduled_time,status")
+    .select("id,client_user_id,title,scheduled_date,scheduled_time,status,paired_workout_group_id")
     .eq("organization_id", membership.organization_id)
     .eq("coach_user_id", userId)
     .in("status", ["assigned", "in_progress"])
@@ -46,6 +47,13 @@ export default async function CoachPlanWorkoutsPage({ searchParams }: { searchPa
   }));
   const defaultClientId = options.some((client) => client.id === requestedClient) ? requestedClient : "";
   const planned = (workoutRows ?? []) as PlannedWorkout[];
+  const plannedGroups = Array.from(planned.reduce((groups, workout) => {
+    const key = workout.paired_workout_group_id || workout.id;
+    const current = groups.get(key) || [];
+    current.push(workout);
+    groups.set(key, current);
+    return groups;
+  }, new Map<string, PlannedWorkout[]>()).values());
   const coachName = profile?.preferred_name || profile?.full_name || "Coach";
 
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coachName} role="coach">
@@ -61,11 +69,15 @@ export default async function CoachPlanWorkoutsPage({ searchParams }: { searchPa
 
     <section className={styles.workspaceSection}>
       <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Saved plans</p><h3>Upcoming planned workouts</h3></div></div>
-      {planned.length ? <ul className={styles.workoutList}>{planned.map((workout) => {
-        const client = profileMap.get(workout.client_user_id);
-        const clientName = client?.preferred_name || client?.full_name || "Client";
+      {plannedGroups.length ? <ul className={styles.workoutList}>{plannedGroups.map((group) => {
+        const workout = group[0];
+        const clientNames = group.map((item) => {
+          const client = profileMap.get(item.client_user_id);
+          return client?.preferred_name || client?.full_name || "Client";
+        }).join(" + ");
         const time = workout.scheduled_time ? workout.scheduled_time.slice(0, 5) : "Time not set";
-        return <li key={workout.id}><div className={styles.workoutSummary}><div><strong>{workout.title}</strong><time>{workout.scheduled_date} · {time} · {clientName}</time></div><span>{workout.status.replaceAll("_", " ")}</span></div><Link className={styles.inlineAction} href={`/coach/clients/${workout.client_user_id}/workouts/${workout.id}`}>Open workout →</Link></li>;
+        const status = group.some((item) => item.status === "in_progress") ? "in progress" : workout.status.replaceAll("_", " ");
+        return <li key={workout.paired_workout_group_id || workout.id}><div className={styles.workoutSummary}><div><strong>{workout.title}</strong><time>{workout.scheduled_date} · {time} · {clientNames}</time></div><span>{status}</span></div><Link className={styles.inlineAction} href={`/coach/clients/${workout.client_user_id}/workouts/${workout.id}`}>Open workout →</Link></li>;
       })}</ul> : <p className={styles.empty}>No upcoming planned workouts.</p>}
     </section>
   </DashboardShell>;
