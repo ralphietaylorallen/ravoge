@@ -35,7 +35,7 @@ function parseLine(line: string, id: number): ExerciseRow {
   return { ...blankRow(id), name: cleaned };
 }
 
-export function PlanWorkoutForm({ clients }: { clients: ClientOption[] }) {
+export function PlanWorkoutForm({ clients, defaultClientId = "" }: { clients: ClientOption[]; defaultClientId?: string }) {
   const initial: PlannedWorkoutActionState = { status: "idle" };
   const [state, action, pending] = useActionState(planWorkoutAction, initial);
   const [rows, setRows] = useState<ExerciseRow[]>([blankRow(1)]);
@@ -76,7 +76,7 @@ export function PlanWorkoutForm({ clients }: { clients: ClientOption[] }) {
 
   return <form ref={formRef} action={action} className={styles.workoutForm}>
     <div className={styles.formColumns}>
-      <label className={styles.field}><span>Client</span><select name="clientId" required defaultValue=""><option value="" disabled>Select client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
+      <label className={styles.field}><span>Client</span><select name="clientId" required defaultValue={defaultClientId}><option value="" disabled>Select client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
       <label className={styles.field}><span>Workout name</span><input name="title" maxLength={120} required placeholder="Lower body strength" /></label>
       <label className={styles.field}><span>Date</span><input name="scheduledDate" type="date" required /></label>
       <label className={styles.field}><span>Time</span><input name="scheduledTime" type="time" required /></label>
