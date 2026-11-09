@@ -10,8 +10,11 @@ test("Daily generation uses a stable authenticated route with fresh readiness an
   assert.doesNotMatch(component, /generatePrescriptionAction|useActionState/);
   assert.match(route, /getVerifiedUser\(\)/);
   assert.match(route, /membership\.role !== "coach"/);
-  assert.match(route, /createGeneratedWorkoutDraft/);
   assert.match(route, /prepareTrainingSession/);
+  assert.match(route, /from\("workout_assignments"\)/);
+  assert.match(route, /existingWorkout/);
+  assert.ok(route.indexOf("existingWorkout") < route.indexOf("createGeneratedWorkoutDraft"));
+  assert.match(route, /createGeneratedWorkoutDraft/);
   assert.match(component, /readiness:Array.from/);
   assert.match(route, /"Cache-Control": "no-store"/);
 });
