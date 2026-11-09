@@ -1,10 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 
-export function Logo({ compact = false }: { compact?: boolean }) {
+export function Logo({ compact = false, href = "/home" }: { compact?: boolean; href?: string }) {
   return (
     <Link
-      href="/"
+      href={href}
       aria-label="Ravoge home"
       className="inline-flex items-center gap-3 rounded-sm text-[#F6F5F3] outline-none focus-visible:ring-2 focus-visible:ring-[#B4AC9B] focus-visible:ring-offset-4 focus-visible:ring-offset-[#050606]"
     >

@@ -53,6 +53,15 @@ jobs:
       - name: Authorized Coach and Client modes (isolated local database)
         run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_ACCESS_MODES_QA=yes node scripts/verify-beta-ui.mjs
 
+      - name: Coach calendar and onboarding on phone, tablet and desktop (isolated local database, email disabled)
+        run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_COACH_UI_QA=yes node scripts/verify-beta-ui.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coach-ui-screenshots
+          path: test-results/coach-ui-*.png
+          if-no-files-found: ignore
+
       - name: Private announcements browser checks (isolated local database, email disabled)
         run: SUPABASE_DB_TARGET=local RAVOGE_BETA_QA=yes RAVOGE_ANNOUNCEMENTS_QA=yes node scripts/verify-beta-ui.mjs
 
