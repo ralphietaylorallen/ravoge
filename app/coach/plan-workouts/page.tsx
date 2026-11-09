@@ -15,7 +15,8 @@ type PlannedWorkout = {
   status: string;
 };
 
-export default async function CoachPlanWorkoutsPage() {
+export default async function CoachPlanWorkoutsPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
+  const { client: requestedClient } = await searchParams;
   const { membership, supabase, userId } = await requireRole("coach");
   const [{ data: profile }, { data: organization }, { data: assignments }] = await Promise.all([
     supabase.from("profiles").select("full_name,preferred_name").eq("id", userId).single(),
@@ -43,6 +44,7 @@ export default async function CoachPlanWorkoutsPage() {
     id: client.id,
     name: client.preferred_name || client.full_name,
   }));
+  const defaultClientId = options.some((client) => client.id === requestedClient) ? requestedClient : "";
   const planned = (workoutRows ?? []) as PlannedWorkout[];
   const coachName = profile?.preferred_name || profile?.full_name || "Coach";
 
@@ -54,7 +56,7 @@ export default async function CoachPlanWorkoutsPage() {
 
     <section className={styles.panel}>
       <h2>Create planned workout</h2>
-      {options.length ? <PlanWorkoutForm clients={options} /> : <p className={styles.empty}>Assign a Client to yourself before planning workouts.</p>}
+      {options.length ? <PlanWorkoutForm clients={options} defaultClientId={defaultClientId} /> : <p className={styles.empty}>Assign a Client to yourself before planning workouts.</p>}
     </section>
 
     <section className={styles.workspaceSection}>
