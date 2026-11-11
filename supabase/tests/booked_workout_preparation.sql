@@ -108,6 +108,9 @@ select set_config('request.jwt.claim.sub','bb100000-0000-4000-8000-000000000002'
 do $$ declare p uuid; rows jsonb; w uuid; begin
  p:=(select id from quality_ids where kind='prepared');
  select jsonb_agg(x||jsonb_build_object('loadUnit','lb','load',null,'bandResistance','Coach confirmed band')) into rows from public.generated_prescriptions cross join lateral jsonb_array_elements(original_recommendation) x where id=p;
+ begin perform public.approve_prepared_prescription(p,1,'Session workout',null,current_date,60::smallint,rows); raise exception 'Missing calibration was accepted'; exception when others then if sqlerrm='Missing calibration was accepted' then raise; end if; end;
+ select jsonb_agg(x||jsonb_build_object('loadUnit','lb','load',case when e.equipment_requirements && array['barbell','dumbbells','kettlebells','sled','medicine_balls','cable_machine','selectorized_machine'] then 5 else null end,'bandResistance','Coach confirmed band')) into rows
+ from public.generated_prescriptions g cross join lateral jsonb_array_elements(g.original_recommendation) x join public.exercise_library e on e.id=(x->>'libraryExerciseId')::uuid where g.id=p;
  w:=public.approve_prepared_prescription(p,1,'Session workout','Prepared and reviewed',current_date,60::smallint,rows);
  insert into quality_ids values('prepared-workout',w);
  if not exists(select 1 from public.workout_assignments a join public.bookings b on b.id='bc400000-0000-4000-8000-000000000001' where a.id=w and a.scheduled_date=(b.starts_at at time zone b.timezone)::date and a.scheduled_time=(b.starts_at at time zone b.timezone)::time) then raise exception 'Approval used a stale or tampered session date'; end if;
