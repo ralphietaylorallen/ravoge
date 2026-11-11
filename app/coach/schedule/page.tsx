@@ -7,22 +7,12 @@ import {
   DEFAULT_ORGANIZATION_TIMEZONE,
   localDateInTimeZone,
   localDateStartIso,
-  localWeekStartDate,
   shiftLocalDate,
 } from "@/lib/timezone";
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
+import { monthDates, validLocalDate } from "@/lib/coach-availability";
 
-function weekLabel(startDate: string) {
-  const endDate = shiftLocalDate(startDate, 6) ?? startDate;
-  const start = new Date(`${startDate}T12:00:00Z`);
-  const end = new Date(`${endDate}T12:00:00Z`);
-  const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-  const endLabel = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-  return `${startLabel} – ${endLabel}`;
-}
-
-export default async function CoachSchedulePage({ searchParams }: { searchParams: Promise<{ client?: string; duration?: string; week?: string }> }) {
+export default async function CoachSchedulePage({ searchParams }: { searchParams: Promise<{ client?: string; duration?: string; date?: string; week?: string }> }) {
   const query = await searchParams;
   const { membership, supabase, userId } = await requireRole("coach");
 
@@ -35,10 +25,11 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
 
   const timezone = organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE;
   const today = localDateInTimeZone(new Date(), timezone);
-  const currentWeek = localWeekStartDate(new Date(), timezone) ?? today;
-  const requestedWeek = query.week && DATE.test(query.week) ? localWeekStartDate(`${query.week}T12:00:00Z`, "UTC") : null;
-  const startDate = requestedWeek ?? currentWeek;
-  const endDate = shiftLocalDate(startDate, 7) ?? startDate;
+  const requestedDate = query.date ?? query.week;
+  const date = requestedDate && validLocalDate(requestedDate) ? requestedDate : today;
+  const month = monthDates(date);
+  const startDate = month[0];
+  const endDate = shiftLocalDate(month.at(-1)!, 1)!;
   const startIso = localDateStartIso(startDate, timezone);
   const endIso = localDateStartIso(endDate, timezone);
 
@@ -59,7 +50,6 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
   const duration = permittedDurations.includes(requestedDuration)
     ? requestedDuration
     : settings?.default_duration_minutes ?? permittedDurations[0] ?? 60;
-  const rowMinutes = Math.max(15, Math.min(60, settings?.slot_increment_minutes ?? 30));
 
   const { data: bookingRows } = startIso && endIso
     ? await supabase
@@ -71,7 +61,7 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
       .lt("starts_at", endIso)
       .neq("status", "cancelled")
       .order("starts_at")
-      .limit(200)
+      .limit(1000)
     : { data: [] };
 
   const profileMap = new Map(clients.map((client) => [client.id, client]));
@@ -93,37 +83,29 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
     sessionType: row.session_type,
   }));
 
-  const days = await Promise.all(Array.from({ length: 7 }, async (_, index) => {
-    const date = shiftLocalDate(startDate, index) ?? startDate;
-    const { data: slots } = selectedClientId
-      ? await supabase.rpc("get_staff_booking_calendar", {
-          target_client_user_id: selectedClientId,
-          target_coach_user_id: userId,
-          target_date: date,
-          target_duration: duration,
-        })
-      : { data: [] };
-    const display = new Date(`${date}T12:00:00Z`);
-    return {
-      date,
-      label: display.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
-      shortLabel: display.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
-      slots: slots ?? [],
-    };
-  }));
+  const { data: slots, error: availabilityError } = selectedClientId && date >= today
+    ? await supabase.rpc("get_staff_booking_calendar", {
+        target_client_user_id: selectedClientId,
+        target_coach_user_id: userId,
+        target_date: date,
+        target_duration: duration,
+      })
+    : { data: [], error: null };
 
   const currentTime = new Date().getTime();
-  const todays = bookings.filter((booking) => localDateInTimeZone(booking.startsAt, timezone) === today);
-  const previousWeek = shiftLocalDate(startDate, -7) ?? startDate;
-  const nextWeek = shiftLocalDate(startDate, 7) ?? startDate;
+  const selectedDayBookings = bookings.filter((booking) => localDateInTimeZone(booking.startsAt, timezone) === date);
 
   return <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={coachName} role="coach">
     <div className={styles.pageHeading}>
       <div><p className={styles.eyebrow}>Coach schedule</p><h2>Calendar</h2></div>
-      <p>Choose a Client, tap an open time, confirm it, and Ravoge books the session to your Coach schedule.</p>
+      <p>Choose a Client, tap a date and an available time, confirm it, and Ravoge books the session to your Coach schedule.</p>
     </div>
 
     {clients.length ? <CoachBookingCalendar
+      key={`${date}-${selectedClientId}-${duration}`}
+      date={date}
+      today={today}
+      availabilityError={availabilityError ? "Availability could not be loaded. Refresh this page and try again." : undefined}
       bookings={bookings.map((booking) => ({
         id: booking.id,
         clientId: booking.clientUserId!,
@@ -134,25 +116,21 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
         sessionType: booking.sessionType ?? "Private training",
       }))}
       clients={clients.map(({ id, name }) => ({ id, name }))}
-      days={days}
+      slots={slots ?? []}
       duration={duration}
       durations={permittedDurations}
-      nextWeek={nextWeek}
-      previousWeek={previousWeek}
-      rowMinutes={rowMinutes}
       selectedClientId={selectedClientId}
       timezone={timezone}
-      weekLabel={weekLabel(startDate)}
     /> : <section className={styles.panel}><p className={styles.empty}>No Clients are currently assigned to this Coach.</p></section>}
 
     <section className={styles.workspaceSection}>
-      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Today</p><h3>Session details</h3></div></div>
-      <BookingList currentTime={currentTime} bookings={todays} empty="No sessions today." perspective="coach" staffControls />
+      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Selected day</p><h3>Session details</h3></div></div>
+      <BookingList currentTime={currentTime} bookings={selectedDayBookings} empty="No sessions on this date." perspective="coach" staffControls />
     </section>
 
     <section className={styles.workspaceSection}>
-      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>This week</p><h3>Manage booked sessions</h3></div></div>
-      <BookingList currentTime={currentTime} bookings={bookings.filter((booking) => Date.parse(booking.startsAt) >= currentTime)} empty="No upcoming sessions this week." perspective="coach" staffControls />
+      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Selected month</p><h3>Manage booked sessions</h3></div></div>
+      <BookingList currentTime={currentTime} bookings={bookings.filter((booking) => Date.parse(booking.startsAt) >= currentTime)} empty="No upcoming sessions this month." perspective="coach" staffControls />
     </section>
   </DashboardShell>;
 }

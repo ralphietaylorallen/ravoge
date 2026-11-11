@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = (path: string) => readFile(new URL("../../" + path, import.meta.url), "utf8");
 
-test("Coach schedule renders a seven-day booking calendar for assigned clients", async () => {
+test("Coach schedule renders a monthly calendar with the selected day’s booking slots", async () => {
   const [page, calendar] = await Promise.all([
     read("app/coach/schedule/page.tsx"),
     read("components/coach-booking-calendar.tsx"),
@@ -12,9 +12,13 @@ test("Coach schedule renders a seven-day booking calendar for assigned clients",
 
   assert.match(page, /coach_client_assignments/);
   assert.match(page, /get_staff_booking_calendar/);
-  assert.match(page, /Array\.from\(\{ length: 7 \}/);
+  assert.match(page, /monthDates\(date\)/);
+  assert.match(page, /target_date: date/);
+  assert.doesNotMatch(page, /length: 7|rowMinutes/);
   assert.match(page, /CoachBookingCalendar/);
-  assert.match(calendar, /Weekly calendar/);
+  assert.match(calendar, /BookingMonthPicker/);
+  assert.match(calendar, /coach-availability-calendar\.module\.css/);
+  assert.doesNotMatch(calendar, /bigCalendarScroll|gridTemplateRows|Weekly calendar/);
   assert.match(calendar, /Client/);
   assert.match(calendar, /Confirm & Book/);
   assert.match(calendar, /Existing sessions stay visible/);
