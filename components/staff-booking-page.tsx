@@ -2,10 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
+import { BookingMonthPicker, BookingDurationButtons } from "@/components/booking-month-picker";
+import calendar from "./coach-availability-calendar.module.css";
 import { RollingDateStrip } from "@/components/rolling-date-strip";
 import { StaffBookingForm } from "@/components/staff-booking-form";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { getProfileImageUrl } from "@/lib/profile-images";
+import { validLocalDate } from "@/lib/coach-availability";
 import { requireRole } from "@/lib/auth";
 import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone, shiftLocalDate } from "@/lib/timezone";
 
@@ -35,7 +38,7 @@ export async function StaffBookingPage({ clientId, role, searchParams, embedded 
   const timezone = organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE;
   const today = localDateInTimeZone(new Date(), timezone);
   const last = shiftLocalDate(today, 30)!;
-  const date = searchParams.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date) && searchParams.date >= today && searchParams.date <= last ? searchParams.date : today;
+  const date = searchParams.date && validLocalDate(searchParams.date) && searchParams.date >= today && searchParams.date <= last ? searchParams.date : today;
   const kind = (rescheduledBooking ? rescheduledBooking.session_type === "Intake" : searchParams.kind === "intake") ? "intake" : "training";
   const allowed = settings?.permitted_durations ?? [60];
   const requestedDuration = Number(searchParams.duration);
@@ -47,7 +50,15 @@ export async function StaffBookingPage({ clientId, role, searchParams, embedded 
     {!embedded && <Link className={styles.backLink} href={`/${role}/clients/${clientId}`}>← Back to Client</Link>}
     <div className={styles.sectionHeading}><div><h2>{kind === "intake" ? "Schedule intake" : "Schedule session"}</h2><p className={styles.profileMeta}>Book {kind === "intake" ? "an intake" : "a training session"} for {names.get(clientId) ?? "Client"}.</p></div></div>
     {coachId && <div className={styles.coachCard}><ProfilePhoto name={names.get(coachId) ?? "Coach"} url={coachPhoto} size="small" /><div><strong>{names.get(coachId) ?? "Coach"}</strong><p>{assignments?.some((assignment) => assignment.coach_user_id === coachId) ? "Assigned Coach" : "Session Coach"}</p></div>{role === "owner" && !rescheduledBooking && <details className={styles.changeCoach}><summary>Change session Coach</summary><form className={styles.form} method="get">{embedded && <input name="tab" type="hidden" value="schedule" />}<label className={styles.field}>Coach<select defaultValue={coachId} name="coach" required>{coachIds.map((id) => <option key={id} value={id}>{names.get(id) ?? "Coach"}</option>)}</select></label><input name="kind" type="hidden" value={kind} /><input name="date" type="hidden" value={date} /><input name="duration" type="hidden" value={duration} /><button className={styles.secondaryAction} type="submit">Choose Coach</button></form></details>}</div>}
-    {coachId ? <><RollingDateStrip basePath={basePath} selectedDate={date} today={today} timezone={timezone} duration={duration} durations={allowed} extraParams={{ kind, ...(embedded ? {tab:"schedule"} : {}), ...(role === "owner" && !rescheduledBooking ? { coach: coachId } : {}), reschedule: rescheduledBooking?.id }} /><section className={styles.operationCard}><h3>Available times · {new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {weekday:"long",month:"short",day:"numeric",timeZone:"UTC"})}</h3>{availabilityError ? <p className={`${styles.notice} ${styles.error}`} role="alert">Availability could not be loaded. Refresh this page and try again.</p> : slots?.length ? <StaffBookingForm key={`${coachId}-${date}-${duration}-${kind}-${rescheduledBooking?.id ?? "new"}`} kind={kind} bookingId={rescheduledBooking?.id} clientId={clientId} clientName={names.get(clientId) ?? "Client"} coachId={coachId} duration={duration} role={role} slots={slots} timezone={timezone} /> : <p className={styles.empty}>No open times for this date. Choose another day.</p>}</section></> : <p className={styles.empty}>Add an active Coach before scheduling.</p>}
+    {coachId ? <div className={role === "coach" ? calendar.layout : undefined}>
+      {role === "coach" ? <BookingMonthPicker date={date} today={today} timezone={timezone} basePath={basePath} minDate={today} maxDate={last} extraParams={{ kind, duration: String(duration), ...(embedded ? { tab: "schedule" } : {}), reschedule: rescheduledBooking?.id }} />
+        : <RollingDateStrip basePath={basePath} selectedDate={date} today={today} timezone={timezone} duration={duration} durations={allowed} extraParams={{ kind, ...(embedded ? {tab:"schedule"} : {}), ...(!rescheduledBooking ? { coach: coachId } : {}), reschedule: rescheduledBooking?.id }} />}
+      <section className={role === "coach" ? styles.panel : styles.operationCard}>
+        <h3>Available times · {new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {weekday:"long",month:"short",day:"numeric",timeZone:"UTC"})}</h3>
+        {role === "coach" && <div className={calendar.bookingControls}><BookingDurationButtons date={date} duration={duration} durations={allowed} basePath={basePath} extraParams={{ kind, ...(embedded ? { tab: "schedule" } : {}), reschedule: rescheduledBooking?.id }} /></div>}
+        {availabilityError ? <p className={`${styles.notice} ${styles.error}`} role="alert">Availability could not be loaded. Refresh this page and try again.</p> : slots?.length ? <StaffBookingForm key={`${coachId}-${date}-${duration}-${kind}-${rescheduledBooking?.id ?? "new"}`} kind={kind} bookingId={rescheduledBooking?.id} clientId={clientId} clientName={names.get(clientId) ?? "Client"} coachId={coachId} duration={duration} role={role} slots={slots} timezone={timezone} /> : <p className={styles.empty}>No open times for this date. Choose another day.</p>}
+      </section>
+    </div> : <p className={styles.empty}>Add an active Coach before scheduling.</p>}
   </>;
   return embedded ? content : <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={actor?.full_name ?? role} role={role}>{content}</DashboardShell>;
 }
