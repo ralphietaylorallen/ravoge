@@ -118,6 +118,9 @@ do $$ declare p uuid; rows jsonb; w uuid; begin
  if public.begin_booking_workout_draft('bc400000-0000-4000-8000-000000000001','bb100000-0000-4000-8000-000000000003')->>'workoutId'<>w::text then raise exception 'Reopening lost assigned workout'; end if;
 end $$;
 reset role;
+-- The entire fixture uses one transaction timestamp; remove its previous queued
+-- reschedule event before simulating a second, separate user reschedule.
+delete from public.booking_email_deliveries where booking_id='bc400000-0000-4000-8000-000000000001' and event_type='rescheduled';
 update public.bookings set starts_at=starts_at+interval '1 day',ends_at=ends_at+interval '1 day' where id='bc400000-0000-4000-8000-000000000001';
 select pg_temp.assert_true((select a.scheduled_date=(b.starts_at at time zone b.timezone)::date from public.workout_assignments a join public.bookings b on b.id='bc400000-0000-4000-8000-000000000001' where a.id=(select id from quality_ids where kind='prepared-workout')),'Rescheduling lost the prepared workout');
 update public.bookings set status='cancelled',cancelled_at=now() where id='bc400000-0000-4000-8000-000000000001';

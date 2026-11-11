@@ -101,6 +101,9 @@ begin
  -- Existing intake, equipment, load, protocol and provenance checks remain authoritative.
  workout_id:=public.approve_pound_prescription(target_prescription_id,workout_title,workout_instructions,workout_scheduled_date,workout_duration_minutes,exercises);
  if b.id is not null then update public.workout_assignments set scheduled_time=(b.starts_at at time zone b.timezone)::time where id=workout_id and organization_id=p.organization_id and coach_user_id=p.coach_user_id; end if;
+ -- Assigned prescriptions are readable by their Client; retain only the approved
+ -- prescription, not earlier private draft edits that may have been removed.
+ update public.generated_prescriptions set generation_context=generation_context-'coachDraft' where id=p.id;
  return workout_id;
 end $$;
 

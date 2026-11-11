@@ -55,7 +55,7 @@ test("isolated database: appointment drafts, private edits, stale saves, approva
  await actor(client);assert.equal((await db.query("select id from generated_prescriptions where id=$1",[initial.prescriptionId])).rows.length,0);await assert.rejects(()=>save(1),/assigned Coach draft required/);
  await actor(coach);
  const approve=async()=> (await db.query<{id:string}>("select public.approve_prepared_prescription($1,1,'Saved session',null,'2026-01-01',60::smallint,$2::jsonb) id",[initial.prescriptionId,JSON.stringify(draft.exercises)])).rows[0].id;
- const workout=await approve();assert.equal(await approve(),workout);assert.equal((await begin()).workoutId,workout);
+ const workout=await approve();assert.equal((await db.query<{present:boolean}>("select generation_context ? 'coachDraft' present from generated_prescriptions where id=$1",[initial.prescriptionId])).rows[0].present,false);assert.equal(await approve(),workout);assert.equal((await begin()).workoutId,workout);
  await db.exec("reset role");
  let scheduled=(await db.query<{scheduled_date:string;scheduled_time:string}>("select scheduled_date::text,scheduled_time::text from workout_assignments where id=$1",[workout])).rows[0];
  assert.equal(scheduled.scheduled_date,'2027-01-05');assert.equal(scheduled.scheduled_time,'09:00:00');
