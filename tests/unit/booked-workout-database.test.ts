@@ -31,7 +31,7 @@ test("isolated database: appointment drafts, private edits, stale saves, approva
  insert into public.workout_assignments(organization_id,coach_user_id,client_user_id,source_prescription_id,title,scheduled_date) values(p.organization_id,p.coach_user_id,p.client_user_id,p.id,$2,$4) returning id into result;
  update public.generated_prescriptions set status='assigned',workout_assignment_id=result where id=p.id;return result;end $$;
  `);
- const migration=await readFile(new URL("../../supabase/migrations/20261111213059_booked_workout_preparation.sql",import.meta.url),"utf8");
+ const migration=await readFile(new URL("../../supabase/migrations/20261111225804_booked_workout_preparation.sql",import.meta.url),"utf8");
  await db.exec(migration);
  const org='cc000000-0000-4000-8000-000000000001', coach='cc000000-0000-4000-8000-000000000002', client='cc000000-0000-4000-8000-000000000003', other='cc000000-0000-4000-8000-000000000004', booking='cc000000-0000-4000-8000-000000000005';
  await db.query("insert into memberships(org,user_id,role) values($1,$2,'coach'),($1,$3,'client'),($1,$4,'coach')",[org,coach,client,other]);
