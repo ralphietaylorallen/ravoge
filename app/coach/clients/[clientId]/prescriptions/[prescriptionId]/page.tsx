@@ -1,3 +1,4 @@
+import { savedWorkoutPreparation } from "@/lib/workout-preparation";
 import { canonicalPounds, poundsInText } from "@/lib/weight-units";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -26,7 +27,12 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
     supabase.from("exercise_load_rules").select("exercise_id,organization_id,version,weight_semantics,prescription_type").eq("active", true).order("version", { ascending: false }),
   ]);
   if (!client || !prescription) notFound();
+  const savedDraft=savedWorkoutPreparation(prescription.generation_context?.coachDraft);
   const recommendation = prescription.original_recommendation as RecommendationExercise[];
+  const bookingId=typeof prescription.generation_context?.preparedBookingId==="string"?prescription.generation_context.preparedBookingId:undefined;
+  const {data:preparedBooking}=bookingId?await supabase.from("bookings").select("starts_at,timezone,status").eq("id",bookingId).eq("organization_id",membership.organization_id).eq("coach_user_id",userId).eq("client_user_id",clientId).maybeSingle():{data:null};
+  if(bookingId&&(!preparedBooking||preparedBooking.status!=="scheduled"))return <DashboardShell compact gymName={organization?.name??"Ravoge gym"} name={coach?.full_name??"Coach"} role="coach"><p role="alert">This session changed or was cancelled. Reopen the scheduled session before editing its workout.</p><Link href={`/coach/clients/${clientId}`}>Back to Client</Link></DashboardShell>;
+
   const snapshot = prescription.generation_context?.trainingSnapshot as GenerationInput | undefined;
   const evidence=prescription.generation_context?.evidence as EvidenceCollection|undefined;
   const provenance=prescription.generation_context?.provenanceAudit as ProvenanceAudit|undefined;
@@ -40,7 +46,8 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
     weight_semantics: currentRules.get(e.id)?.weight_semantics, prescription_type: currentRules.get(e.id)?.prescription_type }));
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coach?.full_name ?? "Coach"} role="coach">
     <Link className={styles.backLink} href={`/coach/clients/${clientId}`}>← Back to {client.full_name}</Link>
-    <div className={styles.pageHeading}><div><p className={styles.eyebrow}>{client.full_name}’s workout</p><h2>Review and assign</h2></div><p>Edit anything below, then assign it to the client.</p></div>
+    <div className={styles.pageHeading}><div><p className={styles.eyebrow}>{client.full_name}’s workout</p><h2>Prepare workout</h2></div><p>Edit and Save Draft to prepare ahead. Assign when the workout is ready for the Client.</p></div>
+    {bookingId&&preparedBooking&&<p className={styles.notice}>Prepared for <Link href={`/coach/clients/${clientId}/sessions/${bookingId}`}>{new Date(preparedBooking.starts_at).toLocaleString("en-US",{timeZone:preparedBooking.timezone,dateStyle:"full",timeStyle:"short"})}</Link>. The day-of-session readiness check is still required separately.</p>}
     {prescription.generation_context?.intakeReviewRequired&&<p role="alert">Intake updated. Generate a new workout before assigning.</p>}
     <details className={styles.operationCard}><summary>Plan details</summary><section className={styles.rationalePanel}><div><span>Objective</span><strong>{prescription.objective}</strong></div><div><span>Duration</span><strong>{prescription.estimated_duration_minutes} minutes</strong></div><div><span>Volume intent</span><strong>{prescription.volume_intent}</strong></div><p>{poundsInText(prescription.rationale)}</p></section>
     <section className={styles.operationCard} aria-label="Generation evidence">
@@ -59,8 +66,8 @@ export default async function PrescriptionReviewPage({ params }: { params: Promi
         {snapshot.weightCapabilities?.some(c=>!c.sizesLb?.length) && <p>Some equipment weights are unconfirmed. Confirm any starting load marked for review before assigning.</p>}</>}
     </section>
     </details>
-    {prescription.engine_version.endsWith('-fallback')&&<section className={styles.operationCard}><p>The AI service did not complete. The visible fallback remains a draft and requires Coach review. Retry does not change this saved draft.</p><Link className={styles.action} href={`/coach/clients/${clientId}#train-session`}>Generate another workout</Link></section>}
-    <PrescriptionReviewForm weightCapabilities={snapshot?.weightCapabilities} quality={prescription.engine_version.startsWith("prescription-v0.4-")} clientId={clientId} duration={prescription.estimated_duration_minutes} exerciseOptions={exerciseOptions} exercises={recommendation} prescriptionId={prescriptionId} scheduledDate={localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={prescription.title} />
+    {prescription.engine_version.endsWith('-fallback')&&<section className={styles.operationCard}><p>The AI service did not complete. The visible fallback remains a draft and requires Coach review. Retry does not change this saved draft.</p><Link className={styles.action} href={bookingId?`/coach/clients/${clientId}/sessions/${bookingId}`:`/coach/clients/${clientId}#train-session`}>{bookingId?"Return to scheduled session":"Generate another workout"}</Link></section>}
+    <PrescriptionReviewForm weightCapabilities={snapshot?.weightCapabilities} quality={prescription.engine_version.startsWith("prescription-v0.4-")} clientId={clientId} duration={savedDraft?.duration ?? prescription.estimated_duration_minutes} exerciseOptions={exerciseOptions} exercises={savedDraft?.exercises ?? recommendation} prescriptionId={prescriptionId} scheduledDate={preparedBooking?localDateInTimeZone(preparedBooking.starts_at,preparedBooking.timezone):savedDraft?.scheduledDate??localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={savedDraft?.title ?? prescription.title} instructions={savedDraft?.instructions} draftRevision={Number(prescription.generation_context?.preparationRevision??0)} bookingId={bookingId} />
     <details className={styles.operationCard}><summary>Advanced: programming details and evidence</summary>
       <p>Source: {prescription.generation_context?.sourceType ?? "global_library"}.</p>
       {snapshot && <><p>Gym-profile version: {snapshot.gymProfile?.version ?? "None"}. Gym references available: {snapshot.knowledgeCounts?.referenceEnabled ?? snapshot.publishedCount ?? 0}.</p>

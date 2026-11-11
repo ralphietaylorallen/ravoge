@@ -40,7 +40,7 @@ export function CoachBookingCalendar({ bookings, clients, date, today, slots, du
           <strong>{formatTime(slot.starts_at, timezone)} – {formatTime(slot.ends_at, timezone)}</strong><span>{slot.available && date >= today ? "Available" : "Unavailable"}</span>
         </button>)}</div>
       </>}
-      {dayBookings.length > 0 && <div className={calendar.dayBookings}><h3>Booked sessions</h3>{dayBookings.map(booking => <a key={booking.id} href={`/coach/clients/${booking.clientId}`}><strong>{booking.clientName}</strong><span>{formatTime(booking.startsAt, timezone)} – {formatTime(booking.endsAt, timezone)} · {booking.sessionType || "Training"}</span></a>)}</div>}
+      {dayBookings.length > 0 && <div className={calendar.dayBookings}><h3>Booked sessions</h3>{dayBookings.map(booking => <a key={booking.id} href={booking.status === "scheduled" ? `/coach/clients/${booking.clientId}/sessions/${booking.id}` : `/coach/clients/${booking.clientId}`}><strong>{booking.clientName}</strong><span>{formatTime(booking.startsAt, timezone)} – {formatTime(booking.endsAt, timezone)} · {booking.sessionType || "Training"}</span></a>)}</div>}
     </section>
     {selectedSlotObject && selectedClient && <BookingConfirmation key={`${selectedClient.id}-${selectedSlotObject.starts_at}`} selectedClient={selectedClient} selectedSlotObject={selectedSlotObject} duration={duration} timezone={timezone} onClose={() => setSelectedSlot(null)} />}
   </div>;
