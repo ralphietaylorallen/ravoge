@@ -537,6 +537,8 @@ export async function approvePrescriptionAction(
     if(saveError)return {status:"error",message:saveError.message.includes("another device")?"This draft changed on another device. Reopen it before saving.":"The draft could not be saved. Reopen the session and check its status."};
     revalidatePath(`/coach/clients/${clientId}`);
     revalidatePath(`/coach/clients/${clientId}/prescriptions/${prescriptionId}`);
+    const bookedSessionId=currentDraft.generation_context?.preparedBookingId;
+    if(typeof bookedSessionId==="string"&&UUID_PATTERN.test(bookedSessionId))revalidatePath(`/coach/clients/${clientId}/sessions/${bookedSessionId}`);
     revalidatePath("/coach/schedule");
     return {status:"success",message:"Draft saved. You can leave and reopen it to edit before the session. Nothing has been assigned yet.",draftRevision:Number(revision)};
   }
@@ -547,6 +549,9 @@ export async function approvePrescriptionAction(
     : await supabase.rpc("approve_pound_prescription",approval);
   if (error) return { message: "The workout could not be assigned. Recheck equipment, constraints, and client access.", status: "error" };
 
+  const bookedSessionId=currentDraft.generation_context?.preparedBookingId;
+  if(typeof bookedSessionId==="string"&&UUID_PATTERN.test(bookedSessionId))revalidatePath(`/coach/clients/${clientId}/sessions/${bookedSessionId}`);
+  revalidatePath("/coach/schedule");
   revalidatePath(`/coach/clients/${clientId}`);
   revalidatePath("/coach");
   redirect(typeof assignedWorkoutId === "string" && UUID_PATTERN.test(assignedWorkoutId) ? `/coach/clients/${clientId}/workouts/${assignedWorkoutId}` : `/coach/clients/${clientId}?notice=prescription-assigned`);

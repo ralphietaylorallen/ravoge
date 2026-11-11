@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { getActiveMembership, getVerifiedUser } from "@/lib/auth";
 import { createGeneratedWorkoutDraft } from "@/lib/create-workout-draft";
@@ -17,5 +18,7 @@ export async function POST(request:Request,{params}:{params:Promise<{clientId:st
   if(![clientId,bookingId].every(id=>UUID.test(id)))return reply({error:"Session unavailable."},404);
   const result=await createGeneratedWorkoutDraft({clientId,bookingId,supabase,userId});
   if(!result.ok)return reply({error:result.message},result.status);
+  revalidatePath(`/coach/clients/${clientId}/sessions/${bookingId}`);
+  revalidatePath(`/coach/clients/${clientId}`);
   return reply({url:result.workoutId ? `/coach/clients/${clientId}/workouts/${result.workoutId}` : `/coach/clients/${clientId}/prescriptions/${result.prescriptionId}`},201);
 }
