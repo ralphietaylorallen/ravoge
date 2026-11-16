@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireRole, requireTrainerRole } from "@/lib/auth";
 import type { ExecutionState } from "@/app/coach/workout-actions";
 
 export async function saveTrainingReadiness(role: "client" | "coach", clientId: string, workoutId: string | null, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
@@ -15,7 +15,7 @@ export async function saveTrainingReadiness(role: "client" | "coach", clientId: 
   return { status: "success", message: "Five responses saved. Your Coach can accept, decline or edit the recommendation; no workout changed automatically." };
 }
 export async function reviewTrainingReadiness(clientId: string, checkinId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
-  const { supabase } = await requireRole("coach");
+  const { supabase } = await requireTrainerRole();
   if (![clientId, checkinId].every(v => /^[0-9a-f-]{36}$/i.test(v))) return { status: "error", message: "Check-in unavailable." };
   const { error } = await supabase.rpc("review_training_readiness", { target_checkin_id: checkinId, decision: String(form.get("decision") ?? ""), response: String(form.get("response") ?? "").trim() });
   if (error) return { status: "error", message: "Record an authorized decision and your intended action." };

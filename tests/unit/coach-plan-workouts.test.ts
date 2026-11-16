@@ -49,7 +49,7 @@ test("Paired workouts share structure but keep each client's prescription separa
   const [form, actions, workoutPage, planPage, migration] = await Promise.all([
     read("components/plan-workout-form.tsx"),
     read("app/coach/actions.ts"),
-    read("app/coach/clients/[clientId]/workouts/[workoutId]/page.tsx"),
+    read("components/trainer-workout-page.tsx"),
     read("app/coach/plan-workouts/page.tsx"),
     read("supabase/migrations/20261109020815_paired_planned_workouts.sql"),
   ]);

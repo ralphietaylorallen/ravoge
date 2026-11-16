@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireTrainerRole } from "@/lib/auth";
 
 export type ExecutionState = { status: "idle" | "success" | "error"; message?: string };
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -9,13 +9,15 @@ const reasons = new Set(["failed_reps","too_heavy","form_breakdown","pain_discom
 function refresh(clientId: string, workoutId: string) {
   revalidatePath("/client/profile");
   revalidatePath("/client/progress");
+  revalidatePath(`/owner/clients/${clientId}`);
+  revalidatePath(`/owner/clients/${clientId}/workouts/${workoutId}`);
   revalidatePath(`/coach/clients/${clientId}`);
   revalidatePath(`/coach/clients/${clientId}/workouts/${workoutId}`);
   revalidatePath(`/owner/clients/${clientId}`);
   revalidatePath(`/client/workouts/${workoutId}`);
 }
 export async function recordSetAction(clientId: string, workoutId: string, setId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
-  const { supabase } = await requireRole("coach");
+  const { supabase } = await requireTrainerRole();
   const result = String(form.get("result") ?? "");
   const reps = form.get("actualReps") === "" ? null : Number(form.get("actualReps"));
   const load = form.get("actualLoad") === "" ? null : Number(form.get("actualLoad"));
@@ -28,7 +30,7 @@ export async function recordSetAction(clientId: string, workoutId: string, setId
   return {status:"success",message:data === "exceeded" ? "Saved · exceeded target" : "Set saved"};
 }
 export async function saveSessionAction(clientId: string, workoutId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
-  const {supabase}=await requireRole("coach");
+  const {supabase}=await requireTrainerRole();
   const finish=form.get("intent")==="finish";
   const duration=Number(form.get("duration"));
   const notes=String(form.get("coachNotes")??"").trim();
@@ -39,7 +41,7 @@ export async function saveSessionAction(clientId: string, workoutId: string, _st
   return {status:"success",message:finish?"Workout complete":"Coach notes saved"};
 }
 export async function coachCheckinAction(clientId: string,_state: ExecutionState,form: FormData): Promise<ExecutionState> {
-  const {supabase}=await requireRole("coach");
+  const {supabase}=await requireTrainerRole();
   const [kind,id]=String(form.get("context")??"").split(":");
   const answers=Array.from({length:8},(_,i)=>({position:i+1,answer:Number(form.get(`answer-${i+1}`))}));
   if(!UUID.test(clientId)||!UUID.test(id??"")||!["booking","workout"].includes(kind)||answers.some((a)=>!Number.isFinite(a.answer)||a.answer<1||a.answer>10)) return {status:"error",message:"Choose a session or workout and answer all eight questions."};
