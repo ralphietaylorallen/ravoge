@@ -32,7 +32,7 @@ export function WorkoutTimer({ work, rest, workLabel = "Work" }: { work: number;
   </div>;
 }
 
-function PlayerSetForm({ set, exercise, workoutId, locked, expanded, role, substitutions }: { set: PlayerSet; exercise: PlayerExercise; workoutId: string; locked: boolean; expanded: boolean; role: "client" | "coach"; substitutions: { id: string; name: string }[] }) {
+function PlayerSetForm({ set, exercise, workoutId, locked, expanded, role, substitutions }: { set: PlayerSet; exercise: PlayerExercise; workoutId: string; locked: boolean; expanded: boolean; role: "client" | "coach" | "owner"; substitutions: { id: string; name: string }[] }) {
   const demo=useDemo();
   const [state, action, pending] = useActionState(demo ? demo.recordSet.bind(null,set.id) : playerSetAction.bind(null, role, workoutId, set.id), { status: "idle" as const });
   const router = useRouter();
@@ -58,7 +58,7 @@ function PlayerSetForm({ set, exercise, workoutId, locked, expanded, role, subst
   </details>;
 }
 
-export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, exercises, substitutions = [], role = "client" }: { workoutId: string; title: string; goal: string | null; duration: number | null; status: string; exercises: PlayerExercise[]; substitutions?: { id: string; name: string }[]; role?: "client" | "coach" }) {
+export function ClientWorkoutPlayer({ workoutId, title, goal, duration, status, exercises, substitutions = [], role = "client" }: { workoutId: string; title: string; goal: string | null; duration: number | null; status: string; exercises: PlayerExercise[]; substitutions?: { id: string; name: string }[]; role?: "client" | "coach" | "owner" }) {
   const demo=useDemo();
   const [state, action, pending] = useActionState(demo?.session ?? playerSessionAction.bind(null, role, workoutId), { status: "idle" as const });
   const router = useRouter();

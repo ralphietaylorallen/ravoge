@@ -57,6 +57,7 @@ export default async function OwnerPage() {
         <div><p className={styles.eyebrow}>Live operations · {timezone}</p><h2>Today</h2></div>
         <p>Organization-wide session activity from Ravoge scheduling records. No estimated or placeholder values.</p>
       </div>
+      <div className={styles.quickActions}><Link href="/owner/workout-now">Workout Now →</Link></div>
       <section className={styles.kpiGrid} aria-label="Today metrics">
         <article className={styles.metricCard}><span>Scheduled sessions</span><strong>{today.scheduled}</strong><small>{today.appointments} total appointments</small></article>
         <article className={styles.metricCard}><span>Completed sessions</span><strong>{today.completed}</strong><small>Completed today</small></article>

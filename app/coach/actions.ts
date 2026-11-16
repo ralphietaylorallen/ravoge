@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireRole } from "@/lib/auth";
+import { requireRole, requireTrainerRole } from "@/lib/auth";
 
 import { parsePoundBodyCompositionGoals } from "@/lib/intake-targets";
 import { poundsToKilograms } from "@/lib/weight-units";
@@ -469,7 +469,7 @@ export async function approvePrescriptionAction(
   _state: PrescriptionActionState,
   formData: FormData,
 ): Promise<PrescriptionActionState> {
-  const { supabase, membership, userId } = await requireRole("coach");
+  const { supabase, membership, userId } = await requireTrainerRole();
   if (!UUID_PATTERN.test(clientId) || !UUID_PATTERN.test(prescriptionId)) {
     return { message: "That recommendation is not available.", status: "error" };
   }
@@ -535,11 +535,11 @@ export async function approvePrescriptionAction(
     if(savedExercises.some(row=>row.load!==null&&(!Number.isFinite(Number(row.load))||Number(row.load)<0||Number(row.load)>100000)))return {status:"error",message:"Review the exercise weights before saving."};
     const {data:revision,error:saveError}=await supabase.rpc("save_workout_preparation",{target_prescription_id:prescriptionId,expected_revision:expectedRevision,coach_draft:{title,instructions,scheduledDate,duration,exercises:savedExercises}});
     if(saveError)return {status:"error",message:saveError.message.includes("another device")?"This draft changed on another device. Reopen it before saving.":"The draft could not be saved. Reopen the session and check its status."};
-    revalidatePath(`/coach/clients/${clientId}`);
-    revalidatePath(`/coach/clients/${clientId}/prescriptions/${prescriptionId}`);
+    revalidatePath(`/${membership.role}/clients/${clientId}`);
+    revalidatePath(`/${membership.role}/clients/${clientId}/prescriptions/${prescriptionId}`);
     const bookedSessionId=currentDraft.generation_context?.preparedBookingId;
-    if(typeof bookedSessionId==="string"&&UUID_PATTERN.test(bookedSessionId))revalidatePath(`/coach/clients/${clientId}/sessions/${bookedSessionId}`);
-    revalidatePath("/coach/schedule");
+    if(typeof bookedSessionId==="string"&&UUID_PATTERN.test(bookedSessionId))revalidatePath(`/${membership.role}/clients/${clientId}/sessions/${bookedSessionId}`);
+    revalidatePath(`/${membership.role}/schedule`);
     return {status:"success",message:"Draft saved. You can leave and reopen it to edit before the session. Nothing has been assigned yet.",draftRevision:Number(revision)};
   }
   const prepared=Boolean(currentDraft.generation_context?.preparedBookingId)||Number(currentDraft.generation_context?.preparationRevision??0)>0;
@@ -550,9 +550,9 @@ export async function approvePrescriptionAction(
   if (error) return { message: "The workout could not be assigned. Recheck equipment, constraints, and client access.", status: "error" };
 
   const bookedSessionId=currentDraft.generation_context?.preparedBookingId;
-  if(typeof bookedSessionId==="string"&&UUID_PATTERN.test(bookedSessionId))revalidatePath(`/coach/clients/${clientId}/sessions/${bookedSessionId}`);
-  revalidatePath("/coach/schedule");
-  revalidatePath(`/coach/clients/${clientId}`);
-  revalidatePath("/coach");
-  redirect(typeof assignedWorkoutId === "string" && UUID_PATTERN.test(assignedWorkoutId) ? `/coach/clients/${clientId}/workouts/${assignedWorkoutId}` : `/coach/clients/${clientId}?notice=prescription-assigned`);
+  if(typeof bookedSessionId==="string"&&UUID_PATTERN.test(bookedSessionId))revalidatePath(`/${membership.role}/clients/${clientId}/sessions/${bookedSessionId}`);
+  revalidatePath(`/${membership.role}/schedule`);
+  revalidatePath(`/${membership.role}/clients/${clientId}`);
+  revalidatePath(`/${membership.role}`);
+  redirect(typeof assignedWorkoutId === "string" && UUID_PATTERN.test(assignedWorkoutId) ? `/${membership.role}/clients/${clientId}/workouts/${assignedWorkoutId}` : `/${membership.role}/clients/${clientId}?notice=prescription-assigned`);
 }

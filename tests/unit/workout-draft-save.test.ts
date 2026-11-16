@@ -14,7 +14,7 @@ function setup(saveError: {message:string}|null=null){
  const exports:Record<string,unknown>={};
  const source=ts.transpileModule(readFileSync(new URL('../../app/coach/actions.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
  new Function('require','exports',source)((name:string)=>{
-  if(name==='@/lib/auth')return {requireRole:async()=>({supabase,membership:{organization_id:'org'},userId:'coach'})};
+  if(name==='@/lib/auth')return {requireRole:async()=>({supabase,membership:{organization_id:'org',role:'coach'},userId:'coach'}),requireTrainerRole:async()=>({supabase,membership:{organization_id:'org',role:'coach'},userId:'coach'})};
   if(name==='next/cache')return {revalidatePath(){}};
   if(name==='next/navigation')return {redirect(){throw new Error('Save Draft must not assign or redirect');}};
   return {};

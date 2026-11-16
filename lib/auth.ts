@@ -99,3 +99,12 @@ export async function requireUnaffiliatedRole(
 
   return { accountType, supabase, userId };
 }
+
+/** Active training access; selected gym/view is still verified by the database. */
+export async function requireTrainerRole() {
+  const { supabase, userId } = await getVerifiedUser();
+  if (!userId) redirect("/login");
+  const membership = await getActiveMembership(userId, supabase);
+  if (!membership || (membership.role !== "coach" && membership.role !== "owner")) redirect(membership ? dashboardForRole(membership.role) : "/access");
+  return { membership, supabase, userId };
+}

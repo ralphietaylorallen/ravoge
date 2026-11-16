@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import type { ExecutionState } from "@/app/coach/workout-actions";
 
-function refresh(id: string) { revalidatePath("/client/profile"); revalidatePath("/client/progress"); revalidatePath("/coach/clients/[clientId]", "page"); revalidatePath("/owner/clients/[clientId]", "page"); revalidatePath(`/client/workouts/${id}`); revalidatePath("/client"); revalidatePath("/coach"); }
-export async function playerSessionAction(role: "client" | "coach", workoutId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
+function refresh(id: string) { revalidatePath("/owner/clients/[clientId]/workouts/[workoutId]", "page"); revalidatePath("/owner"); revalidatePath("/client/profile"); revalidatePath("/client/progress"); revalidatePath("/coach/clients/[clientId]", "page"); revalidatePath("/owner/clients/[clientId]", "page"); revalidatePath(`/client/workouts/${id}`); revalidatePath("/client"); revalidatePath("/coach"); }
+export async function playerSessionAction(role: "client" | "coach" | "owner", workoutId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
   const { supabase } = await requireRole(role);
   if (!/^[0-9a-f-]{36}$/i.test(workoutId)) return { status: "error", message: "Workout unavailable." };
   const { error } = await supabase.rpc("manage_quality_workout", { target_workout_id: workoutId, intent: String(form.get("intent") ?? ""), difficulty: form.get("difficulty") ? Number(form.get("difficulty")) : null, feedback: String(form.get("feedback") ?? "").trim() || null });
@@ -13,7 +13,7 @@ export async function playerSessionAction(role: "client" | "coach", workoutId: s
   refresh(workoutId);
   return { status: "success", message: form.get("intent") === "finish" ? "Workout recorded. Your Coach can review completed, modified, missed and painful work." : "Workout started. Work at the effort approved by your Coach." };
 }
-export async function playerSetAction(role: "client" | "coach", workoutId: string, setId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
+export async function playerSetAction(role: "client" | "coach" | "owner", workoutId: string, setId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
   const { supabase } = await requireRole(role);
   if (![workoutId, setId].every(v => /^[0-9a-f-]{36}$/i.test(v))) return { status: "error", message: "Set unavailable." };
   const value = (key: string) => String(form.get(key) ?? "").trim() ? Number(form.get(key)) : null;

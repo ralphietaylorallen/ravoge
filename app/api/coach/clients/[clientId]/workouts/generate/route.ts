@@ -23,8 +23,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cli
   const { supabase, userId } = await getVerifiedUser();
   if (!userId) return reply({ error: "Your session ended. Sign in again, then create the workout." }, 401);
   const membership = await getActiveMembership(userId, supabase);
-  if (!membership || membership.role !== "coach") {
-    return reply({ error: "Only an active Coach can create a workout." }, 403);
+  if (!membership || membership.role !== "coach" && membership.role !== "owner") {
+    return reply({ error: "Active Coach or Owner access is required." }, 403);
   }
 
   const { clientId } = await params;
@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cli
   }).formatToParts(now);
   const localTimeMap = Object.fromEntries(localTimeParts.map((part) => [part.type, part.value]));
   const currentMinutes = (Number(localTimeMap.hour) % 24) * 60 + Number(localTimeMap.minute);
-  const { data: existingWorkouts } = await supabase
+  const { data: existingWorkouts, error: existingError } = await supabase
     .from("workout_assignments")
     .select("id,status,scheduled_time")
     .eq("organization_id", membership.organization_id)
@@ -58,6 +58,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cli
     .in("status", ["assigned", "in_progress"])
     .order("scheduled_time", { ascending: true, nullsFirst: false })
     .limit(10);
+  if(existingError)return reply({error:"Saved workouts could not be checked. Try again before creating another workout."},503);
   const inProgressWorkout = existingWorkouts?.find((workout) => workout.status === "in_progress");
   const timedWorkouts = (existingWorkouts ?? []).filter((workout) => workout.status === "assigned" && workout.scheduled_time);
   const closestTimedWorkout = timedWorkouts
@@ -69,7 +70,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cli
   const existingWorkout = inProgressWorkout
     ?? closestTimedWorkout
     ?? existingWorkouts?.find((workout) => workout.status === "assigned");
-  if (existingWorkout) return reply({ url: `/coach/clients/${clientId}/workouts/${existingWorkout.id}` }, 200);
+  if (existingWorkout) return reply({ url: `/${membership.role}/clients/${clientId}/workouts/${existingWorkout.id}` }, 200);
 
   const result = await createGeneratedWorkoutDraft({ clientId, supabase, userId });
   if (!result.ok) return reply({ error: result.message }, result.status);
@@ -77,5 +78,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ cli
   const suffix = result.generationIssue
     ? `?generationIssue=${encodeURIComponent(result.generationIssue)}`
     : "";
-  return reply({ url: `/coach/clients/${clientId}/prescriptions/${result.prescriptionId}${suffix}` }, 201);
+  return reply({ url: `/${membership.role}/clients/${clientId}/prescriptions/${result.prescriptionId}${suffix}` }, 201);
 }
