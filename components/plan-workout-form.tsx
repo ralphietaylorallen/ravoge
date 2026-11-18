@@ -22,6 +22,24 @@ type ExerciseRow = {
   secondary: Prescription;
 };
 
+export type EditablePlan = {
+  id: string;
+  updatedAt: string;
+  title: string;
+  instructions: string | null;
+  date: string;
+  time: string;
+  exercises: {
+    exercise_name: string;
+    sets: number;
+    reps: number;
+    load: number | null;
+    notes: string | null;
+    rest_seconds: number | null;
+    prescription_details: { measurement?: string; workSeconds?: number } | null;
+  }[];
+};
+
 function blankPrescription(): Prescription {
   return { sets: "3", reps: "8", load: "", notes: "", duration: "30", rest: "" };
 }
@@ -51,13 +69,32 @@ function clientName(clients: ClientOption[], id: string, fallback: string) {
   return clients.find((client) => client.id === id)?.name || fallback;
 }
 
-export function PlanWorkoutForm({ clients, defaultClientId = "" }: { clients: ClientOption[]; defaultClientId?: string }) {
+export function PlanWorkoutForm({ clients, defaultClientId, defaultDate, editPlan }: {
+  clients: ClientOption[];
+  defaultClientId: string;
+  defaultDate: string;
+  editPlan?: EditablePlan;
+}) {
   const initial: PlannedWorkoutActionState = { status: "idle" };
   const [state, action, pending] = useActionState(planWorkoutAction, initial);
-  const [rows, setRows] = useState<ExerciseRow[]>([blankRow(1)]);
-  const [nextId, setNextId] = useState(2);
+  const [rows, setRows] = useState<ExerciseRow[]>(() => editPlan
+    ? editPlan.exercises.map((exercise, index) => ({
+      ...blankRow(index + 1),
+      name: exercise.exercise_name,
+      mode: exercise.prescription_details?.measurement === "time" ? "time" : "reps",
+      primary: {
+        sets: String(exercise.sets),
+        reps: String(exercise.reps),
+        load: exercise.load === null ? "" : String(exercise.load),
+        notes: exercise.notes ?? "",
+        duration: String(exercise.prescription_details?.workSeconds ?? 30),
+        rest: exercise.rest_seconds === null ? "" : String(exercise.rest_seconds),
+      },
+    }))
+    : [blankRow(1)]);
+  const [nextId, setNextId] = useState(rows.length + 1);
   const [paste, setPaste] = useState("");
-  const [primaryClientId, setPrimaryClientId] = useState(defaultClientId);
+  const primaryClientId = defaultClientId;
   const [secondaryClientId, setSecondaryClientId] = useState("");
   const [pairEnabled, setPairEnabled] = useState(false);
   const [activeClient, setActiveClient] = useState<"primary" | "secondary">("primary");
@@ -132,23 +169,22 @@ export function PlanWorkoutForm({ clients, defaultClientId = "" }: { clients: Cl
 
   return <form action={action} className={styles.workoutForm}>
     <div className={styles.formColumns}>
-      <label className={styles.field}><span>Client A</span><select name="clientId" required value={primaryClientId} onChange={(event) => {
-        setPrimaryClientId(event.target.value);
-        if (event.target.value === secondaryClientId) setSecondaryClientId("");
-      }}><option value="" disabled>Select client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
-      <label className={styles.field}><span>Workout name</span><input name="title" maxLength={120} required placeholder="Lower body strength" /></label>
-      <label className={styles.field}><span>Date</span><input name="scheduledDate" type="date" required /></label>
-      <label className={styles.field}><span>Time</span><input name="scheduledTime" type="time" required /></label>
+      <input type="hidden" name="clientId" value={primaryClientId} />
+      {editPlan && <>
+        <input type="hidden" name="editId" value={editPlan.id} />
+        <input type="hidden" name="expectedUpdatedAt" value={editPlan.updatedAt} />
+      </>}
+      <label className={styles.field}><span>Workout name</span><input name="title" defaultValue={editPlan?.title} maxLength={120} required placeholder="Lower body strength" /></label>
+      <label className={styles.field}><span>Date</span><input name="scheduledDate" type="date" defaultValue={editPlan?.date ?? defaultDate} required /></label>
+      <label className={styles.field}><span>Time</span><input name="scheduledTime" type="time" defaultValue={editPlan?.time} required /></label>
     </div>
 
-    <section className={styles.partnerPanel}>
+    {!editPlan && <section className={styles.partnerPanel}>
       <label className={styles.partnerToggle}><input type="checkbox" checked={pairEnabled} onChange={(event) => setPair(event.target.checked)} /><span>Add a training partner</span></label>
-      <p>Pair two clients in one session while keeping each person’s weights, reps, notes, completion and progression separate.</p>
       {pairEnabled && <label className={styles.field}><span>Client B</span><select name="secondaryClientId" required value={secondaryClientId} onChange={(event) => setSecondaryClientId(event.target.value)}><option value="" disabled>Select training partner</option>{clients.filter((client) => client.id !== primaryClientId).map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>}
-      {!pairEnabled && <input type="hidden" name="secondaryClientId" value="" />}
-    </section>
+    </section>}
 
-    <label className={styles.field}><span>Coach instructions / workout notes</span><textarea name="instructions" maxLength={4000} rows={3} placeholder="Optional notes for the session." /></label>
+    <label className={styles.field}><span>Coach instructions / workout notes</span><textarea name="instructions" defaultValue={editPlan?.instructions ?? ""} maxLength={4000} rows={3} placeholder="Optional notes for the session." /></label>
 
     <section className={styles.formSection}>
       <div className={styles.sectionFields}>
@@ -167,8 +203,8 @@ export function PlanWorkoutForm({ clients, defaultClientId = "" }: { clients: Cl
     <div className={styles.exerciseList}>
       {rows.map((row, index) => <fieldset className={styles.exerciseRow} key={row.id}>
         <legend>Exercise {index + 1}</legend>
-        <label className={`${styles.field} ${styles.exerciseName}`}><span>Exercise · shared</span><input name="exerciseName" value={row.name} onChange={(event) => updateSharedRow(row.id, { name: event.target.value })} maxLength={120} required /></label>
-        <label className={styles.field}><span>Type · shared</span><select name="exerciseMode" value={row.mode} onChange={(event) => updateSharedRow(row.id, { mode: event.target.value as ExerciseRow["mode"] })}><option value="reps">Reps</option><option value="time">Timed</option></select></label>
+        <label className={`${styles.field} ${styles.exerciseName}`}><span>{pairEnabled ? "Exercise · shared" : "Exercise"}</span><input name="exerciseName" value={row.name} onChange={(event) => updateSharedRow(row.id, { name: event.target.value })} maxLength={120} required /></label>
+        <label className={styles.field}><span>{pairEnabled ? "Type · shared" : "Type"}</span><select name="exerciseMode" value={row.mode} onChange={(event) => updateSharedRow(row.id, { mode: event.target.value as ExerciseRow["mode"] })}><option value="reps">Reps</option><option value="time">Timed</option></select></label>
         {activeClient === "primary" || !pairEnabled ? prescriptionFields("primary", row) : hiddenPrescription("primary", row)}
         {pairEnabled && (activeClient === "secondary" ? prescriptionFields("secondary", row) : hiddenPrescription("secondary", row))}
         <button className={styles.removeAction} type="button" disabled={rows.length === 1} onClick={() => removeExercise(row.id)}>Remove</button>
@@ -176,11 +212,10 @@ export function PlanWorkoutForm({ clients, defaultClientId = "" }: { clients: Cl
     </div>
 
     <div className={styles.reviewFooter}>
-      <p>{pairEnabled ? "This saves two linked workouts. The clients train through the same exercise sequence, but each tab keeps its own load, reps, timing, notes and history." : "Timed exercises automatically include Ravoge’s workout timer. Saving this plan makes it the Client’s scheduled workout and prevents a duplicate generated workout for that day."}</p>
-      <div className={styles.accessActions}>
-        <button className={styles.secondaryAction} name="saveIntent" value="another" disabled={pending}>Save & Keep Planning</button>
-        <button className={styles.action} name="saveIntent" value="save" disabled={pending}>{pending ? "Saving…" : pairEnabled ? "Save Paired Workout" : "Save Planned Workout"}</button>
-      </div>
+      <p>{pairEnabled ? "This saves two linked workouts. The clients train through the same exercise sequence, but each tab keeps its own load, reps, timing, notes and history." : "The client sees this workout on their dashboard as soon as you save."}</p>
+      <button className={styles.action} disabled={pending}>
+        {pending ? "Saving…" : editPlan ? "Save changes" : pairEnabled ? "Save Paired Workout" : "Save & Keep Planning"}
+      </button>
     </div>
     {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
   </form>;

@@ -208,6 +208,11 @@ export async function planWorkoutAction(
   const { supabase } = await requireRole("coach");
   const clientId = String(formData.get("clientId") ?? "");
   const secondaryClientId = String(formData.get("secondaryClientId") ?? "").trim();
+  const editId = String(formData.get("editId") ?? "");
+  const expectedUpdatedAt = String(formData.get("expectedUpdatedAt") ?? "");
+  if (editId && (!UUID_PATTERN.test(editId) || secondaryClientId || !Number.isFinite(Date.parse(expectedUpdatedAt)))) {
+    return { status: "error", message: "Open the saved workout again before editing." };
+  }
 
   if (!UUID_PATTERN.test(clientId)) return { status: "error", message: "Choose an assigned client." };
   if (secondaryClientId && (!UUID_PATTERN.test(secondaryClientId) || secondaryClientId === clientId)) {
@@ -238,7 +243,20 @@ export async function planWorkoutAction(
   let secondaryWorkoutId: string | undefined;
   let errorMessage = "";
 
-  if (secondaryClientId) {
+  if (editId) {
+    const { data, error } = await supabase.rpc("update_planned_workout_assignment_lb", {
+      target_workout_id: editId,
+      target_client_id: clientId,
+      expected_updated_at: expectedUpdatedAt,
+      workout_title: title,
+      workout_instructions: instructions || null,
+      workout_scheduled_date: scheduledDate,
+      workout_scheduled_time: scheduledTime,
+      exercises: primary.exercises,
+    });
+    if (error) errorMessage = error.message;
+    else workoutId = typeof data === "string" ? data : undefined;
+  } else if (secondaryClientId) {
     const secondary = parsePlannedExercises(formData, "secondary", names, modes);
     if (!secondary.exercises) return { status: "error", message: secondary.error || "Review the training partner's workout." };
 
@@ -277,7 +295,9 @@ export async function planWorkoutAction(
       status: "error",
       message: errorMessage.includes("already planned")
         ? "A workout is already planned for one of these clients at that date and time."
-        : "The planned workout could not be saved. Confirm both clients are still assigned to you.",
+        : editId
+          ? "This plan may have changed or been started. Reopen it before saving your changes."
+          : "The planned workout could not be saved. Confirm the client assignment and exercise details.",
     };
   }
 
@@ -286,6 +306,9 @@ export async function planWorkoutAction(
   revalidatePath(`/coach/clients/${clientId}`);
   if (secondaryClientId) revalidatePath(`/coach/clients/${secondaryClientId}`);
   revalidatePath("/client");
+  revalidatePath(`/client/workouts/${workoutId}`);
+  revalidatePath(`/coach/clients/${clientId}/workouts/${workoutId}`);
+  if (editId) redirect(`/coach/plan-workouts?client=${clientId}&date=${scheduledDate}&saved=1`);
 
   return {
     status: "success",
