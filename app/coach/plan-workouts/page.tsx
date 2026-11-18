@@ -3,82 +3,89 @@ import Link from "next/link";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { PlanWorkoutForm } from "@/components/plan-workout-form";
 import { requireRole } from "@/lib/auth";
-import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
+import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone, localWeekStartDate, shiftLocalDate } from "@/lib/timezone";
 
-type ClientProfile = { id: string; full_name: string; preferred_name: string | null };
-type PlannedWorkout = {
-  id: string;
-  client_user_id: string;
-  title: string;
-  scheduled_date: string;
-  scheduled_time: string | null;
-  status: string;
-  paired_workout_group_id: string | null;
-};
-
-export default async function CoachPlanWorkoutsPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
-  const { client: requestedClient } = await searchParams;
+const dateLabel = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
+const timeLabel = new Intl.DateTimeFormat("en-US", { timeStyle: "short", timeZone: "UTC" });
+const asDate = (date: string) => new Date(`${date}T12:00:00Z`);
+const validDate = (date: string) => /^[2-9]\d{3}-\d{2}-\d{2}$/.test(date) &&
+  Number.isFinite(asDate(date).getTime()) && asDate(date).toISOString().slice(0, 10) === date;
+export default async function CoachPlanWorkoutsPage({ searchParams }: {
+  searchParams: Promise<{ client?: string; date?: string }>;
+}) {
+  const query = await searchParams;
   const { membership, supabase, userId } = await requireRole("coach");
-  const [{ data: profile }, { data: organization }, { data: assignments }] = await Promise.all([
+  const gym = membership.organization_id;
+  const [{ data: profile }, { data: organization }, { data: assignments, error: assignmentError }] = await Promise.all([
     supabase.from("profiles").select("full_name,preferred_name").eq("id", userId).single(),
-    supabase.from("organizations").select("name,timezone").eq("id", membership.organization_id).single(),
-    supabase.from("coach_client_assignments").select("client_user_id").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("status", "active"),
+    supabase.from("organizations").select("name,timezone").eq("id", gym).single(),
+    supabase.from("coach_client_assignments").select("client_user_id").eq("organization_id", gym)
+      .eq("coach_user_id", userId).eq("status", "active"),
   ]);
-  const clientIds = (assignments ?? []).map((row) => row.client_user_id);
-  const { data: clients } = clientIds.length
-    ? await supabase.from("profiles").select("id,full_name,preferred_name").in("id", clientIds).order("full_name")
-    : { data: [] };
-  const today = localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE);
-  const { data: workoutRows } = await supabase
-    .from("workout_assignments")
-    .select("id,client_user_id,title,scheduled_date,scheduled_time,status,paired_workout_group_id")
-    .eq("organization_id", membership.organization_id)
-    .eq("coach_user_id", userId)
-    .in("status", ["assigned", "in_progress"])
-    .gte("scheduled_date", today)
-    .order("scheduled_date")
-    .order("scheduled_time")
-    .limit(100);
+  const clientIds = (assignments ?? []).map(row => row.client_user_id);
+  const { data: clients, error: clientError } = clientIds.length
+    ? await supabase.from("profiles").select("id,full_name,preferred_name").in("id", clientIds)
+      .eq("account_status", "active").order("full_name")
+    : { data: [], error: null };
+  const options = (clients ?? []).map(client => ({ id: client.id, name: client.preferred_name || client.full_name }));
+  const selected = options.find(option => option.id === query.client) ?? options[0];
+  const timezone = organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE;
+  const today = localDateInTimeZone(new Date(), timezone);
+  const date = query.date && validDate(query.date) ? query.date : today;
+  const start = localWeekStartDate(asDate(date), "UTC") ?? date;
+  const days = Array.from({ length: 7 }, (_, i) => shiftLocalDate(start, i)!);
+  const href = (day: string) => `/coach/plan-workouts?client=${selected?.id ?? ""}&date=${day}`;
+  const { data: workouts, error: weekError } = selected
+    ? await supabase.from("workout_assignments")
+      .select("id,title,scheduled_date,scheduled_time,status,paired_workout_group_id")
+      .eq("organization_id", gym).eq("coach_user_id", userId).eq("client_user_id", selected.id)
+      .gte("scheduled_date", start).lte("scheduled_date", days[6]).neq("status", "cancelled").order("scheduled_time")
+    : { data: [], error: null };
 
-  const profileMap = new Map((clients ?? []).map((client: ClientProfile) => [client.id, client]));
-  const options = (clients ?? []).map((client: ClientProfile) => ({
-    id: client.id,
-    name: client.preferred_name || client.full_name,
-  }));
-  const defaultClientId = options.some((client) => client.id === requestedClient) ? requestedClient : "";
-  const planned = (workoutRows ?? []) as PlannedWorkout[];
-  const plannedGroups = Array.from(planned.reduce((groups, workout) => {
-    const key = workout.paired_workout_group_id || workout.id;
-    const current = groups.get(key) || [];
-    current.push(workout);
-    groups.set(key, current);
-    return groups;
-  }, new Map<string, PlannedWorkout[]>()).values());
-  const coachName = profile?.preferred_name || profile?.full_name || "Coach";
-
-  return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coachName} role="coach">
+  return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={profile?.preferred_name || profile?.full_name || "Coach"} role="coach">
     <div className={styles.pageHeading}>
       <div><p className={styles.eyebrow}>Coach programming</p><h2>Plan Workouts</h2></div>
-      <p>Build a Client workout ahead of time. If a workout is already saved for that day, Ravoge opens it after readiness instead of generating another one.</p>
+      <p>Choose a client and plan their week. Saved workouts appear on the client’s dashboard.</p>
     </div>
-
-    <section className={styles.panel}>
-      <h2>Create planned workout</h2>
-      {options.length ? <PlanWorkoutForm clients={options} defaultClientId={defaultClientId} /> : <p className={styles.empty}>Assign a Client to yourself before planning workouts.</p>}
-    </section>
-
-    <section className={styles.workspaceSection}>
-      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Saved plans</p><h3>Upcoming planned workouts</h3></div></div>
-      {plannedGroups.length ? <ul className={styles.workoutList}>{plannedGroups.map((group) => {
-        const workout = group[0];
-        const clientNames = group.map((item) => {
-          const client = profileMap.get(item.client_user_id);
-          return client?.preferred_name || client?.full_name || "Client";
-        }).join(" + ");
-        const time = workout.scheduled_time ? workout.scheduled_time.slice(0, 5) : "Time not set";
-        const status = group.some((item) => item.status === "in_progress") ? "in progress" : workout.status.replaceAll("_", " ");
-        return <li key={workout.paired_workout_group_id || workout.id}><div className={styles.workoutSummary}><div><strong>{workout.title}</strong><time>{workout.scheduled_date} · {time} · {clientNames}</time></div><span>{status}</span></div><Link className={styles.inlineAction} href={`/coach/clients/${workout.client_user_id}/workouts/${workout.id}`}>Open workout →</Link></li>;
-      })}</ul> : <p className={styles.empty}>No upcoming planned workouts.</p>}
-    </section>
+    {assignmentError || clientError ? <p className={styles.notice} role="alert">Client assignments could not be loaded. Refresh to try again.</p>
+      : !selected ? <p className={styles.empty}>Assign a client to yourself before planning workouts.</p> : <>
+      <section className={styles.panel}>
+        <form method="get" className={styles.formColumns}>
+          <input type="hidden" name="date" value={date} />
+          <label className={styles.field}>Client<select name="client" defaultValue={selected.id}>
+            {options.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+          </select></label>
+          <button className={styles.secondaryAction}>View client plan</button>
+        </form>
+        <div className={styles.quickActions}>
+          <Link href={`/coach/clients/${selected.id}?tab=progress`}>Review workout results →</Link>
+          <Link href={`/coach/workout-now?client=${selected.id}`}>Workout Now →</Link>
+        </div>
+      </section>
+      <section className={styles.panel} aria-label="Weekly workout plan">
+        <div className={styles.sectionHeading}><h3>{selected.name}’s week</h3>
+          <nav className={styles.quickActions} aria-label="Plan week">
+            <Link href={href(shiftLocalDate(start, -7)!)}>← Previous week</Link>
+            <Link href={href(today)}>This week</Link>
+            <Link href={href(shiftLocalDate(start, 7)!)}>Next week →</Link>
+          </nav>
+        </div>
+        {weekError ? <p role="alert" className={styles.notice}>This week could not be loaded. Refresh before adding a workout.</p> :
+          <ul className={styles.planWeek}>
+            {days.map(day => <li key={day} className={day === date ? styles.planDaySelected : styles.planDay}>
+              <h4><time dateTime={day}>{dateLabel.format(asDate(day))}</time></h4>
+              {(workouts ?? []).filter(workout => workout.scheduled_date === day).map(workout => <div key={workout.id} className={styles.planEntry}>
+                <Link href={`/coach/clients/${selected.id}/workouts/${workout.id}`}>{workout.title}</Link>
+                <small>{workout.scheduled_time ? `${timeLabel.format(new Date(`2000-01-01T${workout.scheduled_time.slice(0, 5)}:00Z`))} · ` : ""}{workout.status.replaceAll("_", " ")}{workout.paired_workout_group_id ? " · Paired" : ""}</small>
+              </div>)}
+              <Link className={styles.inlineAction} href={`${href(day)}#workout-editor`}>+ Plan workout<span className={styles.planScreenReader}> for {dateLabel.format(asDate(day))}</span></Link>
+            </li>)}
+          </ul>}
+      </section>
+      {!weekError && <section className={styles.panel} id="workout-editor">
+        <h2>Plan a workout for {dateLabel.format(asDate(date))}</h2>
+        <PlanWorkoutForm key={`${selected.id}-${date}`} clients={options} defaultClientId={selected.id} defaultDate={date} />
+      </section>}
+    </>}
   </DashboardShell>;
 }

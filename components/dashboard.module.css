@@ -905,3 +905,23 @@
   .calendarConfirmActions { flex-direction: column-reverse; }
   .calendarConfirmActions button { width: 100%; }
 }
+
+.planWeek {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: 0.65rem;
+  padding: 0;
+  list-style: none;
+}
+.planDay, .planDaySelected {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 0.6rem;
+  padding: 0.8rem;
+  border: 1px solid var(--ui-divider, #d8d4ca);
+}
+.planDaySelected { border-color: #a98755; }
+.planDay h4, .planDaySelected h4 { margin: 0; }
+.planEntry { display: grid; gap: 0.2rem; padding-block: 0.35rem; overflow-wrap: anywhere; }
+.planScreenReader { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
