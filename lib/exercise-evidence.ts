@@ -11,7 +11,7 @@ const cache = new Map<string,{ expires:number; collection:EvidenceCollection }>(
 /** Closed vocabulary only: never pass notes, names, dates, IDs, or medical prose to public search. */
 export function researchContext(input:GenerationInput) {
   const age=input.intakeContext?.age;
-  return { goal:["fat_loss","muscle_gain","mobility"].includes(input.goal)?input.goal:"general_fitness",
+  return { goal:["fat_loss","muscle_gain","mobility","strength","conditioning","athletic_performance","body_recomposition","general_fitness"].includes(input.goal)?input.goal:"general_fitness",
     ageBand:typeof age==="number" ? age>=65?"older_adult":"adult" : "adult_age_unspecified",
     experience:["beginner","intermediate","advanced"].includes(input.experience)?input.experience:"unspecified",
     regions:[...new Set((input.injurySpots??[]).map(s=>s.region))].sort(),

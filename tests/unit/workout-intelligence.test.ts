@@ -1,3 +1,4 @@
+import {withEvidence} from "./evidence-fixture.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { analyzeTrainingIntent, generateIntelligentWorkout, planningProjection, retrieveGymKnowledge, validateTrainingAnalysis, type TrainingAnalysis } from "../../lib/workout-intelligence.ts";
@@ -30,7 +31,7 @@ test("runner, muscle-growth and fitness/fat-loss use a compact OpenAI intent the
       assert.ok(serialized.includes("trainingAnalysis"));assert.ok(serialized.includes("reference_1"));assert.ok(!serialized.includes("knowledgeCatalog"));
       return {status:"completed",output_text:JSON.stringify(output(input))};
     }}};
-    const result=await generateIntelligentWorkout(input,sdk as never);
+    const result=await generateIntelligentWorkout(input,withEvidence(sdk) as never);
     assert.equal(calls,2);assert.equal(result.intelligence?.method,"openai");assert.ok(result.workout);
     assert.equal(result.workout.sourceReviewIds?.[0],input.references.find(r=>r.goal===goal)!.id);
     assert.ok(result.workout.exercises.every(e=>e.load===null&&e.loadUnit==="lb"));signatures.add(JSON.stringify(result.workout.exercises.map(e=>[e.libraryExerciseId,e.reps,e.restSeconds])));
@@ -91,7 +92,7 @@ test("no approved sources yields explicit general programming without fabricated
 
 test("source claims and planned intensity cannot bypass existing review validation",()=>{
   const input=context();input.intelligence={analysis:analysis(),method:"openai",cacheHit:false};
-  const missing=output(input);missing.sourceReferenceKeys=[];assert.throws(()=>validateQualityWorkout(JSON.stringify(missing),input));
+  const missing=output(input);missing.sourceReferenceKeys=[];assert.ok(validateQualityWorkout(JSON.stringify(missing),input).sourceReviewIds?.length);
   const forged=output(input);forged.sourceReferenceKeys=["foreign-source"];assert.throws(()=>validateQualityWorkout(JSON.stringify(forged),input));
   const intense=output(input);intense.exercises[0].protocol.targetRpe=8;assert.throws(()=>validateQualityWorkout(JSON.stringify(intense),input));
   assert.equal(generationSaveIssue("Invalid training analysis"),"Invalid training analysis");

@@ -77,6 +77,7 @@ export function qualitySchemaFor(input: GenerationInput) {
         injuryAdaptations:{type:"array",maxItems:50,items:reviewText},progression:reviewText,regression:reviewText,unresolvedQuestions:{type:"array",maxItems:10,items:reviewText}}}}:{}),
       exercises: { ...qualitySchema.properties.exercises, items: { ...row, required:[...row.required,...(input.intakeContext?.version===2?["provenance"]:[])], properties: { ...row.properties,
         ...(input.intakeContext?.version===2?{provenance:provenanceSchema}:{}),
+        exerciseKey: {type:"string",enum:input.candidates.map((_,i)=>`exercise_${i+1}`)},
         sets: { ...row.properties.sets, maximum: input.experience === "beginner" ? 3 : 4 },
         protocol: { ...row.properties.protocol, properties: { ...row.properties.protocol.properties,
           targetRpe: { ...row.properties.protocol.properties.targetRpe, maximum: ceiling },
@@ -122,11 +123,16 @@ export function projectQualityContext(input: GenerationInput) {
       reps: input.gymProfile.statistics.reps, restSeconds: input.gymProfile.statistics.restSeconds,
       terminology: input.gymProfile.statistics.terminology, progressionPatterns: input.gymProfile.statistics.progressionPatterns, resourceUse: input.gymProfile.statistics.resourceUse } : null,
     publishedCount: input.publishedCount ?? 0,
-    timingBudget: { requestedSeconds:input.duration*60, minimumEstimatedSeconds:Math.min(15,input.duration*0.4)*60, maximumEstimatedSeconds:input.duration*60+180 },
+    timingBudget: { requestedSeconds:input.duration*60, minimumEstimatedSeconds:(input.sessionRequest?input.duration*0.75:Math.min(15,input.duration*0.4))*60, maximumEstimatedSeconds:input.duration*60+180 },
     trainingAnalysis: input.intelligence?.analysis,
     evidencePrinciples: programmingEvidence().principles,
     evidenceCacheVersion: programmingEvidence().version,
     liveWebResearch: !!input.evidence && !input.evidence.cacheHit,
+    retrievedGuidance: input.evidence?.sources.map(s=>({id:s.id,title:s.title,recommendations:s.recommendations,limitations:s.limitations,applicability:s.applicability})),
+    sourceBindings: input.candidates.map(c=>({exerciseKey:aliases.get(c.id),references:input.references.flatMap((r,i)=>{
+      const ids=r.rawStyle?.exerciseIds??r.exercises.map(e=>e.libraryExerciseId);
+      return ids.includes(c.id)?[{referenceKey:`reference_${i+1}`,segmentKeys:r.segments?.filter(s=>s.exerciseIds.includes(c.id)).map(s=>s.key)??[]}]:[];
+    })})),
     todayReadiness: input.todayReadiness ? { answers: input.todayReadiness.answers, hasPain: input.todayReadiness.hasPain, coachDecision: input.todayReadiness.coachDecision } : null,
     publishedStructures: input.references.map((r, index) => {
       const groups = new Map<string, string>();
@@ -165,7 +171,7 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
       || !Array.isArray(r.unresolvedQuestions)||r.unresolvedQuestions.length>10||r.unresolvedQuestions.some((s:unknown)=>!text(s,5,500))
       || (input.injurySpots?.length && !r.injuryAdaptations.length)) throw new QualityValidationError("header");
   }
-  if(input.intelligence && (!Array.isArray(value.sourceReferenceKeys) || value.sourceReferenceKeys.length>(input.references.length?5:0) || (input.references.length && !value.sourceReferenceKeys.length)
+  if(input.intelligence && (!Array.isArray(value.sourceReferenceKeys) || value.sourceReferenceKeys.length>(input.references.length?5:0)
     || new Set(value.sourceReferenceKeys).size!==value.sourceReferenceKeys.length || value.sourceReferenceKeys.some((key:unknown)=>typeof key!=="string"||!referenceKeys.includes(key)))) throw new QualityValidationError("references");
   const groups = new Map<string, string>();
   const exercises = value.exercises.map((raw: Record<string, unknown>) => {
@@ -204,6 +210,16 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
     try { provenanceAudit=validateWorkoutProvenance(exercises,value.exercises.map((r:{provenance:RowProvenance})=>r.provenance),input); }
     catch { throw new QualityValidationError("references"); }
   }
+  // Credits are derived from validated canonical movements, not the model's
+  // potentially inconsistent shortlist. No exercise or source is invented.
+  if(input.intelligence) {
+    const performed=new Set(exercises.map((e: {libraryExerciseId:string})=>e.libraryExerciseId));
+    value.sourceReferenceKeys=input.references.flatMap((r,i)=>{
+      const ids=r.rawStyle?.exerciseIds??r.exercises.map(e=>e.libraryExerciseId??"");
+      return ids.some(id=>performed.has(id))?[referenceKeys[i]]:[];
+    });
+    if(input.references.length&&!value.sourceReferenceKeys.length) throw new QualityValidationError("references");
+  }
   if(input.intelligence && input.references.some(r=>r.sourceKind==='raw_reference')) {
     const used = input.references.flatMap((reference, index) =>
       value.sourceReferenceKeys.includes(referenceKeys[index]) ? [{ reference, key: referenceKeys[index] }] : []);
@@ -217,7 +233,7 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
     }
   }
   if (exercises.reduce((sum: number, e: { sets: number }) => sum + e.sets, 0) > 28) throw new QualityValidationError("volume");
-  if (seconds > input.duration * 60 + 180 || seconds < Math.min(15, input.duration * 0.4) * 60) throw new QualityValidationError("duration",{timing:{estimatedSeconds:Math.ceil(seconds),minimumSeconds:Math.min(15,input.duration*0.4)*60,maximumSeconds:input.duration*60+180}});
+  if (seconds > input.duration * 60 + 180 || seconds < (input.sessionRequest?input.duration*0.75:Math.min(15, input.duration * 0.4)) * 60) throw new QualityValidationError("duration",{timing:{estimatedSeconds:Math.ceil(seconds),minimumSeconds:(input.sessionRequest?input.duration*0.75:Math.min(15,input.duration*0.4))*60,maximumSeconds:input.duration*60+180}});
   return { title: value.title, rationale: value.rationale, durationMinutes: Math.max(20, Math.min(input.duration, Math.ceil(seconds / 60))), exercises,
     ...(provenanceAudit?{provenanceAudit}:{}),
     ...(input.intakeContext?.version===2?{coachReview:value.coachReview}:{}),

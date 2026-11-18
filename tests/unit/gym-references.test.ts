@@ -1,7 +1,8 @@
+import {withEvidence} from "./evidence-fixture.ts";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {retrieveGymKnowledge,generateIntelligentWorkout,referenceCandidates,type TrainingAnalysis} from '../../lib/workout-intelligence.ts';
-import {projectQualityContext,validateQualityWorkout} from '../../lib/workout-generation-quality.ts';
+import {projectQualityContext} from '../../lib/workout-generation-quality.ts';
 import {defaultProtocol} from '../../lib/workout-protocol.ts';
 import {referenceFallback} from '../../lib/reference-fallback.ts';
 import type {GenerationInput} from '../../lib/workout-generation.ts';
@@ -24,15 +25,11 @@ test('raw example projection carries only allowlisted format signals and canonic
 });
 test('real generation interface requires source credit and approved compatible movements, while numeric load calculation remains outside AI',async()=>{
  const x=input();let calls=0;const sdk={responses:{create:async()=>{calls++;return {status:'completed',output_text:JSON.stringify(calls===1?analysis:{title:'Adapted gym session',rationale:'Recognized gym combinations adapted to the Client, not copied raw quantities.',durationMinutes:30,sourceReferenceKeys:['reference_1'],exercises:[0,1,2].map(i=>({exerciseKey:`exercise_${i+1}`,sets:3,reps:8,restSeconds:120,notes:'Controlled technique.',reason:'Gym combination adapted safely.',protocol:defaultProtocol()}))})};}}};
- const result=await generateIntelligentWorkout(x,sdk as never);assert.ok(result.workout);assert.equal(calls,2);assert.equal(result.workout.sourceReviewIds![0],'private-source-123');assert.ok(result.workout.exercises.every(e=>e.load===null&&e.loadUnit==='lb'));
+ const result=await generateIntelligentWorkout(x,withEvidence(sdk) as never);assert.ok(result.workout);assert.equal(calls,2);assert.equal(result.workout.sourceReviewIds![0],'private-source-123');assert.ok(result.workout.exercises.every(e=>e.load===null&&e.loadUnit==='lb'));
 });
-test('provider failure gives an honestly labeled deterministic reference-inspired draft, not silently generic programming',async()=>{
+test('provider failure reports an unavailable draft instead of silently assigning a deterministic replacement',async()=>{
  const x=input();x.duration=44;const sdk={responses:{create:async()=>{throw Error('private provider detail');}}};
- const result=await generateIntelligentWorkout(x,sdk as never);assert.ok(result.workout);assert.equal(result.method,'deterministic_reference_fallback');assert.ok(result.workout.sourceReviewIds!.length);assert.match(result.workout.rationale,/AI service could not finish/);
- const prepared={...x,references:retrieveGymKnowledge(x,analysis),intelligence:{analysis,method:'rules_fallback' as const,cacheHit:false}};
- const fallback=referenceFallback(prepared)!;const output={...fallback,sourceReferenceKeys:fallback.sourceReviewIds!.map(id=>`reference_${prepared.references.findIndex(r=>r.id===id)+1}`),exercises:fallback.exercises.map(e=>({exerciseKey:`exercise_${x.candidates.findIndex(c=>c.id===e.libraryExerciseId)+1}`,sets:e.sets,reps:e.reps,restSeconds:e.restSeconds,notes:e.notes,reason:e.reason,protocol:e.protocol}))};
- const {sourceReviewIds:_ids,...providerOutput}=output;void _ids;
- assert.ok(validateQualityWorkout(JSON.stringify(providerOutput),prepared));
+ const result=await generateIntelligentWorkout(x,sdk as never);assert.equal(result.workout,null);assert.equal(result.reason,'unavailable');
 });
 test('fallback cannot assign unavailable canonical identities or claim an unrelated raw source',()=>{
  const x=input();x.references=retrieveGymKnowledge(x,analysis);x.references.forEach(r=>r.rawStyle!.exerciseIds=['unavailable']);assert.equal(referenceFallback(x),null);
@@ -44,7 +41,7 @@ test('raw source combinations stay primary with no more than two complementary a
  assert.equal(referenceCandidates({...x,candidates:x.candidates.slice(0,2)},refs,analysis).length,2);
 });
 
-test("a mismatched gym reference supplies exact aliases on the repair attempt", async () => {
+test("source credits are derived from actual gym movement matches without a spurious repair", async () => {
   const x = { ...input(), frequency: 2 };
   x.knowledgeCatalog = [
     x.knowledgeCatalog!.at(-1)!,
@@ -64,8 +61,8 @@ test("a mismatched gym reference supplies exact aliases on the repair attempt", 
     }
     return { status: "completed", output_text: JSON.stringify(calls === 1 ? analysis : workout) };
   } } };
-  const generated = await generateIntelligentWorkout(x, sdk as never);
-  assert.equal(calls, 3);
-  assert.equal(generated.model?.includes("deterministic"), false);
+  const generated = await generateIntelligentWorkout(x, withEvidence(sdk) as never);
+  assert.equal(calls, 2);
+  assert.ok(generated.workout);
   assert.deepEqual(generated.workout?.sourceReviewIds, ["private-source-123"]);
 });

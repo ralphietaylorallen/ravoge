@@ -554,5 +554,7 @@ export async function approvePrescriptionAction(
   revalidatePath(`/${membership.role}/schedule`);
   revalidatePath(`/${membership.role}/clients/${clientId}`);
   revalidatePath(`/${membership.role}`);
+  revalidatePath("/client");
+  if(formData.get("intent")==="schedule")redirect(`/${membership.role}/clients/${clientId}?tab=schedule&notice=prescription-assigned`);
   redirect(typeof assignedWorkoutId === "string" && UUID_PATTERN.test(assignedWorkoutId) ? `/${membership.role}/clients/${clientId}/workouts/${assignedWorkoutId}` : `/${membership.role}/clients/${clientId}?notice=prescription-assigned`);
 }

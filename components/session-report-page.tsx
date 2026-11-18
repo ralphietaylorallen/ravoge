@@ -1,3 +1,5 @@
+import { TrainingLearning } from "./training-learning";
+import type { BayesianTraining } from "@/lib/bayesian-training";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
@@ -13,8 +15,10 @@ export async function SessionReportPage({role,workoutId,clientId}:{role:"client"
  let data:SessionReportData|null=null,issue="";
  try{data=await loadSessionReport(supabase,membership.organization_id,target,workoutId);}catch(e){issue=e instanceof Error?e.message:"Report unavailable. Your workout results are saved.";}
  if(!data&&!issue)notFound();
+ const {data:learning}=await supabase.rpc("get_bayesian_training_context",{target_client_user_id:target});
  const back=role==="client"?"/client/profile":`/${role}/clients/${target}?tab=progress`;
  return <DashboardShell compact role={role} gymName={org?.name??"Ravoge gym"} name={actor?.full_name??role}>
   {issue?<section className={dashboardStyles.operationCard}><h1>Session report unavailable</h1><p role="alert">{issue}</p><Link href={back}>Return to profile</Link></section>:<SessionReport data={data!} role={role}/>}
+  {data&&<TrainingLearning data={learning as BayesianTraining|null}/>}
  </DashboardShell>;
 }
