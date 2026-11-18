@@ -1,0 +1,10 @@
+.amount { display: block; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.settings { margin-top: 1.4rem; }
+.settings summary { cursor: pointer; padding-block: .7rem; }
+.table { min-width: 54rem; }
+.table th[scope="row"] { text-transform: none; letter-spacing: normal; font-size: inherit; }
+.table th[scope="row"] small { margin-top: .25rem; font-size: .7rem; }
+@media print {
+ .table { min-width: 0; font-size: 9pt; }
+ .table th, .table td { white-space: normal; }
+}

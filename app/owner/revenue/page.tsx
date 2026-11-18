@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { CoachCompensationForm, SessionPricingForm } from "@/components/revenue-forms";
 import { requireRole } from "@/lib/auth";
@@ -59,6 +60,7 @@ export default async function OwnerRevenuePage() {
     <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={owner?.full_name ?? "Owner"} role="owner">
       <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Reporting foundation</p><h2>Revenue</h2></div><p>Exact session-value and estimated compensation snapshots. No payment processing occurs in Ravoge yet.</p></div>
 
+      <div className={styles.quickActions}><Link href="/owner/payroll">Open Payroll by pay period →</Link></div>
       <section className={styles.kpiGrid} aria-label="Revenue snapshots">
         <article className={styles.metricCard}><span>Priced sessions</span><strong>{priced.length}</strong><small>Latest 100 appointments</small></article>
         <article className={styles.metricCard}><span>Session value</span><strong>{money(sum((row) => row.session_price_minor), currency)}</strong><small>Configured snapshots</small></article>
