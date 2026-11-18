@@ -22,8 +22,11 @@ export async function WorkoutNowPage({role,searchParams}:{role:'owner'|'coach';s
  ]):[null,null,null];
  const failed=memberError||clientError||intake?.error||readiness?.error||plans?.error;
  return <DashboardShell compact role={role} gymName={org?.name||'Ravoge gym'} name={actor?.full_name||role}>
-  <Link href={`/${role}`} className={styles.backLink}>← Dashboard</Link>
-  <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Train without a booking</p><h2>Workout Now</h2><p className={styles.profileMeta}>Select a Client, check readiness, then review and start their workout. No scheduled time is needed.</p></div></div>
+  <div className={styles.quickActions}>
+    <Link href={`/${role}`} className={styles.backLink}>← Dashboard</Link>
+    {role === "coach" && <Link href={`/coach/plan-workouts${client ? `?client=${client.id}` : ""}`}>Plan Workouts →</Link>}
+  </div>
+  <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Train without a booking</p><h2>Workout Now</h2><p className={styles.profileMeta}>Select a Client, check readiness, then review and start their workout. For a session happening today.</p></div></div>
   <section className={styles.operationCard}><form method="get" className={styles.form}><label className={styles.field}>Client<select name="client" required defaultValue={client?.id||''}><option value="" disabled>Select a Client</option>{clients?.map(row=><option key={row.id} value={row.id}>{row.preferred_name||row.full_name}</option>)}</select></label><button className={styles.action} disabled={!!memberError||!!clientError||!clients?.length}>Select Client</button></form>{!clients?.length&&!failed&&<p className={styles.empty}>{role==='coach'?'No active Clients are assigned to you yet.':'No active Clients are available yet.'}</p>}</section>
   {requested&&!client&&!failed&&<p role="alert" className={styles.notice}>This Client is not available in your current gym or assigned client list.</p>}
   {failed?<p role="alert" className={styles.notice}>Client training details could not be loaded. Refresh to try again.</p>:client&&<><h3>{client.preferred_name||client.full_name}</h3><TrainSessionForm key={client.id} clientId={client.id} role={role} workoutNow hasIntake={!!intake?.data} intakeReviewRequired={readiness?.data?.needsSafetyReview===true} plannedWorkoutTitle={plans?.data?.title}/>{!intake?.data&&<Link className={styles.secondaryAction} href={`/${role}/clients/${client.id}?tab=intake`}>Open Client intake</Link>}</>}

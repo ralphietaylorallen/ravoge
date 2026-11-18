@@ -4,7 +4,7 @@ import { DashboardShell, dashboardStyles as styles } from "@/components/dashboar
 import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
 import { getProfileImageUrl } from "@/lib/profile-images";
-import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
+import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone, localWeekStartDate } from "@/lib/timezone";
 
 type ClientWorkout = {
   completed_at: string | null;
@@ -40,6 +40,22 @@ function WorkoutList({ empty, workouts }: { empty: string; workouts: ClientWorko
   );
 }
 
+function UpcomingWeeks({ workouts }: { workouts: ClientWorkout[] }) {
+  if (!workouts.length) return <p className={styles.empty}>No upcoming workouts yet.</p>;
+  const weeks = new Map<string, ClientWorkout[]>();
+  for (const workout of workouts) {
+    const week = localWeekStartDate(`${workout.scheduled_date}T12:00:00Z`, "UTC") ?? workout.scheduled_date;
+    const entries = weeks.get(week) ?? [];
+    entries.push(workout);
+    weeks.set(week, entries);
+  }
+  const label = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
+  return Array.from(weeks, ([week, entries]) => <section key={week}>
+    <h3>Week of {label.format(new Date(`${week}T12:00:00Z`))}</h3>
+    <WorkoutList empty="" workouts={entries} />
+  </section>);
+}
+
 export default async function ClientPage() {
   const { membership, supabase, userId } = await requireRole("client");
   const [{ data: profile }, { data: organization }, { data: assignment }, { data: workoutRows }] = await Promise.all([
@@ -52,7 +68,7 @@ export default async function ClientPage() {
       .eq("organization_id", membership.organization_id)
       .eq("client_user_id", userId)
       .neq("status", "cancelled")
-      .order("scheduled_date", { ascending: true }),
+      .order("scheduled_date", { ascending: true }).order("scheduled_time", { ascending: true }),
   ]);
   const { data: coach } = assignment
     ? await supabase.from("profiles").select("full_name,preferred_name,avatar_path").eq("id", assignment.coach_user_id).maybeSingle()
@@ -80,7 +96,7 @@ export default async function ClientPage() {
         </section>
         <section className={styles.panel}>
           <h2>Upcoming</h2>
-          <WorkoutList empty="No upcoming workouts yet." workouts={upcoming} />
+          <UpcomingWeeks workouts={upcoming} />
         </section>
         <section className={styles.panel}>
           <h2>Recently completed</h2>
