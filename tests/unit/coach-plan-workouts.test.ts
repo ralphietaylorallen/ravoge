@@ -41,8 +41,8 @@ test("A saved workout opens after readiness instead of generating another draft"
   assert.match(route, /currentMinutes/);
   assert.match(route, /closestTimedWorkout/);
   assert.match(route, /existingWorkout/);
-  assert.ok(route.indexOf("if (existingWorkout)") < route.lastIndexOf("createGeneratedWorkoutDraft"));
-  assert.match(train, /Save readiness & open planned workout/);
+  assert.ok(route.indexOf("if (existingWorkout && !workoutRequest)") < route.lastIndexOf("createGeneratedWorkoutDraft"));
+  assert.match(train, /Generate workout/);
 });
 
 test("Paired workouts share structure but keep each client's prescription separate", async () => {

@@ -1,3 +1,4 @@
+import { TrainingLearning } from "./training-learning";
 import { savedWorkoutPreparation } from "@/lib/workout-preparation";
 import { canonicalPounds, poundsInText } from "@/lib/weight-units";
 import Link from "next/link";
@@ -54,7 +55,7 @@ export async function TrainerPrescriptionPage({ params, role="coach" }: { role?:
       <p>{prescription.generation_context?.fallbackReason === "invalid_output"
         ? "The AI draft did not pass validation. Review the backup workout below or try generating again."
         : "AI generation did not complete. Review the backup workout below or try generating again."}</p>
-      <Link className={styles.secondaryAction} href={retryHref}>{bookingId ? "Return to scheduled session" : "Back to Workout Now"}</Link>
+      <Link className={styles.secondaryAction} href={retryHref}>{bookingId ? "Return to scheduled session" : "Back to Create workout"}</Link>
     </section>}
     {bookingId&&preparedBooking&&<p className={styles.notice}>Prepared for <Link href={`/${role}/clients/${clientId}/sessions/${bookingId}`}>{new Date(preparedBooking.starts_at).toLocaleString("en-US",{timeZone:preparedBooking.timezone,dateStyle:"full",timeStyle:"short"})}</Link>. The day-of-session readiness check is still required separately.</p>}
     {prescription.generation_context?.intakeReviewRequired&&<p role="alert">Intake updated. Generate a new workout before assigning.</p>}
@@ -75,7 +76,8 @@ export async function TrainerPrescriptionPage({ params, role="coach" }: { role?:
         {snapshot.weightCapabilities?.some(c=>!c.sizesLb?.length) && <p>Some equipment weights are unconfirmed. Confirm any starting load marked for review before assigning.</p>}</>}
     </section>
     </details>
-    <PrescriptionReviewForm weightCapabilities={snapshot?.weightCapabilities} quality={prescription.engine_version.startsWith("prescription-v0.4-")} clientId={clientId} duration={savedDraft?.duration ?? prescription.estimated_duration_minutes} exerciseOptions={exerciseOptions} exercises={savedDraft?.exercises ?? recommendation} prescriptionId={prescriptionId} scheduledDate={preparedBooking?localDateInTimeZone(preparedBooking.starts_at,preparedBooking.timezone):savedDraft?.scheduledDate??localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={savedDraft?.title ?? prescription.title} instructions={savedDraft?.instructions} draftRevision={Number(prescription.generation_context?.preparationRevision??0)} bookingId={bookingId} />
+    <TrainingLearning data={prescription.generation_context?.bayesianTraining}/>
+    <PrescriptionReviewForm weightCapabilities={snapshot?.weightCapabilities} quality={prescription.engine_version.startsWith("prescription-v0.4-")} clientId={clientId} duration={savedDraft?.duration ?? prescription.estimated_duration_minutes} exerciseOptions={exerciseOptions} exercises={savedDraft?.exercises ?? recommendation} prescriptionId={prescriptionId} scheduledDate={preparedBooking?localDateInTimeZone(preparedBooking.starts_at,preparedBooking.timezone):savedDraft?.scheduledDate??prescription.generation_context?.sessionRequest?.scheduledDate??localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={savedDraft?.title ?? prescription.title} instructions={savedDraft?.instructions} draftRevision={Number(prescription.generation_context?.preparationRevision??0)} bookingId={bookingId} />
     <details className={styles.operationCard}><summary>Advanced: programming details and evidence</summary>
       <p>Source: {prescription.generation_context?.sourceType ?? "global_library"}.</p>
       {snapshot && <><p>Gym-profile version: {snapshot.gymProfile?.version ?? "None"}. Gym references available: {snapshot.knowledgeCounts?.referenceEnabled ?? snapshot.publishedCount ?? 0}.</p>

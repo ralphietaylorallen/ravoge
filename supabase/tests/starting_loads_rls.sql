@@ -134,7 +134,7 @@ do $$ declare p uuid; input jsonb; rows jsonb; workout uuid; s record; begin
  select jsonb_agg(v||'{"load":null}'::jsonb) into rows from jsonb_array_elements(rows) v;
  perform public.complete_pound_prescription(p,input->>'snapshot',jsonb_build_object('title','Learned carry QA','rationale','Reviewed comparable distance.','durationMinutes',30,'exercises',rows),'{"model":"mock-sql-only"}');
  perform pg_temp.assert_load((select exists(select 1 from jsonb_array_elements(original_recommendation) v join exercise_library l on l.id=(v->>'libraryExerciseId')::uuid
-   where l.slug='farmer-carry' and v->>'load'='50' and v->'loadPrescription'->>'basis'='same exercise history') from generated_prescriptions where id=p),'Completed distance must progress one confirmed increment through ordinary RPCs');
+   where l.slug='farmer-carry' and v->>'load'='40' and v->'loadPrescription'->>'basis'='same exercise history' and (v->'loadPrescription'->'bayesian'->>'blocks')::integer=1) from generated_prescriptions where id=p),'One completed distance block must hold its confirmed dose while Bayesian evidence builds');
 end $$;
 select set_config('request.jwt.claim.sub','bd100000-0000-4000-8000-000000000003',true);
 do $$ begin

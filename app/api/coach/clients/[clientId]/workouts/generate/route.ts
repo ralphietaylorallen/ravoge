@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getActiveMembership, getVerifiedUser } from "@/lib/auth";
 import { createGeneratedWorkoutDraft } from "@/lib/create-workout-draft";
+import {parseWorkoutRequest} from "@/lib/workout-request";
 import { prepareTrainingSession } from "@/lib/training-session";
 import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
 
@@ -29,7 +30,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cli
 
   const { clientId } = await params;
   if(!/^[0-9a-f-]{36}$/i.test(clientId))return reply({error:"Client unavailable."},404);
-  try{await prepareTrainingSession(supabase,clientId,await request.json());}
+  let payload;let workoutRequest;
+  try{payload=await request.json();workoutRequest=parseWorkoutRequest(payload.workoutRequest);
+    if(!workoutRequest?.scheduledDate)await prepareTrainingSession(supabase,clientId,payload);
+    else if(payload.intakeReviewed===true){
+      const r=await supabase.rpc("get_workout_generation_readiness",{target_client_user_id:clientId});
+      if(r.data?.intakeId){const checked=await supabase.rpc("confirm_intake_generation_safety",{target_intake_id:r.data.intakeId});if(checked.error)throw Error("Review intake restrictions before generating.");}
+    }
+  }
   catch(error){return reply({error:error instanceof Error?error.message:"Today’s check-in could not be saved."},422);}
 
   const { data: organization } = await supabase
@@ -70,9 +78,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cli
   const existingWorkout = inProgressWorkout
     ?? closestTimedWorkout
     ?? existingWorkouts?.find((workout) => workout.status === "assigned");
-  if (existingWorkout) return reply({ url: `/${membership.role}/clients/${clientId}/workouts/${existingWorkout.id}` }, 200);
+  if (existingWorkout && !workoutRequest) return reply({ url: `/${membership.role}/clients/${clientId}/workouts/${existingWorkout.id}` }, 200);
 
-  const result = await createGeneratedWorkoutDraft({ clientId, supabase, userId });
+  const result = await createGeneratedWorkoutDraft({ clientId, supabase, userId, workoutRequest });
   if (!result.ok) return reply({ error: result.message }, result.status);
 
   const suffix = result.generationIssue

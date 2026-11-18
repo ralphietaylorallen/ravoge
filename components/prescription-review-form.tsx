@@ -109,6 +109,9 @@ export function PrescriptionReviewForm({
     setNextId((current) => current + 1);
   }
 
+  function moveExercise(index:number,direction:number) {
+    setRows(current=>{const next=[...current];const target=index+direction;if(target<0||target>=next.length)return current;[next[index],next[target]]=[next[target],next[index]];return next;});
+  }
   function removeExercise(rowId: number) {
     if (rows.length === 1) return;
     setRows((current) => current.filter((row) => row.rowId !== rowId));
@@ -139,7 +142,7 @@ export function PrescriptionReviewForm({
                 const id = event.target.value;
                 const fieldset = event.currentTarget.closest("fieldset")!;
                 fieldset.querySelector<HTMLInputElement>('[name="exerciseLoad"]')!.value = "";
-                setRows(current => current.map(ex => ex.rowId === row.rowId ? { ...ex, libraryExerciseId: id, load: null, programmingSources: [], loadPrescription: changedExerciseLoad(exerciseOptions.find(option => option.id === id)) } : ex));
+                setRows(current => current.map(ex => ex.rowId === row.rowId ? { ...ex, libraryExerciseId: id, name:exerciseOptions.find(option=>option.id===id)?.name??ex.name, load: null, programmingSources: [], loadPrescription: changedExerciseLoad(exerciseOptions.find(option => option.id === id)) } : ex));
               }}>
                 {exerciseOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
               </select>
@@ -170,6 +173,7 @@ export function PrescriptionReviewForm({
             <p className={styles.reviewReason}>Programming: {row.programmingSources?.length ? row.programmingSources.map(source => source.title).join("; ") : "Adapted from the exercise library; gym influences are listed above."}</p>
             {quality && <div className={styles.reviewProtocol}><WorkoutProtocolFields value={row.protocol} library={exerciseOptions} substitutions onMeasurementChange={measurement => setRows(current => current.map(ex => ex.rowId === row.rowId ? { ...ex, reps: measurement === "reps" ? 8 : 1, protocol: { ...(ex.protocol ?? defaultProtocol()), measurement } } : ex))}/></div>}
             </details></div>
+            <div className={styles.quickActions}><button type="button" className={styles.secondaryAction} aria-label={`Move ${row.name} up`} disabled={index===0} onClick={()=>moveExercise(index,-1)}>↑ Move up</button><button type="button" className={styles.secondaryAction} aria-label={`Move ${row.name} down`} disabled={index===rows.length-1} onClick={()=>moveExercise(index,1)}>↓ Move down</button></div>
             <button aria-label={`Remove exercise ${index + 1}`} title={rows.length === 1 ? "Keep at least one exercise in the workout" : undefined} className={styles.removeAction} disabled={rows.length === 1} onClick={() => removeExercise(row.rowId)} type="button">Remove</button>
           </fieldset>
         ))}
@@ -177,7 +181,8 @@ export function PrescriptionReviewForm({
       <div className={styles.reviewFooter}>
         <p>{demo?"Assigning sends this TEST workout to Client Demo only. No real client is changed.":"Assigning approves your changes and makes this workout visible to the client."}</p>
         {!demo && <button className={styles.secondaryAction} disabled={pending} type="submit" name="intent" value="save-draft" onClick={()=>setIntent("save-draft")}>{pending && intent==="save-draft" ? "Saving draft…" : "Save Draft"}</button>}
-        <button className={styles.action} disabled={pending} type="submit" name="intent" value="assign" onClick={()=>setIntent("assign")}>{pending && intent==="assign" ? "Assigning…" : bookingId ? "Assign to session" : "Assign"}</button>
+        <button className={styles.secondaryAction} disabled={pending} type="submit" name="intent" value="schedule" onClick={()=>setIntent("schedule")}>{pending && intent==="schedule" ? "Saving schedule…" : "Save to Client schedule"}</button>
+        <button className={styles.action} disabled={pending} type="submit" name="intent" value="assign" onClick={()=>setIntent("assign")}>{pending && intent==="assign" ? "Assigning…" : bookingId ? "Save to session" : "Save & open workout"}</button>
       </div>
       {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
       {loadMessage && <p role="status">{loadMessage}</p>}
