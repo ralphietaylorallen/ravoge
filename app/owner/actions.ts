@@ -73,6 +73,7 @@ export async function saveSessionPricingAction(
   }
 
   revalidatePath("/owner/revenue");
+  revalidatePath("/owner/payroll");
   return { message: rawPrice ? "Default session value saved." : "Default session value removed.", status: "success" };
 }
 
@@ -112,6 +113,7 @@ export async function saveCoachCompensationAction(
   }
 
   revalidatePath("/owner/revenue");
+  revalidatePath("/owner/payroll");
   return { message: "Coach compensation saved for future or rescheduled sessions.", status: "success" };
 }
 
