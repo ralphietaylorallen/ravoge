@@ -44,9 +44,18 @@ export async function TrainerPrescriptionPage({ params, role="coach" }: { role?:
   }
   const exerciseOptions = (library ?? []).filter(e => !snapshot || snapshot.candidates.some(c => c.id === e.id)).map(e => ({ ...e,
     weight_semantics: currentRules.get(e.id)?.weight_semantics, prescription_type: currentRules.get(e.id)?.prescription_type }));
+  const fallback = prescription.engine_version.endsWith("-fallback");
+  const retryHref = bookingId ? `/${role}/clients/${clientId}/sessions/${bookingId}` : `/${role}/workout-now?client=${clientId}`;
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coach?.full_name ?? "Coach"} role={role}>
     <Link className={styles.backLink} href={`/${role}/clients/${clientId}`}>← Back to {client.full_name}</Link>
     <div className={styles.pageHeading}><div><p className={styles.eyebrow}>{client.full_name}’s workout</p><h2>Prepare workout</h2></div><p>Edit and Save Draft to prepare ahead. Assign when the workout is ready for the Client.</p></div>
+    {fallback && <section className={styles.operationCard} role="status">
+      <h3>Backup draft ready to review</h3>
+      <p>{prescription.generation_context?.fallbackReason === "invalid_output"
+        ? "The AI draft did not pass validation. Review the backup workout below or try generating again."
+        : "AI generation did not complete. Review the backup workout below or try generating again."}</p>
+      <Link className={styles.secondaryAction} href={retryHref}>{bookingId ? "Return to scheduled session" : "Back to Workout Now"}</Link>
+    </section>}
     {bookingId&&preparedBooking&&<p className={styles.notice}>Prepared for <Link href={`/${role}/clients/${clientId}/sessions/${bookingId}`}>{new Date(preparedBooking.starts_at).toLocaleString("en-US",{timeZone:preparedBooking.timezone,dateStyle:"full",timeStyle:"short"})}</Link>. The day-of-session readiness check is still required separately.</p>}
     {prescription.generation_context?.intakeReviewRequired&&<p role="alert">Intake updated. Generate a new workout before assigning.</p>}
     <details className={styles.operationCard}><summary>Plan details</summary><section className={styles.rationalePanel}><div><span>Objective</span><strong>{prescription.objective}</strong></div><div><span>Duration</span><strong>{prescription.estimated_duration_minutes} minutes</strong></div><div><span>Volume intent</span><strong>{prescription.volume_intent}</strong></div><p>{poundsInText(prescription.rationale)}</p></section>
@@ -66,7 +75,6 @@ export async function TrainerPrescriptionPage({ params, role="coach" }: { role?:
         {snapshot.weightCapabilities?.some(c=>!c.sizesLb?.length) && <p>Some equipment weights are unconfirmed. Confirm any starting load marked for review before assigning.</p>}</>}
     </section>
     </details>
-    {prescription.engine_version.endsWith('-fallback')&&<section className={styles.operationCard}><p>The AI service did not complete. The visible fallback remains a draft and requires Coach review. Retry does not change this saved draft.</p><Link className={styles.action} href={bookingId?`/${role}/clients/${clientId}/sessions/${bookingId}`:`/${role}/clients/${clientId}#train-session`}>{bookingId?"Return to scheduled session":"Generate another workout"}</Link></section>}
     <PrescriptionReviewForm weightCapabilities={snapshot?.weightCapabilities} quality={prescription.engine_version.startsWith("prescription-v0.4-")} clientId={clientId} duration={savedDraft?.duration ?? prescription.estimated_duration_minutes} exerciseOptions={exerciseOptions} exercises={savedDraft?.exercises ?? recommendation} prescriptionId={prescriptionId} scheduledDate={preparedBooking?localDateInTimeZone(preparedBooking.starts_at,preparedBooking.timezone):savedDraft?.scheduledDate??localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={savedDraft?.title ?? prescription.title} instructions={savedDraft?.instructions} draftRevision={Number(prescription.generation_context?.preparationRevision??0)} bookingId={bookingId} />
     <details className={styles.operationCard}><summary>Advanced: programming details and evidence</summary>
       <p>Source: {prescription.generation_context?.sourceType ?? "global_library"}.</p>

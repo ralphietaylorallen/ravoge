@@ -43,3 +43,29 @@ test('raw source combinations stay primary with no more than two complementary a
  assert.ok(choices.every(c=>x.candidates.some(approved=>approved.id===c.id)));
  assert.equal(referenceCandidates({...x,candidates:x.candidates.slice(0,2)},refs,analysis).length,2);
 });
+
+test("a mismatched gym reference supplies exact aliases on the repair attempt", async () => {
+  const x = { ...input(), frequency: 2 };
+  x.knowledgeCatalog = [
+    x.knowledgeCatalog!.at(-1)!,
+    { ...x.knowledgeCatalog![0], rawStyle: { ...x.knowledgeCatalog![0].rawStyle!, exerciseIds: [x.candidates[3].id] } },
+  ];
+  let calls = 0;
+  const sdk = { responses: { create: async (request: { input: { content: string }[] }) => {
+    calls++;
+    const workout = { title: "Adapted strength session", rationale: "Build strength using a familiar gym sequence.", durationMinutes: 30,
+      sourceReferenceKeys: calls === 2 ? ["reference_1", "reference_2"] : ["reference_1"],
+      exercises: [1, 2, 3].map(i => ({ exerciseKey: `exercise_${i}`, sets: 3, reps: 8, restSeconds: 120,
+        notes: "Controlled technique.", reason: "Compatible gym movement.", protocol: defaultProtocol() })),
+    };
+    if (calls === 3) {
+      const repair = JSON.parse(request.input[0].content).repair;
+      assert.deepEqual(repair.computation.references.missingMovementCredits, ["reference_2"]);
+    }
+    return { status: "completed", output_text: JSON.stringify(calls === 1 ? analysis : workout) };
+  } } };
+  const generated = await generateIntelligentWorkout(x, sdk as never);
+  assert.equal(calls, 3);
+  assert.equal(generated.model?.includes("deterministic"), false);
+  assert.deepEqual(generated.workout?.sourceReviewIds, ["private-source-123"]);
+});
