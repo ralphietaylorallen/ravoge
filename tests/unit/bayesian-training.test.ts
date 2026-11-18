@@ -57,6 +57,9 @@ test('database learning is scoped, repeatable, excludes partial/substituted bloc
    const resolved=(await db.query<{data:{load:number}}>('select private.resolve_starting_load($1,$2) data',[draft,JSON.stringify({libraryExerciseId:ex,reps:8,protocol:{format:'straight'}})])).rows[0].data;assert.equal(resolved.load,50);
   }
  }
+ await db.query("select public.complete_pound_prescription($1,'test','{}','{}')",[draft]);
+ const legacy=(await db.query<{data:{duration:number}}>('select public.get_prescription_generation_input($1) data',[draft])).rows[0].data;
+ assert.equal(legacy.duration,45,'Missing request stored as JSON null must preserve legacy duration');
  const learned=(await get()).exercises[0];assert.equal(learned.blocks,3);assert.equal(learned.mean,.8);
  const resolved=(await db.query<{data:{load:number}}>('select private.resolve_starting_load($1,$2) data',[draft,JSON.stringify({libraryExerciseId:ex,reps:8,protocol:{format:'straight'}})])).rows[0].data;assert.equal(resolved.load,55);
  await db.query("select public.configure_workout_generation($1,$2)",[draft,JSON.stringify({sections:['legs','shoulders'],duration:60,scheduledDate:'2027-01-05'})]);

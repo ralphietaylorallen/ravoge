@@ -66,7 +66,7 @@ begin
  select * into strict p from public.generated_prescriptions where id=target_prescription_id;
  request:=p.generation_context->'sessionRequest';
  input:=(input-'snapshot')||jsonb_build_object('bayesianTraining',private.bayesian_training_context(p.organization_id,p.client_user_id),'sessionRequest',request);
- if request is not null then input:=input||jsonb_build_object('duration',(request->>'duration')::integer); end if;
+ if jsonb_typeof(request)='object' then input:=input||jsonb_build_object('duration',(request->>'duration')::integer); end if;
  return input||jsonb_build_object('snapshot',md5(input::text));
 end $$;
 revoke all on function public.get_prescription_generation_input(uuid) from public,anon,authenticated;
