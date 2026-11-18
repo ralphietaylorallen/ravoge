@@ -23,14 +23,15 @@ export const QUALITY_REPAIR_HINTS = {
   duration: "Recalculate actual duration using the supplied formula, including rest, unilateral work, transitions and shared blocks. It must reach min(15, requestedDurationMinutes*0.4) minutes and not exceed requestedDurationMinutes plus 3 minutes. Do not just change the declared duration.",
   response_incomplete: "Return a complete compact JSON workout within the output budget; keep prose brief and use only the necessary movement rows.",
   response_json: "Return exactly one complete JSON object matching the schema, with no surrounding prose or markdown. Keep the workout compact and all original constraints intact.",
-  references: "Cite only unique supplied reference keys that influenced this session. Include recognized movements from each cited raw example; keep source combinations primary and add at most two other canonical movements. At least one credit is required when references exist; otherwise use an empty array.",
+  references: "Pick an applicable publishedStructures entry before choosing the exercises. Use its referenceKey in sourceReferenceKeys and use matching exercise aliases from its sequence or rawExample.exerciseKeys in the workout. Credit each reference once. Every credited raw example must contribute a movement. If the credited sources together offer three or more movements, at most two workout rows may use other movements. When no references are supplied, return an empty array.",
 } as const;
 export class QualityValidationError extends Error {
   readonly issue: keyof typeof QUALITY_REPAIR_HINTS;
   readonly repair?: QualityRepairContext;
   constructor(issue: keyof typeof QUALITY_REPAIR_HINTS, repair?: QualityRepairContext) { super("invalid_output"); this.issue = issue; this.repair = repair; }
 }
-export type QualityRepairContext = { timing: { estimatedSeconds:number; minimumSeconds:number; maximumSeconds:number } }
+export type QualityRepairContext = { references: { missingMovementCredits: string[]; outsideSourceExerciseKeys: string[] } }
+  | { timing: { estimatedSeconds:number; minimumSeconds:number; maximumSeconds:number } }
   | { row: { exerciseKey:string; field:"reps"|"perSide"|"measurement"|"sets"; maximum?:number; required?:number|boolean|string } };
 
 // Normalize database validation failures without logging SQL details, user
@@ -204,10 +205,16 @@ export function validateQualityWorkout(output: string, input: GenerationInput): 
     catch { throw new QualityValidationError("references"); }
   }
   if(input.intelligence && input.references.some(r=>r.sourceKind==='raw_reference')) {
-    const used=input.references.filter((_,i)=>value.sourceReferenceKeys.includes(`reference_${i+1}`));
-    const sourceIds=new Set(used.flatMap(r=>r.rawStyle?.exerciseIds??r.exercises.map(e=>e.libraryExerciseId??'')));
-    for(const r of used) if(r.rawStyle?.exerciseIds.length && !exercises.some((e:{libraryExerciseId:string})=>r.rawStyle!.exerciseIds.includes(e.libraryExerciseId))) throw new QualityValidationError('references');
-    if(sourceIds.size>=3 && exercises.filter((e:{libraryExerciseId:string})=>!sourceIds.has(e.libraryExerciseId)).length>2) throw new QualityValidationError('references');
+    const used = input.references.flatMap((reference, index) =>
+      value.sourceReferenceKeys.includes(referenceKeys[index]) ? [{ reference, key: referenceKeys[index] }] : []);
+    const sourceIds = new Set(used.flatMap(({ reference }) => reference.rawStyle?.exerciseIds ?? reference.exercises.map(e => e.libraryExerciseId ?? "")));
+    const missingMovementCredits = used.filter(({ reference }) => reference.rawStyle?.exerciseIds.length
+      && !exercises.some((e: { libraryExerciseId: string }) => reference.rawStyle!.exerciseIds.includes(e.libraryExerciseId))).map(({ key }) => key);
+    const outsideSourceExerciseKeys = exercises.flatMap((e: { libraryExerciseId: string }, index: number) =>
+      sourceIds.has(e.libraryExerciseId) ? [] : [value.exercises[index].exerciseKey as string]);
+    if (missingMovementCredits.length || (sourceIds.size >= 3 && outsideSourceExerciseKeys.length > 2)) {
+      throw new QualityValidationError("references", { references: { missingMovementCredits, outsideSourceExerciseKeys } });
+    }
   }
   if (exercises.reduce((sum: number, e: { sets: number }) => sum + e.sets, 0) > 28) throw new QualityValidationError("volume");
   if (seconds > input.duration * 60 + 180 || seconds < Math.min(15, input.duration * 0.4) * 60) throw new QualityValidationError("duration",{timing:{estimatedSeconds:Math.ceil(seconds),minimumSeconds:Math.min(15,input.duration*0.4)*60,maximumSeconds:input.duration*60+180}});

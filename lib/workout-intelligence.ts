@@ -78,6 +78,7 @@ export function retrieveGymKnowledge(input:GenerationInput,analysis:TrainingAnal
   const ranked = (input.knowledgeCatalog??input.references).map(reference=>{
     if(reference.sourceKind==="raw_reference" && reference.rawStyle) {
       const ids=reference.rawStyle.exerciseIds.filter(id=>candidates.has(id));
+      if (!ids.length) return { reference, score: 0 };
       const patterns=[...new Set(ids.map(id=>candidates.get(id)!.pattern))];
       const score=10+(reference.goal===input.goal?100:0)+patterns.reduce((n,p)=>{const rank=analysis.priorityPatterns.indexOf(p);return n+(rank<0?3:24-rank*3);},0)
         +ids.reduce((n,id)=>{const p=performance.get(id);return n+(p?Math.max(-10,Math.min(6,p.recorded*2-p.problematic*5)):0);},0)
