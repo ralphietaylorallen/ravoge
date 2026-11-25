@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { planWorkoutAction, type PlannedWorkoutActionState } from "@/app/coach/actions";
+import { equipmentForLocation, isPlannedWorkoutLocation, PLANNED_WORKOUT_LOCATIONS, WORKOUT_EQUIPMENT_LIMIT, type PlannedWorkoutLocation } from "@/lib/planned-workout-location";
 import styles from "./dashboard.module.css";
 
 type ClientOption = { id: string; name: string };
@@ -51,16 +52,22 @@ function clientName(clients: ClientOption[], id: string, fallback: string) {
   return clients.find((client) => client.id === id)?.name || fallback;
 }
 
-export function PlanWorkoutForm({ clients, defaultClientId, defaultDate }: {
+export function PlanWorkoutForm({ clients, defaultClientId, defaultDate, defaultTime, gymEquipment, gymEquipmentUnavailable }: {
   clients: ClientOption[];
   defaultClientId: string;
   defaultDate: string;
+  defaultTime?: string;
+  gymEquipment: string[];
+  gymEquipmentUnavailable: boolean;
 }) {
   const initial: PlannedWorkoutActionState = { status: "idle" };
   const [state, action, pending] = useActionState(planWorkoutAction, initial);
   const [rows, setRows] = useState<ExerciseRow[]>([blankRow(1)]);
   const [nextId, setNextId] = useState(2);
   const [paste, setPaste] = useState("");
+  const [location, setLocation] = useState<PlannedWorkoutLocation>("gym");
+  const [equipmentByLocation, setEquipmentByLocation] = useState<Partial<Record<PlannedWorkoutLocation, string>>>({});
+  const equipment = equipmentByLocation[location] ?? equipmentForLocation(location, gymEquipment);
   const primaryClientId = defaultClientId;
   const [secondaryClientId, setSecondaryClientId] = useState("");
   const [pairEnabled, setPairEnabled] = useState(false);
@@ -134,20 +141,50 @@ export function PlanWorkoutForm({ clients, defaultClientId, defaultDate }: {
     </>;
   }
 
-  return <form action={action} className={styles.workoutForm}>
+  return <form action={action} onReset={event => event.preventDefault()} className={styles.workoutForm}>
     <div className={styles.formColumns}>
       <input type="hidden" name="clientId" value={primaryClientId} />
-      <label className={styles.field}><span>Workout name</span><input name="title" maxLength={120} required placeholder="Lower body strength" /></label>
       <label className={styles.field}><span>Date</span><input name="scheduledDate" type="date" defaultValue={defaultDate} required /></label>
-      <label className={styles.field}><span>Time</span><input name="scheduledTime" type="time" required /></label>
+      <label className={styles.field}><span>Time</span><input name="scheduledTime" type="time" defaultValue={defaultTime} required /></label>
     </div>
+
+    <section aria-label="Workout location and equipment" className={styles.partnerPanel}>
+      <div className={styles.formColumns}>
+        <label className={styles.field}>
+          <span>Workout location</span>
+          <select name="plannedLocation" value={location} onChange={event => {
+            const value = event.target.value;
+            if (isPlannedWorkoutLocation(value)) setLocation(value);
+          }}>
+            {Object.entries(PLANNED_WORKOUT_LOCATIONS).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+        </label>
+        <label className={styles.field}>
+          <span>Equipment for this workout</span>
+          <input name="plannedEquipment" maxLength={WORKOUT_EQUIPMENT_LIMIT} value={equipment}
+            onChange={event => setEquipmentByLocation({ ...equipmentByLocation, [location]: event.target.value })}
+            placeholder="Add equipment or leave blank" aria-describedby="planned-equipment-help" />
+        </label>
+      </div>
+      <p id="planned-equipment-help" className={styles.formHint}>
+        {location === "home" ? "Starts with bodyweight. Add any equipment the client has at home."
+          : location === "hotel" ? "Suggested hotel equipment. Edit this list to match the client’s hotel."
+          : gymEquipmentUnavailable ? "The gym inventory could not be loaded. Enter the equipment you plan to use."
+          : gymEquipment.length ? "Starts with your gym inventory. Keep the equipment the client will need."
+          : "No available equipment is listed for this gym yet. Add equipment for this workout here."}
+      </p>
+      {location === "gym" && gymEquipment.length > 0 && <details>
+        <summary>View gym equipment</summary>
+        <p className={styles.formHint}>{gymEquipment.join(", ")}</p>
+      </details>}
+    </section>
 
     <section className={styles.partnerPanel}>
       <label className={styles.partnerToggle}><input type="checkbox" checked={pairEnabled} onChange={(event) => setPair(event.target.checked)} /><span>Add a training partner</span></label>
       {pairEnabled && <label className={styles.field}><span>Client B</span><select name="secondaryClientId" required value={secondaryClientId} onChange={(event) => setSecondaryClientId(event.target.value)}><option value="" disabled>Select training partner</option>{clients.filter((client) => client.id !== primaryClientId).map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>}
     </section>
 
-    <label className={styles.field}><span>Coach instructions / workout notes</span><textarea name="instructions" maxLength={4000} rows={3} placeholder="Optional notes for the session." /></label>
+    <label className={styles.field}><span>Coach instructions / workout notes</span><textarea name="instructions" maxLength={3500} rows={3} placeholder="Optional notes for the session." /></label>
 
     <section className={styles.formSection}>
       <div className={styles.sectionFields}>
@@ -180,6 +217,6 @@ export function PlanWorkoutForm({ clients, defaultClientId, defaultDate }: {
         {pending ? "Saving…" : pairEnabled ? "Save Paired Workout" : "Save & Keep Planning"}
       </button>
     </div>
-    {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
+    {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role={state.status === "error" ? "alert" : "status"}>{state.message}</p>}
   </form>;
 }

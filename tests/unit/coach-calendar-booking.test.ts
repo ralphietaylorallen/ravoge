@@ -21,7 +21,7 @@ test("Coach schedule renders a monthly calendar with the selected day’s bookin
   assert.doesNotMatch(calendar, /bigCalendarScroll|gridTemplateRows|Weekly calendar/);
   assert.match(calendar, /Client/);
   assert.match(calendar, /Confirm & Book/);
-  assert.match(calendar, /Existing sessions stay visible/);
+  assert.match(calendar, /Booked sessions/);
 });
 
 test("Coach calendar booking always uses the authenticated coach", async () => {

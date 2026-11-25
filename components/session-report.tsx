@@ -8,6 +8,7 @@ import { cardioSummary,displayNumber,effortSummary,exerciseVolume,factualRecap,p
 import type { SessionReportData } from "@/lib/session-report-data";
 import { loadLabel } from "@/lib/weight-units";
 import { formatZonedDateTime,localDateInTimeZone,shiftLocalDate } from "@/lib/timezone";
+import { clientWorkoutTitle } from "@/lib/client-display";
 import { recoverySummary } from "@/lib/client-logs";
 import styles from "./session-report.module.css";
 
@@ -42,7 +43,7 @@ export function SessionReport({data,role}:{data:SessionReportData;role:"client"|
  const week=data.week,weekBookings=week?.bookings.filter(b=>b.status!=="cancelled")??[],attended=weekBookings.filter(b=>b.status==="completed").length;
  const completedDays=new Set(week?.completed.map(c=>c.date)??[]);
  return <article className={styles.report} aria-label="Completed workout report">
-  <header className={styles.header}><div className={styles.brand}><Logo compact/><span>RAVOGE / {facts.gymName}</span></div><h1>Session complete</h1><p>{facts.clientName} · {w.title}</p><p className={styles.date}>{w.scheduled_date} · {facts.timezone}{w.completed_at&&localDateInTimeZone(w.completed_at,facts.timezone)!==w.scheduled_date?` · completed ${localDateInTimeZone(w.completed_at,facts.timezone)}`:""}</p></header>
+  <header className={styles.header}><div className={styles.brand}><Logo compact/><span>RAVOGE / {facts.gymName}</span></div><h1>Session complete</h1><p>{facts.clientName} · {role === "client" ? clientWorkoutTitle(w.title) : w.title}</p><p className={styles.date}>{w.scheduled_date} · {facts.timezone}{w.completed_at&&localDateInTimeZone(w.completed_at,facts.timezone)!==w.scheduled_date?` · completed ${localDateInTimeZone(w.completed_at,facts.timezone)}`:""}</p></header>
   {data.archivePending&&<p className={styles.message} role="status">Report archiving is pending. These factual results are saved; refresh to retry the archive.</p>}
   <section className={`${styles.card} ${styles.scoreCard}`} aria-label="Session execution score"><div className={styles.ring}><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52"/>{value!==null&&<circle className={styles.arc} cx="60" cy="60" r="52" pathLength="100" strokeDasharray={`${value} ${100-value}`}/>}</svg><div className={styles.ringText}><strong>{value??"—"}</strong>{value!==null&&<span>/100</span>}<small>Session execution score</small></div></div><div className={styles.scoreMessage}><h2>{value===null?"Score pending":"Session recorded."}</h2><p className={styles.muted}>{value===null?"Your workout results are saved. Scoring awaits approved rules and complete inputs.":"A product-defined execution score, not a medical assessment or proof of training effectiveness."}</p><details className={styles.scoreDetails}><summary>About this score</summary><p>Completion 50% · recorded effort 30% · comparable personal performance 20%. Initial maximum: 99.</p><p>{score.reason}</p><p>Version: {score.version}. Recovery and supplements never add points.</p><p>{effort.recorded} of {effort.total} performed working sets have recorded RPE. Missing effort is not inferred.</p></details></div></section>
   <section className={styles.tiles} aria-label="Session summary">

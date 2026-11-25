@@ -18,7 +18,7 @@ async function createAccount(page: import("@playwright/test").Page, role: "coach
     () => new URL(page.url()).pathname,
     { timeout: 20_000 },
   ).toBe(`/${role}`);
-  await expect(page.getByRole("heading", { name: new RegExp(`Welcome, Enrollment ${role} ${runId}`, "i") })).toBeVisible();
+  await expect(page.getByRole("heading", { name: role === "client" ? "Workouts" : new RegExp(`Welcome, Enrollment ${role} ${runId}`, "i") })).toBeVisible();
 }
 
 test("real organization QRs preserve install-first context and enforce lifecycle controls", async ({ browser, page }, testInfo) => {

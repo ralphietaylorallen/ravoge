@@ -2,15 +2,16 @@ import "server-only";
 import { createHash } from "node:crypto";
 import OpenAI from "openai";
 import { configuredWorkoutModel, type GenerationInput } from "./workout-generation.ts";
+import { generationAge } from "./session-programming.ts";
 
-export const EVIDENCE_DOMAINS = ["acsm.org", "nsca.com", "orthoinfo.aaos.org", "pubmed.ncbi.nlm.nih.gov", "pmc.ncbi.nlm.nih.gov", "nice.org.uk", "health.gov"];
+export const EVIDENCE_DOMAINS = ["acsm.org", "nsca.com", "orthoinfo.aaos.org", "pubmed.ncbi.nlm.nih.gov", "pmc.ncbi.nlm.nih.gov", "nice.org.uk", "health.gov", "cdc.gov", "nia.nih.gov", "niddk.nih.gov"];
 export type ExerciseEvidence = { id:string; url:string; title:string; publishedAt:string|null; retrievedAt:string; recommendations:string[]; limitations:string[]; applicability:string };
 export type EvidenceCollection = { version:"retrieved-v1"; queryContext:ReturnType<typeof researchContext>; sources:ExerciseEvidence[]; cacheHit:boolean };
 const cache = new Map<string,{ expires:number; collection:EvidenceCollection }>();
 
 /** Closed vocabulary only: never pass notes, names, dates, IDs, or medical prose to public search. */
 export function researchContext(input:GenerationInput) {
-  const age=input.intakeContext?.age;
+  const age=generationAge(input);
   return { goal:["fat_loss","muscle_gain","mobility"].includes(input.goal)?input.goal:"general_fitness",
     ageBand:typeof age==="number" ? age>=65?"older_adult":"adult" : "adult_age_unspecified",
     experience:["beginner","intermediate","advanced"].includes(input.experience)?input.experience:"unspecified",

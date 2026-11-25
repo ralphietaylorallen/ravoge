@@ -61,6 +61,11 @@ export function PrescriptionReviewForm({
   instructions = "",
   draftRevision = 0,
   bookingId,
+  automaticTitle = false,
+  returnToSession = false,
+  returnToPlan = false,
+  scheduledTime,
+  lockedSchedule = false,
 }: {
   clientId: string;
   exercises: RecommendationExercise[];
@@ -74,6 +79,11 @@ export function PrescriptionReviewForm({
   instructions?: string;
   draftRevision?: number;
   bookingId?: string;
+  automaticTitle?: boolean;
+  returnToSession?: boolean;
+  returnToPlan?: boolean;
+  scheduledTime?: string;
+  lockedSchedule?: boolean;
 }) {
   const demo=useDemo();
   const approve = demo?.approve ?? approvePrescriptionAction.bind(null, clientId, prescriptionId);
@@ -120,10 +130,14 @@ export function PrescriptionReviewForm({
       while (details) { details.open = true; details = details.parentElement?.closest("details") ?? null; }
     }}>
       {quality && <input type="hidden" name="quality" value="yes"/>}
+      {returnToSession && <input type="hidden" name="returnToSession" value="yes" />}
+      {returnToPlan && <input type="hidden" name="returnToPlan" value="yes" />}
       <input type="hidden" name="draftRevision" value={revision}/>
       <div className={styles.formColumns}>
-        <div className={styles.field}><label htmlFor="review-title">Workout name</label><input defaultValue={title} id="review-title" maxLength={120} name="title" required /></div>
-        <div className={styles.field}><label htmlFor="review-date">Assign date</label><input defaultValue={scheduledDate} id="review-date" name="scheduledDate" required type="date" readOnly={!!bookingId} /></div>
+        {automaticTitle ? <input type="hidden" name="title" value={title} /> :
+          <div className={styles.field}><label htmlFor="review-title">Workout name</label><input defaultValue={title} id="review-title" maxLength={120} name="title" required /></div>}
+        <div className={styles.field}><label htmlFor="review-date">Assign date</label><input defaultValue={scheduledDate} id="review-date" name="scheduledDate" required type="date" readOnly={!!bookingId || lockedSchedule} /></div>
+        {scheduledTime && <label className={styles.field}>Time<input name="scheduledTime" type="time" defaultValue={scheduledTime} required readOnly={lockedSchedule} /></label>}
       </div>
       <div className={styles.field}><label htmlFor="review-duration">Workout duration (minutes)</label><input defaultValue={duration} id="review-duration" name="estimatedDurationMinutes" min={quality ? 15 : 20} max={180} required type="number" /></div>
       <div className={styles.field}><label htmlFor="review-instructions">Coach instructions</label><textarea defaultValue={instructions} id="review-instructions" maxLength={4000} name="instructions" rows={3} /></div>
@@ -177,7 +191,7 @@ export function PrescriptionReviewForm({
       <div className={styles.reviewFooter}>
         <p>{demo?"Assigning sends this TEST workout to Client Demo only. No real client is changed.":"Assigning approves your changes and makes this workout visible to the client."}</p>
         {!demo && <button className={styles.secondaryAction} disabled={pending} type="submit" name="intent" value="save-draft" onClick={()=>setIntent("save-draft")}>{pending && intent==="save-draft" ? "Saving draft…" : "Save Draft"}</button>}
-        <button className={styles.action} disabled={pending} type="submit" name="intent" value="assign" onClick={()=>setIntent("assign")}>{pending && intent==="assign" ? "Assigning…" : bookingId ? "Assign to session" : "Assign"}</button>
+        <button className={styles.action} disabled={pending} type="submit" name="intent" value="assign" onClick={()=>setIntent("assign")}>{pending && intent==="assign" ? "Saving…" : automaticTitle ? (returnToSession || returnToPlan ? "Save Workout" : "Save & Open Workout") : bookingId ? "Assign to session" : "Assign"}</button>
       </div>
       {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
       {loadMessage && <p role="status">{loadMessage}</p>}

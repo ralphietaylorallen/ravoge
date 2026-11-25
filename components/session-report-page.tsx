@@ -5,6 +5,7 @@ import { LOG_UUID } from "@/lib/client-logs";
 import { loadSessionReport, type SessionReportData } from "@/lib/session-report-data";
 import { DashboardShell,dashboardStyles } from "./dashboard-shell";
 import { SessionReport } from "./session-report";
+import workspace from "./coach-workspace.module.css";
 
 export async function SessionReportPage({role,workoutId,clientId}:{role:"client"|"coach"|"owner";workoutId:string;clientId?:string}) {
  const {membership,supabase,userId}=await requireRole(role),target=role==="client"?userId:clientId;
@@ -16,5 +17,6 @@ export async function SessionReportPage({role,workoutId,clientId}:{role:"client"
  const back=role==="client"?"/client/profile":`/${role}/clients/${target}?tab=progress`;
  return <DashboardShell compact role={role} gymName={org?.name??"Ravoge gym"} name={actor?.full_name??role}>
   {issue?<section className={dashboardStyles.operationCard}><h1>Session report unavailable</h1><p role="alert">{issue}</p><Link href={back}>Return to profile</Link></section>:<SessionReport data={data!} role={role}/>}
+  {role === "coach" && <div className={workspace.actionStrip}><Link className={workspace.primaryButton} href="/coach">Back to Today</Link><Link className={workspace.secondaryButton} href={back}>Client Progress</Link></div>}
  </DashboardShell>;
 }

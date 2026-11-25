@@ -25,6 +25,20 @@ test("Client logs actual recovery and daily activity without changing completed 
  await expect(recovery.getByText(/Cold plunge · 2 min · 46 °F/)).toBeVisible();
  await page.getByRole("navigation",{name:"client navigation"}).getByRole("link",{name:"My day",exact:true}).click();
  await page.getByLabel("Date",{exact:true}).fill(date);await page.getByRole("button",{name:"Open date",exact:true}).click();
+ for (const width of [320,390,820,1440]) {
+  await page.setViewportSize({width,height:900});
+  const field = (await page.getByLabel("Date",{exact:true}).boundingBox())!;
+  const button = (await page.getByRole("button",{name:"Open date",exact:true}).boundingBox())!;
+  expect(button.x >= field.x + field.width || button.y >= field.y + field.height).toBe(true);
+ }
+ const sleep=page.getByRole("form",{name:"Sleep score",exact:true});
+ await sleep.getByLabel("Sleep score (0–100)").fill("82");
+ await sleep.getByRole("button",{name:"Save sleep score",exact:true}).click();
+ await expect(sleep.getByRole("status")).toHaveText("Sleep score saved.");
+ await page.getByRole("navigation",{name:"client navigation"}).getByRole("link",{name:"Profile",exact:true}).click();
+ await expect(page.getByRole("region",{name:"Your scores"}).getByText("82/100", {exact:true})).toBeVisible();
+ await page.goto(`/client/my-day?date=${date}`);
+ await expect(sleep.getByLabel("Sleep score (0–100)")).toHaveValue("82");
  const nutrition=page.getByRole("form",{name:"Daily nutrition",exact:true});await expect(nutrition.getByLabel("Calories",{exact:true})).toHaveValue("");
  await nutrition.getByLabel("Calories",{exact:true}).fill("2100");await nutrition.getByLabel("Protein (g, optional)").fill("125");await nutrition.getByRole("button",{name:"Save daily total",exact:true}).click();
  await expect(page.getByRole("region",{name:"Daily and recovery history"}).getByText("Calories: 2100 · Protein: 125 g",{exact:true})).toBeVisible();await page.reload();

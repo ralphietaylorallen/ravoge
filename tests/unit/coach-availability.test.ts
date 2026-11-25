@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { availabilityForDate, CALENDAR_AVAILABILITY_LABEL, mergeRanges, monthDates, rangeCovered, subtractRanges, validLocalDate } from "../../lib/coach-availability.ts";
+import { availabilityForDate, availabilityPeriodDates, CALENDAR_AVAILABILITY_LABEL, mergeRanges, monthDates, rangeCovered, subtractRanges, validLocalDate } from "../../lib/coach-availability.ts";
 const zone = "America/Denver";
 const day = "2026-11-10"; // Tuesday, after Denver's DST transition.
 test("calendar validates real dates and month boundaries", () => {
@@ -8,6 +8,11 @@ test("calendar validates real dates and month boundaries", () => {
   assert.equal(validLocalDate("2028-02-29"), true);
   assert.equal(monthDates("2028-02-20").length, 29);
   assert.equal(monthDates("2026-12-31").at(-1), "2026-12-31");
+});
+test("availability repetition stays inside the calendar period and excludes past and unselected weekdays", () => {
+  assert.deepEqual(availabilityPeriodDates("2026-11-19", "week", [1, 2, 3, 4, 5, 6], "2026-11-19"), ["2026-11-19", "2026-11-20", "2026-11-21"]);
+  assert.deepEqual(availabilityPeriodDates("2026-11-19", "month", [1, 3, 5], "2026-11-26"), ["2026-11-27", "2026-11-30"]);
+  assert.deepEqual(availabilityPeriodDates("2026-12-31", "week", [5, 6], "2026-12-31"), ["2027-01-01", "2027-01-02"]);
 });
 test("availability matches existing Monday–Saturday defaults and Sunday closure", () => {
   assert.deepEqual(availabilityForDate(day, zone, [], [], [], []).selected, [{ start: 300, end: 1200 }]);

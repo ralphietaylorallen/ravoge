@@ -1,11 +1,13 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { NavigationIcon } from "./icons";
 import styles from "./dashboard.module.css";
+import workspace from "./coach-workspace.module.css";
 export function DashboardNavigation({ role, items }: { role: string; items: { href: string; label: string }[] }) {
   const pathname = usePathname();
+  const toolsMenu = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     if (role !== "owner") return;
     const frame = document.querySelector('[data-account-role="owner"]');
@@ -52,5 +54,31 @@ export function DashboardNavigation({ role, items }: { role: string; items: { hr
       window.removeEventListener("hashchange", revealHash);
     };
   }, [pathname, role]);
-  return <nav aria-label={`${role} navigation`} tabIndex={0}>{items.map((item, index) => <Link aria-current={(index === 0 ? pathname === item.href : pathname.startsWith(item.href)) ? "page" : undefined} href={item.href} key={item.href}><NavigationIcon className={styles.navGlyph} href={item.href} />{item.label}</Link>)}</nav>;
+  const coachPrimaryPaths = ["/coach", "/coach/schedule", "/coach/clients", "/coach/plan-workouts"];
+  const primaryItems = role === "coach" ? items.filter(item => coachPrimaryPaths.includes(item.href)) : items;
+  const tools = role === "coach" ? items.filter(item => !coachPrimaryPaths.includes(item.href)) : [];
+  const isActive = (href: string) => href === `/${role}` ? pathname === href || (role === "client" && pathname.startsWith("/client/workouts/"))
+    : pathname === href || pathname.startsWith(`${href}/`);
+
+  return <nav aria-label={`${role} navigation`} className={role === "coach" ? workspace.navigation : undefined} tabIndex={role === "coach" ? undefined : 0}
+    onKeyDown={event => {
+      if (event.key === "Escape" && toolsMenu.current?.open) {
+        toolsMenu.current.open = false;
+        toolsMenu.current.querySelector("summary")?.focus();
+      }
+    }}>
+    {primaryItems.map(item => <Link aria-current={isActive(item.href) ? "page" : undefined} href={item.href} key={item.href}>
+      <NavigationIcon className={styles.navGlyph} href={item.href} />
+      {role === "coach" && item.href === "/coach/plan-workouts"
+        ? <><span className={workspace.longLabel}>{item.label}</span><span className={workspace.shortLabel}>Plan</span></>
+        : <span>{item.label}</span>}
+    </Link>)}
+    {tools.length > 0 && <details ref={toolsMenu} className={workspace.tools} data-active={tools.some(item => isActive(item.href)) || undefined}>
+      <summary><NavigationIcon className={styles.navGlyph} href="/coach/more" /> <span>More</span></summary>
+      <div className={workspace.toolsLinks}>{tools.map(item => <Link aria-current={isActive(item.href) ? "page" : undefined} href={item.href} key={item.href}
+        onClick={() => { if (toolsMenu.current) toolsMenu.current.open = false; }}>
+        <NavigationIcon className={styles.navGlyph} href={item.href} />{item.label}
+      </Link>)}</div>
+    </details>}
+  </nav>;
 }

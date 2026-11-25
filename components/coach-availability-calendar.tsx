@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { saveDayAvailabilityAction, type AvailabilityState } from "@/app/coach/availability/actions";
-import { mergeRanges, minuteTime, monthDates, overlaps, rangeCovered, subtractRanges, type MinuteRange } from "@/lib/coach-availability";
+import { availabilityPeriodDates, mergeRanges, minuteTime, monthDates, overlaps, rangeCovered, subtractRanges, type MinuteRange } from "@/lib/coach-availability";
 import dashboard from "./dashboard.module.css";
 import styles from "./coach-availability-calendar.module.css";
 
@@ -15,11 +16,15 @@ function timeLabel(minute: number) {
 }
 export function CoachAvailabilityCalendar({ date, today, timezone, days }: { date: string; today: string; timezone: string; days: Record<string, AvailabilityDay> }) {
   const day = days[date];
+  const router = useRouter();
   const [ranges, setRanges] = useState(day.selected);
   const [increment, setIncrement] = useState(day.duration);
+  const [weekdays, setWeekdays] = useState([1, 2, 3, 4, 5, 6]);
   const [state, action, pending] = useActionState<AvailabilityState, FormData>(saveDayAvailabilityAction, { status: "idle" });
-  const baseline = state.status === "success" ? state.ranges : day.selected;
-  const dirty = JSON.stringify(ranges) !== JSON.stringify(baseline) || increment !== (state.status === "success" ? state.increment : day.duration);
+  useEffect(() => { if (state.status === "success") router.refresh(); }, [router, state]);
+  const sourceSaved = state.status === "success" && state.savedDates?.includes(date);
+  const baseline = sourceSaved ? state.ranges : day.selected;
+  const dirty = JSON.stringify(ranges) !== JSON.stringify(baseline) || increment !== (sourceSaved ? state.increment : day.duration);
   const dates = monthDates(date);
   const offset = new Date(`${dates[0]}T12:00:00Z`).getUTCDay();
   const month = new Date(`${dates[0]}T12:00:00Z`);
@@ -40,8 +45,8 @@ export function CoachAvailabilityCalendar({ date, today, timezone, days }: { dat
       <div className={styles.grid}>
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => <span className={styles.weekday} key={d}>{d}</span>)}
         {Array.from({ length: offset }, (_, index) => <span key={`blank-${index}`} />)}
-        {dates.map(d => <Link key={d} className={styles.date} href={`?date=${d}`} aria-current={d === date ? "date" : undefined} aria-label={`${label(d, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}${days[d].saved ? ", saved availability" : ""}`} onClick={e => { if (d === date || !canLeave()) e.preventDefault(); }}>
-          <span>{Number(d.slice(-2))}</span><small>{d === today ? "Today" : days[d].saved ? "Saved" : ""}</small>
+        {dates.map(d => <Link key={d} className={styles.date} href={`?date=${d}`} aria-current={d === date ? "date" : undefined} aria-label={`${label(d, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}${days[d].saved || state.savedDates?.includes(d) ? ", saved availability" : ""}`} onClick={e => { if (d === date || !canLeave()) e.preventDefault(); }}>
+          <span>{Number(d.slice(-2))}</span><small>{d === today ? "Today" : days[d].saved || state.savedDates?.includes(d) ? "Saved" : ""}</small>
         </Link>)}
       </div>
       <p className={dashboard.formHint}>Tap a date, choose your times, then save. All times use {timezone}.</p>
@@ -55,14 +60,30 @@ export function CoachAvailabilityCalendar({ date, today, timezone, days }: { dat
         <input type="hidden" name="ranges" value={JSON.stringify(ranges)} />
         <fieldset className={styles.increments} disabled={pending}><legend>Appointment increments</legend><div>{[45, 60].map(value => <button type="button" aria-pressed={increment === value} onClick={() => setIncrement(value)} key={value}>{value} minutes</button>)}</div></fieldset>
         <p className={dashboard.formHint}>Selected = available · Partial = some time selected. Changing increments keeps your selected hours. Gym booking duration rules still apply.</p>
+        {day.open && <div className={styles.save}>
+          <button className={dashboard.secondaryAction} type="button" disabled={pending || date < today} onClick={() => setRanges(subtractRanges([day.open!], day.externalBlocks))}>Select All Times</button>
+          <button className={dashboard.secondaryAction} type="button" disabled={pending || date < today} onClick={() => setRanges([])}>Unavailable All Day</button>
+        </div>}
         {day.open ? <div className={styles.slots}>{slots.map(slot => {
           const selected = rangeCovered(ranges, slot);
           const partial = !selected && ranges.some(r => overlaps(r, slot));
           const blocked = day.externalBlocks.some(r => overlaps(r, slot));
           return <button type="button" key={minuteTime(slot.start)} aria-pressed={partial ? "mixed" : selected} disabled={pending || blocked || date < today} onClick={() => toggle(slot)}><strong>{timeLabel(slot.start)} – {timeLabel(slot.end)}</strong><span>{blocked ? "Time off" : selected ? "✓ Available" : partial ? "Partially available" : "Unavailable"}</span></button>;
         })}</div> : <p className={dashboard.empty}>The gym is closed on this date.</p>}
-        <div className={styles.save}><button className={dashboard.action} disabled={pending || date < today || !day.open} type="submit">{pending ? "Saving…" : "Save Availability"}</button><span>{date < today ? "Past dates are read only." : dirty ? "Unsaved changes" : day.saved || state.status === "success" ? "Saved availability" : "Current weekly availability"}</span></div>
-        {state.message && (state.status === "error" || !dirty) && <p role={state.status === "error" ? "alert" : "status"} className={`${dashboard.notice} ${state.status === "error" ? dashboard.error : ""}`}>{state.message}</p>}
+        <div className={styles.save}><button className={dashboard.action} disabled={pending || date < today || !day.open} type="submit" name="period" value="day">{pending ? "Saving…" : "Save Availability"}</button><span>{date < today ? "Past dates are read only." : dirty ? "Unsaved changes" : day.saved || sourceSaved ? "Saved availability" : "Current weekly availability"}</span></div>
+        <fieldset className={styles.repeat} disabled={pending || !day.open}>
+          <legend>Repeat these hours</legend>
+          <p className={dashboard.formHint}>Apply these times to the selected weekdays in this calendar week or month. Past dates and gym closures are skipped. Edit any date afterward.</p>
+          <div className={styles.weekdays}>{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((name, index) => <label key={name}>
+            <input type="checkbox" name="weekdays" value={index} checked={weekdays.includes(index)} onChange={event => setWeekdays(current => event.target.checked ? [...current, index] : current.filter(day => day !== index))} />
+            <span>{name}</span>
+          </label>)}</div>
+          <div className={styles.save}>
+            <button className={dashboard.secondaryAction} type="submit" name="period" value="week" disabled={!availabilityPeriodDates(date, "week", weekdays, today).length}>Save for Week</button>
+            <button className={dashboard.secondaryAction} type="submit" name="period" value="month" disabled={!availabilityPeriodDates(date, "month", weekdays, today).length}>Save for Month</button>
+          </div>
+        </fieldset>
+        {state.message && <p role={state.status === "error" ? "alert" : "status"} className={`${dashboard.notice} ${state.status === "error" ? dashboard.error : ""}`}>{state.message}</p>}
       </form>
     </section>
   </div>;

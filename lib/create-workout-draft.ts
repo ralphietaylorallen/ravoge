@@ -17,11 +17,15 @@ export type GeneratedWorkoutDraftResult =
 export async function createGeneratedWorkoutDraft({
   clientId,
   bookingId,
+  dayOfSession = false,
+  plannedFor,
   supabase,
   userId,
 }: {
   clientId: string;
   bookingId?: string;
+  dayOfSession?: boolean;
+  plannedFor?: { organizationId: string; date: string; time: string };
   supabase: SupabaseClient;
   userId: string;
 }): Promise<GeneratedWorkoutDraftResult> {
@@ -29,14 +33,17 @@ export async function createGeneratedWorkoutDraft({
     return { ok: false, status: 404, message: "This Client is unavailable. Return to My Clients and choose an assigned Client." };
   }
 
-  const initial = bookingId
+  const initial = plannedFor
+    ? await supabase.rpc("begin_planned_workout_draft", { target_organization_id: plannedFor.organizationId, target_client_user_id: clientId, target_date: plannedFor.date, target_time: plannedFor.time }).abortSignal(AbortSignal.timeout(5000))
+    : bookingId
     ? await supabase.rpc("begin_booking_workout_draft", {target_booking_id:bookingId,target_client_user_id:clientId}).abortSignal(AbortSignal.timeout(5000))
     : await supabase.rpc("generate_initial_prescription_v0", {target_client_user_id:clientId}).abortSignal(AbortSignal.timeout(5000));
-  if (bookingId && !initial.error && initial.data?.workoutId) return {ok:true,prescriptionId:initial.data.prescriptionId ?? "",workoutId:initial.data.workoutId,generationIssue:""};
-  const data = bookingId ? initial.data?.prescriptionId : initial.data;
+  const scheduled = !!bookingId || !!plannedFor;
+  if (scheduled && !initial.error && initial.data?.workoutId) return {ok:true,prescriptionId:initial.data.prescriptionId ?? "",workoutId:initial.data.workoutId,generationIssue:""};
+  const data = scheduled ? initial.data?.prescriptionId : initial.data;
   const error = initial.error;
-  if (bookingId && initial.data?.busy) return {ok:false,status:409,message:"This session’s draft is still being prepared. Reopen the session in a moment; do not generate a second workout."};
-  if (bookingId && !error && initial.data?.reused && typeof data === "string") return {ok:true,prescriptionId:data,generationIssue:"",workoutId:initial.data.workoutId ?? undefined};
+  if (scheduled && initial.data?.busy) return {ok:false,status:409,message:"This workout is still being prepared. Reopen the plan in a moment."};
+  if (scheduled && !error && initial.data?.reused && typeof data === "string") return {ok:true,prescriptionId:data,generationIssue:"",workoutId:initial.data.workoutId ?? undefined};
   if (error || typeof data !== "string") {
     return { ok: false, status: 409, message: "A safe draft could not be created. Complete intake and goals, confirm the safety review, and review actual gym equipment below. No workout was assigned." };
   }
@@ -64,7 +71,7 @@ export async function createGeneratedWorkoutDraft({
     await supabase.rpc("discard_incomplete_quality_draft",{target_prescription_id:data});
     return {ok:false,status:503,message:"The saved intake or recent sessions could not be loaded. Try again."};
   }
-  const generationInput:GenerationInput={...input,...(bookingId?{todayReadiness:null}:{}),recentSessionContext:sessionContext,age:ageFromBirthYear(intake?.birth_year),recentDrafts:(recent??[]).filter(d=>Array.isArray(d.original_recommendation)).map(d=>({exercises:d.original_recommendation}))};
+  const generationInput:GenerationInput={...input,...(scheduled&&!dayOfSession?{todayReadiness:null}:{}),recentSessionContext:sessionContext,age:ageFromBirthYear(intake?.birth_year),recentDrafts:(recent??[]).filter(d=>Array.isArray(d.original_recommendation)).map(d=>({exercises:d.original_recommendation}))};
 
   // Paid calls are bounded per authenticated Coach; repeated submissions still
   // have a safe deterministic path instead of an unbounded provider loop.

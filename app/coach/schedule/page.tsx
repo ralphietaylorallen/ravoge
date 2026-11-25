@@ -11,6 +11,7 @@ import {
 } from "@/lib/timezone";
 
 import { monthDates, validLocalDate } from "@/lib/coach-availability";
+import workspace from "@/components/coach-workspace.module.css";
 
 export default async function CoachSchedulePage({ searchParams }: { searchParams: Promise<{ client?: string; duration?: string; date?: string; week?: string }> }) {
   const query = await searchParams;
@@ -95,11 +96,12 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
   const currentTime = new Date().getTime();
   const selectedDayBookings = bookings.filter((booking) => localDateInTimeZone(booking.startsAt, timezone) === date);
 
-  return <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={coachName} role="coach">
-    <div className={styles.pageHeading}>
-      <div><p className={styles.eyebrow}>Coach schedule</p><h2>Calendar</h2></div>
-      <p>Choose a Client, tap a date and an available time, confirm it, and Ravoge books the session to your Coach schedule.</p>
-    </div>
+  return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coachName} role="coach">
+    <div className={workspace.workday}>
+    <header className={workspace.workdayHeading}>
+      <h1>Schedule</h1>
+      <Link className={workspace.secondaryButton} href="/coach/availability">Availability</Link>
+    </header>
 
     {clients.length ? <CoachBookingCalendar
       key={`${date}-${selectedClientId}-${duration}`}
@@ -128,9 +130,11 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
       <BookingList currentTime={currentTime} bookings={selectedDayBookings} empty="No sessions on this date." perspective="coach" staffControls />
     </section>
 
-    <section className={styles.workspaceSection}>
-      <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Selected month</p><h3>Manage booked sessions</h3></div></div>
+    <details className={workspace.disclosure}>
+      <summary>Manage upcoming bookings</summary>
       <BookingList currentTime={currentTime} bookings={bookings.filter((booking) => Date.parse(booking.startsAt) >= currentTime)} empty="No upcoming sessions this month." perspective="coach" staffControls />
-    </section>
+    </details>
+    </div>
   </DashboardShell>;
 }
+import Link from "next/link";
