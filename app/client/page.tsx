@@ -1,108 +1,110 @@
 import Link from "next/link";
 
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
-import { ProfilePhoto } from "@/components/profile-photo";
 import { requireRole } from "@/lib/auth";
-import { getProfileImageUrl } from "@/lib/profile-images";
-import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone, localWeekStartDate } from "@/lib/timezone";
+import { clientDayLabel, clientWorkoutTitle } from "@/lib/client-display";
+import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone } from "@/lib/timezone";
+import ui from "./client-home.module.css";
 
-type ClientWorkout = {
+type Workout = {
   completed_at: string | null;
   id: string;
   scheduled_date: string;
   scheduled_time: string | null;
-  status: "assigned" | "in_progress" | "completed" | "cancelled";
+  status: string;
   title: string;
-  workout_exercises: { completed_at: string | null; id: string }[];
 };
 
-function WorkoutList({ empty, workouts }: { empty: string; workouts: ClientWorkout[] }) {
-  if (!workouts.length) return <p className={styles.empty}>{empty}</p>;
-  return (
-    <ul className={styles.clientWorkoutList}>
-      {workouts.map((workout) => {
-        const completedExercises = workout.workout_exercises.filter((exercise) => exercise.completed_at).length;
-        return (
-          <li key={workout.id}>
-            <Link href={`/client/workouts/${workout.id}`}>
-              <div>
-                <strong>{workout.title}</strong>
-                <time dateTime={workout.scheduled_date}>{workout.scheduled_date}{workout.scheduled_time ? ` · ${workout.scheduled_time.slice(0, 5)}` : ""}</time>
-              </div>
-              <span>
-                {workout.status.replaceAll("_", " ")} · {completedExercises}/{workout.workout_exercises.length} exercises
-              </span>
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
-  );
+const clock = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+function scheduledLabel(workout: Workout) {
+  const date = clientDayLabel(workout.scheduled_date, { weekday: "short" });
+  return workout.scheduled_time
+    ? `${date} · ${clock.format(new Date(`2000-01-01T${workout.scheduled_time.slice(0, 5)}:00Z`))}`
+    : date;
 }
 
-function UpcomingWeeks({ workouts }: { workouts: ClientWorkout[] }) {
-  if (!workouts.length) return <p className={styles.empty}>No upcoming workouts yet.</p>;
-  const weeks = new Map<string, ClientWorkout[]>();
-  for (const workout of workouts) {
-    const week = localWeekStartDate(`${workout.scheduled_date}T12:00:00Z`, "UTC") ?? workout.scheduled_date;
-    const entries = weeks.get(week) ?? [];
-    entries.push(workout);
-    weeks.set(week, entries);
-  }
-  const label = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
-  return Array.from(weeks, ([week, entries]) => <section key={week}>
-    <h3>Week of {label.format(new Date(`${week}T12:00:00Z`))}</h3>
-    <WorkoutList empty="" workouts={entries} />
-  </section>);
+function WorkoutList({ workouts, timezone }: { workouts: Workout[]; timezone: string }) {
+  return <ul className={ui.list}>{workouts.map(workout => {
+    const date = workout.completed_at ? localDateInTimeZone(new Date(workout.completed_at), timezone) : workout.scheduled_date;
+    return <li key={workout.id}>
+      <Link className={ui.row} href={`/client/workouts/${workout.id}`}>
+        <span>
+          <strong>{clientWorkoutTitle(workout.title)}</strong>
+          <small>{workout.status === "completed" ? clientDayLabel(date, { year: "numeric" }) : scheduledLabel(workout)}</small>
+        </span>
+        <span aria-hidden="true">›</span>
+      </Link>
+    </li>;
+  })}</ul>;
 }
 
 export default async function ClientPage() {
   const { membership, supabase, userId } = await requireRole("client");
-  const [{ data: profile }, { data: organization }, { data: assignment }, { data: workoutRows }] = await Promise.all([
-    supabase.from("profiles").select("full_name").eq("id", userId).single(),
+  const [profile, organization, workouts, coaches] = await Promise.all([
+    supabase.from("profiles").select("full_name,preferred_name").eq("id", userId).single(),
     supabase.from("organizations").select("name,timezone").eq("id", membership.organization_id).single(),
-    supabase.from("coach_client_assignments").select("coach_user_id").eq("organization_id", membership.organization_id).eq("status", "active").limit(1).maybeSingle(),
-    supabase
-      .from("workout_assignments")
-      .select("id,title,scheduled_date,scheduled_time,status,completed_at,workout_exercises(id,completed_at)")
-      .eq("organization_id", membership.organization_id)
-      .eq("client_user_id", userId)
-      .neq("status", "cancelled")
-      .order("scheduled_date", { ascending: true }).order("scheduled_time", { ascending: true }),
+    supabase.from("workout_assignments").select("id,title,scheduled_date,scheduled_time,status,completed_at")
+      .eq("organization_id", membership.organization_id).eq("client_user_id", userId)
+      .neq("status", "cancelled").order("scheduled_date").order("scheduled_time"),
+    supabase.rpc("get_my_assigned_coach"),
   ]);
-  const { data: coach } = assignment
-    ? await supabase.from("profiles").select("full_name,preferred_name,avatar_path").eq("id", assignment.coach_user_id).maybeSingle()
-    : { data: null };
-  const coachName = coach?.preferred_name || coach?.full_name || "A coach has not been assigned yet.";
-  const coachPhotoUrl = await getProfileImageUrl(supabase, coach?.avatar_path);
-  const today = localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE);
-  const workouts = (workoutRows ?? []) as ClientWorkout[];
-  const current = workouts.filter((workout) => workout.status === "in_progress" || (workout.status === "assigned" && workout.scheduled_date <= today));
-  const upcoming = workouts.filter((workout) => workout.status === "assigned" && workout.scheduled_date > today);
-  const completed = workouts.filter((workout) => workout.status === "completed").reverse().slice(0, 5);
 
-  return (
-    <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Client"} role="client">
-      <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Your training</p><h1 className={styles.clientHeading}>Welcome, {profile?.full_name ?? "Client"}.</h1></div></div>
-      <div className={styles.clientMeta}>
-        <ProfilePhoto name={coachName} size="small" url={coachPhotoUrl} />
-        <span>Your coach</span>
-        <strong>{coachName}</strong>
-      </div>
-      <div className={styles.grid}>
-        <section className={`${styles.panel} ${styles.panelWide}`}>
-          <h2>Today &amp; current</h2>
-          <WorkoutList empty="No workout is due right now." workouts={current} />
+  const name = profile.data?.preferred_name || profile.data?.full_name || "Client";
+  const coach = coaches.data?.[0];
+  const coachName = coach?.preferred_name || coach?.full_name;
+  const timezone = organization.data?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE;
+  const today = localDateInTimeZone(new Date(), timezone);
+  const rows = workouts.data ?? [];
+  const current = [
+    ...rows.filter(workout => workout.status === "in_progress"),
+    ...rows.filter(workout => workout.status === "assigned" && workout.scheduled_date === today),
+    ...rows.filter(workout => workout.status === "assigned" && workout.scheduled_date < today).reverse(),
+  ];
+  const upcoming = rows.filter(workout => workout.status === "assigned" && workout.scheduled_date > today);
+  const completed = rows.filter(workout => workout.status === "completed")
+    .sort((a, b) => (b.completed_at ?? b.scheduled_date).localeCompare(a.completed_at ?? a.scheduled_date)).slice(0, 5);
+  const featured = current[0] ?? upcoming[0];
+  const remaining = current.length ? current.slice(1) : [];
+  const later = current.length ? upcoming : upcoming.slice(1);
+
+  return <DashboardShell compact gymName={organization.data?.name ?? "Ravoge gym"} name={name} role="client">
+    <div className={ui.stack}>
+      <header className={ui.heading}>
+        <h1>Workouts</h1>
+        <p className={ui.muted}>{clientDayLabel(today, { weekday: "long", month: "long" })}{coachName ? ` · Coach ${coachName}` : ""}</p>
+      </header>
+      {workouts.error ? <p role="alert">Workouts could not be loaded. Reload to try again.</p> : <>
+        <section className={`${ui.surface} ${ui.featured}`} aria-labelledby="featured-workout">
+          {featured ? <>
+            <p className={styles.eyebrow}>{featured.status === "in_progress" ? "In progress" : current.length ? "Ready to train" : "Next workout"}</p>
+            <h2 id="featured-workout">{clientWorkoutTitle(featured.title)}</h2>
+            <p className={ui.muted}>{scheduledLabel(featured)}</p>
+            <Link className={current.length ? styles.action : styles.secondaryAction} href={`/client/workouts/${featured.id}`}>
+              {featured.status === "in_progress" ? "Resume workout" : "Open workout"}
+            </Link>
+          </> : <>
+            <h2 id="featured-workout">No workouts scheduled</h2>
+            <Link className={styles.action} href={coach ? "/client/book" : "/client/schedule"}>
+              {coach ? "Book a session" : "View schedule"}
+            </Link>
+          </>}
         </section>
-        <section className={styles.panel}>
-          <h2>Upcoming</h2>
-          <UpcomingWeeks workouts={upcoming} />
-        </section>
-        <section className={styles.panel}>
-          <h2>Recently completed</h2>
-          <WorkoutList empty="Completed workouts will appear here." workouts={completed} />
-        </section>
-      </div>
-    </DashboardShell>
-  );
+        {(remaining.length > 0 || later.length > 0 || completed.length > 0) && <div className={ui.layout}>
+          {remaining.length > 0 && <section className={ui.surface}>
+            <h2>Other active workouts</h2>
+            <WorkoutList workouts={remaining} timezone={timezone} />
+          </section>}
+          {later.length > 0 && <section className={ui.surface}>
+            <h2>Upcoming</h2>
+            <WorkoutList workouts={later} timezone={timezone} />
+          </section>}
+          {completed.length > 0 && <section className={ui.surface}>
+            <h2>Recently completed</h2>
+            <WorkoutList workouts={completed} timezone={timezone} />
+          </section>}
+        </div>}
+      </>}
+      <Link className={ui.quietLink} href="/client/profile#workout-history">View workout history</Link>
+    </div>
+  </DashboardShell>;
 }
