@@ -5,11 +5,11 @@ import { notFound } from "next/navigation";
 
 import { OperationsTabs } from "@/components/operations-tabs";
 import { CoachCheckin } from "@/components/coach-checkin";
-import { TrainSessionForm } from "@/components/train-session-form";
+import { CoachClientActions } from "@/components/coach-client-actions";
 
 import { ProgressChart } from "@/components/progress-chart";
 import { ClientLogHistory } from "@/components/client-log-history";
-import { localDateInTimeZone } from "@/lib/timezone";
+import { localDateInTimeZone, localDateStartIso } from "@/lib/timezone";
 
 
 import { BaselineSummary, type BaselineRecord } from "@/components/baseline-summary";
@@ -40,7 +40,7 @@ const noticeMessages: Record<string, string> = {
 export default async function CoachClientPage({ params, searchParams }: { params: Promise<{ clientId: string }>; searchParams: Promise<{ notice?: string; tab?: string }> }) {
   const { clientId } = await params;
   const { notice, tab: requestedTab } = await searchParams;
-  const tab=["workouts","progress","intake","metrics","notes"].includes(requestedTab??"")?requestedTab!:"workouts";
+
   const { membership, supabase, userId } = await requireRole("coach");
   if (!/^[0-9a-f-]{36}$/i.test(clientId)) notFound();
   const { data: relationship } = await supabase.from("coach_client_assignments").select("client_user_id,status").eq("organization_id", membership.organization_id).eq("coach_user_id", userId).eq("client_user_id", clientId).eq("status", "active").maybeSingle();
@@ -58,12 +58,17 @@ export default async function CoachClientPage({ params, searchParams }: { params
     supabase.from("client_body_composition_assessments").select("intake_id,inbody_score,body_fat_percentage,weight_kg,skeletal_muscle_mass_kg,measured_at").eq("organization_id", membership.organization_id).eq("client_user_id", clientId),
   ]);
   if (!clientProfile) notFound();
-  const [{data:generationReadiness},{data:bookings},{data:questions}]=await Promise.all([
-    supabase.rpc("get_workout_generation_readiness",{target_client_user_id:clientId}),
-    supabase.from("bookings").select("id,starts_at,timezone,status").eq("organization_id",membership.organization_id).eq("client_user_id",clientId).eq("coach_user_id",userId).eq("status","scheduled").gte("starts_at",new Date().toISOString()).order("starts_at"),
+  const now = new Date();
+  const timezone = organization?.timezone ?? "America/Denver";
+  const today = localDateInTimeZone(now, timezone);
+  const [{data:bookings},{data:questions}]=await Promise.all([
+    supabase.from("bookings").select("id,starts_at,ends_at,timezone,status,session_type").eq("organization_id",membership.organization_id).eq("client_user_id",clientId).eq("coach_user_id",userId).eq("status","scheduled").gte("starts_at",localDateStartIso(today, timezone)!).order("starts_at"),
     supabase.from("organization_preworkout_questions").select("position,question_text,scale_min,scale_max").eq("organization_id",membership.organization_id).order("position"),
   ]);
   const latestIntake = (intakeRows?.[0] ?? null) as IntakeRow | null;
+  const tab = ["workouts", "progress", "intake", "metrics", "notes"].includes(requestedTab ?? "")
+    ? requestedTab!
+    : latestIntake ? "workouts" : "intake";
   const [{data:injuryRows,error:injuryError},{data:gymHours}] = await Promise.all([
     supabase.from("client_injury_spots").select("details").eq("organization_id",membership.organization_id).eq("client_user_id",clientId).is("removed_at",null).order("created_at"),
     supabase.from("organization_hours").select("day_of_week,is_closed").eq("organization_id",membership.organization_id),
@@ -83,26 +88,34 @@ export default async function CoachClientPage({ params, searchParams }: { params
 
   const basePath=`/coach/clients/${clientId}`;
   const assignedWorkouts=(workouts??[]) as WorkoutAssignment[];
-  const today=localDateInTimeZone(new Date(),organization?.timezone??"America/Denver");
-  const todayWorkout=assignedWorkouts.find(workout=>workout.scheduled_date===today&&workout.status!=="cancelled");
+  const nextSessions = (bookings ?? []).filter(booking => Date.parse(booking.ends_at) > now.getTime());
+  const runningWorkout = assignedWorkouts.find(workout => workout.status === "in_progress");
+  const todaySession = nextSessions.find(booking => booking.session_type !== "Intake" && localDateInTimeZone(booking.starts_at, timezone) === today);
+  const workoutHref = runningWorkout ? `${basePath}/workouts/${runningWorkout.id}` :
+    todaySession ? `${basePath}/sessions/${todaySession.id}` : `/coach/workout-now?client=${clientId}`;
   const contexts=[...(bookings??[]).map(booking=>({id:`booking:${booking.id}`,label:`Session · ${new Date(booking.starts_at).toLocaleString("en-US",{timeZone:booking.timezone})}`})),...assignedWorkouts.filter(workout=>["assigned","in_progress"].includes(workout.status)).map(workout=>({id:`workout:${workout.id}`,label:`${workout.title} · ${workout.scheduled_date}`}))];
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coachProfile?.full_name ?? "Coach"} role="coach">
-    <Link className={styles.backLink} href="/coach">← My Clients</Link>
-    <div className={styles.detailHeader}><div className={styles.profileHero}><ProfilePhotoForm imageUrl={clientImageUrl} name={clientName} organizationId={membership.organization_id} role="coach" targetUserId={clientId} /><div><p className={styles.eyebrow}>Client · {organization?.name}</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{latestIntake?String(latestIntake.primary_goal).replaceAll("_"," "):"Intake pending"}</p></div></div><div className={styles.bookingActions}>{latestIntake&&<Link className={styles.action} href={`${basePath}#train-session`}>Train</Link>}<Link className={latestIntake?styles.secondaryAction:styles.action} href={`${basePath}?tab=intake#intake-evaluation`}>Start intake now</Link><Link className={styles.secondaryAction} href={`${basePath}/book?kind=intake`}>Schedule intake</Link><Link className={styles.secondaryAction} href={`${basePath}/book`}>Schedule session</Link></div></div>
+    <Link className={styles.backLink} href="/coach/clients">← My Clients</Link>
+    <div className={styles.detailHeader}>
+      <div className={styles.profileHero}>
+        <ProfilePhotoForm imageUrl={clientImageUrl} name={clientName} organizationId={membership.organization_id} role="coach" targetUserId={clientId} />
+        <div><p className={styles.eyebrow}>Client · {organization?.name}</p><h2 className={styles.detailTitle}>{clientName}</h2><p className={styles.profileMeta}>{latestIntake ? String(latestIntake.primary_goal).replaceAll("_", " ") : "Intake pending"}</p></div>
+      </div>
+    </div>
+    <CoachClientActions clientId={clientId} hasIntake={!!latestIntake} workoutHref={workoutHref}
+      workoutLabel={runningWorkout ? "Resume Workout" : "Workout Now"} />
 
     <OperationsTabs active={tab} basePath={basePath} tabs={[{id:"workouts",label:"Workout Plan"},{id:"progress",label:"Progress"},{id:"intake",label:"Intake"},{id:"metrics",label:"Metrics"},{id:"notes",label:"Notes"}]}/>
     {notice&&noticeMessages[notice]&&<p className={styles.notice} role="status">{noticeMessages[notice]}</p>}
     {tab==="workouts"&&<>
-      <div className={styles.summaryNumbers}><span><small>Today’s workout</small><strong>{todayWorkout?.title??"Not scheduled"}</strong></span><span><small>Next session</small><strong>{bookings?.[0]?<Link href={`${basePath}/sessions/${bookings[0].id}`}>{new Date(bookings[0].starts_at).toLocaleString("en-US",{timeZone:bookings[0].timezone,month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</Link>:"Not booked"}</strong></span><span><small>Current phase</small><strong>{prescriptions.length?"Foundation":"Not started"}</strong></span><span><small>Latest readiness</small><strong>{latestState?`${Math.round(latestState.current_readiness*10)}/10`:"Not assessed"}</strong></span></div>
-      {!!bookings?.length && <section className={styles.operationCard}><h3>Upcoming sessions · prepare ahead</h3><div className={styles.form}>{bookings.map(booking=><Link className={styles.todayWorkout} key={booking.id} href={`${basePath}/sessions/${booking.id}`}><strong>{new Date(booking.starts_at).toLocaleString("en-US",{timeZone:booking.timezone,dateStyle:"medium",timeStyle:"short"})}</strong><span>Prepare / edit workout →</span></Link>)}</div></section>}
-      {todayWorkout&&<Link className={styles.todayWorkout} href={`${basePath}/workouts/${todayWorkout.id}`}><span><small>TODAY’S WORKOUT</small><strong>{todayWorkout.title}</strong></span><span>Open workout →</span></Link>}
-      <TrainSessionForm clientId={clientId} hasIntake={!!latestIntake} intakeReviewRequired={generationReadiness?.needsSafetyReview===true} plannedWorkoutTitle={todayWorkout&&["assigned","in_progress"].includes(todayWorkout.status)?todayWorkout.title:undefined}/>
+      {!!nextSessions.length && <details className={styles.operationCard}><summary>Upcoming sessions</summary><div className={styles.form}>{nextSessions.map(booking=><Link className={styles.todayWorkout} key={booking.id} href={`${basePath}/sessions/${booking.id}?mode=prepare`}><strong>{new Date(booking.starts_at).toLocaleString("en-US",{timeZone:booking.timezone,dateStyle:"medium",timeStyle:"short"})}</strong><span>{booking.session_type === "Intake" ? "Open intake" : "Prepare workout"} →</span></Link>)}</div></details>}
+
       <section className={styles.operationCard}><div className={styles.sectionHeading}><h3>Workout plan</h3></div>
       {prescriptions.filter(item=>item.status==="draft").map(item=><Link className={styles.todayWorkout} key={item.id} href={`${basePath}/prescriptions/${item.id}`}><strong>{item.title}</strong><span>Review draft →</span></Link>)}
-      {assignedWorkouts.length?<ul className={styles.workoutPlanList}>{assignedWorkouts.map(workout=><li key={workout.id}><Link href={`${basePath}/workouts/${workout.id}`}><div><strong>{workout.title}</strong><small>{workout.scheduled_date}{workout.scheduled_time?` · ${workout.scheduled_time.slice(0,5)}`:""} · {workout.workout_exercises.length} exercises</small></div><span className={workout.status==="completed"?styles.successPill:styles.mutedPill}>{workout.status.replaceAll("_"," ")}</span><span aria-hidden="true">→</span></Link></li>)}</ul>:<p className={styles.empty}>No workouts assigned yet. Complete intake or create a plan below.</p>}
-      </section><Link className={styles.action} href={`/coach/plan-workouts?client=${clientId}`}>Plan Workout</Link>
+      {assignedWorkouts.length?<ul className={styles.workoutPlanList}>{assignedWorkouts.map(workout=><li key={workout.id}><Link href={`${basePath}/workouts/${workout.id}`}><div><strong>{workout.title}</strong><small>{workout.scheduled_date}{workout.scheduled_time?` · ${workout.scheduled_time.slice(0,5)}`:""} · {workout.workout_exercises.length} exercises</small></div><span className={workout.status==="completed"?styles.successPill:styles.mutedPill}>{workout.status.replaceAll("_"," ")}</span><span aria-hidden="true">→</span></Link></li>)}</ul>:<p className={styles.empty}>No workouts assigned yet. Open Plan to prepare a booked session.</p>}
+      </section>
     </>}
-    {tab==="intake"&&<><div id="intake-evaluation" className={styles.sectionHeading}><div><h3>Intake evaluation</h3><p className={styles.profileMeta}>{latestIntake?`New assessment · previous version ${latestIntake.version}`:"Build the Client’s first baseline"}</p></div></div>{injuryError?<p role="alert">Injury history could not be loaded. Do not save an incomplete assessment; reload or contact your Owner.</p>:<IntakeForm clientId={clientId} defaults={(latestIntake??{}) as never} injurySpots={(injuryRows??[]).map(r=>r.details as InjurySpot)} availableDays={availableDays} checkin={<CoachCheckin clientId={clientId} contexts={contexts} questions={questions??[]}/>}/>}<details className={styles.operationCard}><summary>Previous assessments</summary><BaselineSummary records={baselineRecords}/></details></>}
+    {tab==="intake"&&<><div className={styles.quickActions}><Link href={`${basePath}/book?kind=intake`}>Schedule intake for later</Link></div><div id="intake-evaluation" className={styles.sectionHeading}><div><h3>Intake evaluation</h3><p className={styles.profileMeta}>{latestIntake?`New assessment · previous version ${latestIntake.version}`:"Build the Client’s first baseline"}</p></div></div>{injuryError?<p role="alert">Injury history could not be loaded. Do not save an incomplete assessment; reload or contact your Owner.</p>:<IntakeForm clientId={clientId} defaults={(latestIntake??{}) as never} injurySpots={(injuryRows??[]).map(r=>r.details as InjurySpot)} availableDays={availableDays} checkin={<CoachCheckin clientId={clientId} contexts={contexts} questions={questions??[]}/>}/>}<details className={styles.operationCard}><summary>Previous assessments</summary><BaselineSummary records={baselineRecords}/></details></>}
     {tab==="progress"&&<><SessionReportHistory supabase={supabase} organizationId={membership.organization_id} clientId={clientId} role="coach"/><ProgressChart metrics={[{label:"Weight",unit:"lb",points:(inbodyRows??[]).filter(row=>row.weight_kg!==null).map(row=>({date:row.measured_at,value:kilogramsToPounds(row.weight_kg)!}))},{label:"Body fat",unit:"%",points:(inbodyRows??[]).filter(row=>row.body_fat_percentage!==null).map(row=>({date:row.measured_at,value:Number(row.body_fat_percentage)}))}]}/><BaselineSummary records={baselineRecords}/><ClientLogHistory supabase={supabase} organizationId={membership.organization_id} clientId={clientId}/></>}
     {tab==="metrics"&&<><section className={styles.operationCard}><h3>Latest assessment state</h3>{latestState?<div className={styles.stateGrid}><article><span>Training level</span><strong>{level(latestState.training_experience)}</strong></article><article><span>Recovery</span><strong>{level(latestState.recovery_capacity)}</strong></article><article><span>Readiness</span><strong>{level(latestState.current_readiness)}</strong></article><article><span>Movement tolerance</span><strong>{level(latestState.movement_tolerance)}</strong></article><article><span>Volume tolerance</span><strong>{level(latestState.volume_tolerance)}</strong></article><article><span>Confidence</span><strong>{latestState.confidence.overall??"Low"}</strong></article></div>:<p className={styles.empty}>Complete the intake to establish the Client’s state.</p>}</section><BaselineSummary records={baselineRecords}/></>}
     {tab==="notes"&&<section className={styles.operationCard}><h3>Coach notes</h3><p className={styles.empty}>{String(latestIntake?.coach_notes||"No intake notes recorded.")}</p><h3>About the Client</h3><p className={styles.empty}>{clientProfile.bio||"No About section yet."}</p><p className={styles.formHint}>Session notes are recorded within each workout.</p></section>}
