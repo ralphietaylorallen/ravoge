@@ -1,3 +1,4 @@
+import { clientWorkoutTitle } from "@/lib/client-display";
 import { SessionReportPage } from "@/components/session-report-page";
 import { loadLabel, poundsInText } from "@/lib/weight-units";
 import Link from "next/link";
@@ -87,7 +88,7 @@ export default async function ClientWorkoutPage({
       <div className={styles.detailHeader}>
         <div>
           <p className={styles.eyebrow}>{workout.scheduled_date}</p>
-          <h1 className={styles.detailTitle}>{workout.title}</h1>
+          <h1 className={styles.detailTitle}>{clientWorkoutTitle(workout.title)}</h1>
         </div>
         <span className={styles.statusPill}>{workout.status.replaceAll("_", " ")}</span>
       </div>
@@ -102,7 +103,7 @@ export default async function ClientWorkoutPage({
       </div>
 
       {workout.status !== "completed" && workout.status !== "cancelled" && <TrainingReadinessForm role="client" clientId={userId} workoutId={workoutId}/>}
-      {structured ? <ClientWorkoutPlayer workoutId={workout.id} title={workout.title} goal={workout.objective} duration={workout.estimated_duration_minutes} status={workout.status} exercises={exercises} substitutions={substitutions ?? []}/> : <section className={`${styles.panel} ${styles.clientWorkoutPanel}`}>
+      {structured ? <ClientWorkoutPlayer workoutId={workout.id} title={clientWorkoutTitle(workout.title)} goal={workout.objective} duration={workout.estimated_duration_minutes} status={workout.status} exercises={exercises} substitutions={substitutions ?? []}/> : <section className={`${styles.panel} ${styles.clientWorkoutPanel}`}>
         <h2>Exercises</h2>
         <ol className={styles.clientExerciseList}>
           {exercises.map((exercise, index) => {
