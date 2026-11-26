@@ -43,7 +43,7 @@ test("week/month availability and unbooked workout plans save atomically with Co
     const daily = await readFile("supabase/migrations/20261109211201_coach_calendar_availability.sql", "utf8");
     await db.exec(daily.split("-- Coaches can share")[0]);
     await db.exec(await readFile("supabase/migrations/20261111225804_booked_workout_preparation.sql", "utf8"));
-    await db.exec(await readFile("supabase/migrations/20261119165000_coach_period_availability_and_planned_generation.sql", "utf8"));
+    await db.exec(await readFile("supabase/migrations/20261126000016_coach_period_availability_and_planned_generation.sql", "utf8"));
     await db.query("insert into organizations(id,timezone) values($1,'America/Denver')", [org]);
     await db.query("insert into memberships(organization_id,user_id,role) values($1,$2,'coach'),($1,$3,'client'),($1,$4,'coach')", [org, coach, client, other]);
     await db.query("insert into assignments values($1,$2,$3)", [org, coach, client]);
