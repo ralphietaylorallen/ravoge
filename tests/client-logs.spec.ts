@@ -25,11 +25,14 @@ test("Client logs actual recovery and daily activity without changing completed 
  await expect(recovery.getByText(/Cold plunge · 2 min · 46 °F/)).toBeVisible();
  await page.getByRole("navigation",{name:"client navigation"}).getByRole("link",{name:"My day",exact:true}).click();
  await page.getByLabel("Date",{exact:true}).fill(date);await page.getByRole("button",{name:"Open date",exact:true}).click();
+ await expect(page).toHaveURL(url => url.pathname === "/client/my-day" && url.searchParams.get("date") === date);
  for (const width of [320,390,820,1440]) {
   await page.setViewportSize({width,height:900});
-  const field = (await page.getByLabel("Date",{exact:true}).boundingBox())!;
-  const button = (await page.getByRole("button",{name:"Open date",exact:true}).boundingBox())!;
-  expect(button.x >= field.x + field.width || button.y >= field.y + field.height).toBe(true);
+  await expect(async () => {
+   const field = await page.getByLabel("Date",{exact:true}).boundingBox();
+   const button = await page.getByRole("button",{name:"Open date",exact:true}).boundingBox();
+   expect(Boolean(field && button && (button.x >= field.x + field.width || button.y >= field.y + field.height))).toBe(true);
+  }).toPass({timeout:5000});
  }
  const sleep=page.getByRole("form",{name:"Sleep score",exact:true});
  await sleep.getByLabel("Sleep score (0–100)").fill("82");
