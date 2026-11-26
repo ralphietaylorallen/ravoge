@@ -17,7 +17,10 @@ test("group notepad uses real permission/save/publication paths and never claims
   const permission = page.locator("form").filter({has:page.getByRole("checkbox",{name:`${coach.name}: Can manage Group Class Programming`,exact:true})});
   await permission.getByRole("checkbox").check(); await permission.getByRole("button",{name:"Save permission"}).click(); await expect(permission.getByRole("status")).toHaveText("Permission saved.");
   const coachContext = await browser.newContext(); const coachPage = await coachContext.newPage();
-  await login(coachPage,coach); await coachPage.getByRole("link",{name:"Group Class Programming",exact:true}).click();
+  await login(coachPage,coach);
+  const coachNav = coachPage.getByRole("navigation",{name:"coach navigation"});
+  await coachNav.getByText("More",{exact:true}).click();
+  await coachNav.getByRole("link",{name:"Group Class Programming",exact:true}).click();
   const days = coachPage.getByLabel("Monday through Saturday").getByRole("button");
   const editor = coachPage.getByRole("textbox",{name:/workout$/});
   const raw = "  EMOM 12\n1. Row 250 m\n2. 8 / side @ 55 lb\n\n65% — 4 rounds  ";
@@ -50,7 +53,10 @@ test("group notepad uses real permission/save/publication paths and never claims
   await coachPage.goto("/coach/group-programming"); await expect(editor).toHaveValue(`${raw}\nUpdated`);
   await coachPage.goto("/owner/mindbody"); await expect(coachPage).toHaveURL(/\/coach$/);
   const deniedContext = await browser.newContext(); const deniedPage = await deniedContext.newPage();
-  await login(deniedPage,denied); await expect(deniedPage.getByRole("link",{name:"Group Class Programming",exact:true})).toHaveCount(0);
+  await login(deniedPage,denied);
+  const deniedNav = deniedPage.getByRole("navigation",{name:"coach navigation"});
+  await deniedNav.getByText("More",{exact:true}).click();
+  await expect(deniedNav.getByRole("link",{name:"Group Class Programming",exact:true})).toHaveCount(0);
   await deniedPage.goto("/coach/group-programming"); await expect(deniedPage.getByText("Your Owner must enable Group Class Programming access. No programming was loaded.")).toBeVisible(); await expect(deniedPage.getByRole("textbox")).toHaveCount(0);
   const clientContext = await browser.newContext(); const clientPage = await clientContext.newPage(); await login(clientPage,client);
   await clientPage.goto("/coach/group-programming"); await expect(clientPage).toHaveURL(/\/client$/); await clientPage.goto("/owner/group-programming"); await expect(clientPage).toHaveURL(/\/client$/);
