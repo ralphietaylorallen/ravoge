@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { equipmentForLocation, isPlannedWorkoutLocation, WORKOUT_EQUIPMENT_LIMIT } from "../../lib/planned-workout-location.ts";
 
 const read = (path: string) => readFile(new URL("../../" + path, import.meta.url), "utf8");
 
@@ -38,8 +39,7 @@ test("A saved workout opens after readiness instead of generating another draft"
   ]);
 
   assert.match(route, /scheduled_date", today/);
-  assert.match(route, /currentMinutes/);
-  assert.match(route, /closestTimedWorkout/);
+  assert.match(route, /selectTodayWorkout\(existingWorkouts/);
   assert.match(route, /existingWorkout/);
   assert.ok(route.indexOf("if (existingWorkout)") < route.lastIndexOf("createGeneratedWorkoutDraft"));
   assert.match(train, /Save readiness & open planned workout/);
@@ -67,4 +67,13 @@ test("Paired workouts share structure but keep each client's prescription separa
   assert.match(workoutPage, /paired_workout_group_id/);
   assert.match(workoutPage, /Paired session clients/);
   assert.match(planPage, /paired_workout_group_id \? " · Paired"/);
+});
+
+test("Coach location presets provide editable equipment starting points without requiring gym inventory", () => {
+  assert.equal(equipmentForLocation("home", ["Gym rack"]), "Bodyweight");
+  assert.equal(equipmentForLocation("hotel", ["Gym rack"]), "Dumbbells, cable machine, treadmill");
+  assert.equal(equipmentForLocation("gym", ["Gym rack", "Rower"]), "Gym rack, Rower");
+  assert.equal(equipmentForLocation("gym", ["Rower", "x".repeat(WORKOUT_EQUIPMENT_LIMIT)]), "Rower");
+  assert.equal(equipmentForLocation("gym", []), "");
+  assert.equal(isPlannedWorkoutLocation("constructor"), false);
 });

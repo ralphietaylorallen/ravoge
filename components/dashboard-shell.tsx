@@ -11,6 +11,7 @@ import { getProfileImageUrl } from "@/lib/profile-images";
 import { VisualTheme } from "./visual-theme";
 
 import styles from "./dashboard.module.css";
+import workspace from "./coach-workspace.module.css";
 
 export async function DashboardShell({
   children,
@@ -33,14 +34,14 @@ export async function DashboardShell({
   const navigation = role === "owner"
     ? [{ href: "/owner", label: "Overview" }, { href: "/owner/team", label: "Team" }, { href: "/owner/schedule", label: "Schedule" }, { href: "/owner/clients", label: "Clients" }, { href: "/owner/reports", label: "Reports" }, { href: "/owner/revenue", label: "Revenue" }, { href: "/owner/payroll", label: "Payroll" }, { href: "/owner/equipment", label: "Equipment" }, { href: "/owner/training-library", label: "Training library" }, { href: "/owner/apps", label: "Apps & access" }, { href: "/owner/demo", label: "Demo" }]
     : role === "coach"
-      ? [{ href: "/coach", label: "Overview & clients" }, { href: "/coach/plan-workouts", label: "Plan Workouts" }, { href: "/coach/schedule", label: "Schedule" }, { href: "/coach/availability", label: "Availability" }, { href: "/coach/add-client", label: "Add Client" }, { href: "/coach/profile", label: "Profile" }]
+      ? [{ href: "/coach", label: "Today" }, { href: "/coach/schedule", label: "Schedule" }, { href: "/coach/clients", label: "Clients" }, { href: "/coach/plan-workouts", label: "Plan Workouts" }, { href: "/coach/availability", label: "Availability" }, { href: "/coach/add-client", label: "Add Client" }, { href: "/coach/profile", label: "Profile" }]
       : [{ href: "/client", label: "Workouts" }, { href: "/client/my-day", label: "My day" }, { href: "/client/book", label: "Book" }, { href: "/client/schedule", label: "Schedule" }, { href: "/client/profile", label: "Profile" }];
   if (role === "owner" || role === "coach") navigation.splice(1,0,{href:`/${role}/workout-now`,label:"Workout Now"});
   if (role === "owner" || (role === "coach" && groupProgrammingAllowed === true)) navigation.push({ href: `/${role}/group-programming`, label: "Group Class Programming" });
   if (role === "owner") { navigation.splice(2,0,{href:"/owner/announcements",label:"Announcements"}); navigation.push({ href: "/owner/mindbody", label: "Mindbody Integration" }); }
   return (
-    <VisualTheme><main className={styles.shell} data-account-role={role}>
-      <aside className={styles.sidebar}>
+    <VisualTheme><main className={role === "coach" ? `${styles.shell} ${workspace.coachShell}` : styles.shell} data-account-role={role}>
+      <aside className={role === "coach" ? `${styles.sidebar} ${workspace.coachSidebar}` : styles.sidebar}>
         <Logo href={dashboardForRole(role)} />
         <DashboardNavigation items={navigation} role={role} />
         <div className={styles.identity}>
@@ -50,7 +51,7 @@ export async function DashboardShell({
           <small>{gymName}</small>
         </div>
       </aside>
-      <div className={styles.frame}>
+      <div className={role === "coach" ? `${styles.frame} ${workspace.coachFrame}` : styles.frame}>
         <header className={styles.header}>
           <div><span className={styles.mobileBrand}><Logo href={dashboardForRole(role)} /></span><small>{gymName}</small></div>
           <div className={styles.headerActions}>

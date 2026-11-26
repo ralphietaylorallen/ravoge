@@ -6,6 +6,7 @@ import { WorkoutExecution, SessionCompletionForm, type ExecutionExercise } from 
 import { requireRole } from "@/lib/auth";
 import { ClientWorkoutPlayer, type PlayerExercise } from "@/components/client-workout-player";
 import { TrainingReadinessHistory } from "@/components/training-readiness-history";
+import workspace from "./coach-workspace.module.css";
 
 export async function TrainerWorkoutPage({params,role="coach"}:{role?:"coach"|"owner";params:Promise<{clientId:string;workoutId:string}>}) {
   const {clientId,workoutId}=await params;
@@ -60,7 +61,10 @@ export async function TrainerWorkoutPage({params,role="coach"}:{role?:"coach"|"o
   const substitutionIds=[...new Set(playerExercises.flatMap(e=>e.prescription_details?.substitutionIds??[]))];
   const {data:substitutions}=substitutionIds.length?await supabase.from("exercise_library").select("id,name").in("id",substitutionIds).eq("is_active",true):{data:[]};
   return <DashboardShell compact gymName={org?.name??"Gym"} name={actor?.full_name??"Coach"} role={role}>
-    <Link className={styles.backLink} href={`/${role}/clients/${clientId}`}>← {name} · Workout plan</Link>
+    {role === "coach" ? <div className={workspace.actionStrip}>
+      <Link className={workspace.secondaryButton} href="/coach">← Today</Link>
+      <Link className={workspace.secondaryButton} href={`/coach/clients/${clientId}`}>Client Profile</Link>
+    </div> : <Link className={styles.backLink} href={`/${role}/clients/${clientId}`}>← {name} · Workout plan</Link>}
     {pairedTabs.length > 1 && <nav className={styles.clientTabs} aria-label="Paired session clients">
       {pairedTabs.map((tab) => <Link
         key={tab.workoutId}
@@ -72,11 +76,14 @@ export async function TrainerWorkoutPage({params,role="coach"}:{role?:"coach"|"o
     </nav>}
     <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Workout Plan</p><h2>{workout.title}</h2><p className={styles.profileMeta}>{name} · {workout.scheduled_date}</p></div><span className={locked?styles.successPill:styles.mutedPill}>{workout.status.replaceAll("_"," ")}</span></div>
     {workout.instructions&&<p className={styles.notice}>{workout.instructions}</p>}
-    <TrainingReadinessHistory clientId={clientId} role={role}/>
+    {role !== "coach" && <TrainingReadinessHistory clientId={clientId} role={role}/>}
     {structured&&<ClientWorkoutPlayer role={role} workoutId={workoutId} title={workout.title} goal={workout.objective} duration={workout.estimated_duration_minutes} status={workout.status} exercises={playerExercises} substitutions={substitutions??[]}/>}
     {!structured&&<>
     {workout.status==="completed"&&<section className={styles.completedSummary}><h3>Workout complete</h3><div className={styles.summaryNumbers}><span><strong>{sets.filter(s=>["complete","exceeded"].includes(s.execution_result??"")).length}</strong>Completed sets</span><span><strong>{sets.filter(s=>s.execution_result==="failed").length}</strong>Failed sets</span><span><strong>{sets.filter(s=>s.execution_result==="exceeded").length}</strong>Exceeded sets</span><span><strong>{workout.execution_duration_minutes??"—"}</strong>Minutes</span></div><p>{workout.execution_coach_notes}</p></section>}
     <div className={styles.executionLayout}><WorkoutExecution clientId={clientId} exercises={exercises} locked={locked} workoutId={workoutId} /><aside className={styles.executionSidebar}><section className={styles.operationCard}><h3>Workout overview</h3><dl className={styles.factList}><div><dt>Exercises</dt><dd>{exercises.length}</dd></div><div><dt>Sets</dt><dd>{sets.length}</dd></div><div><dt>Recorded duration</dt><dd>{workout.execution_duration_minutes ? `${workout.execution_duration_minutes} minutes` : "Not recorded"}</dd></div></dl><SessionCompletionForm clientId={clientId} duration={workout.execution_duration_minutes} locked={locked} notes={workout.execution_coach_notes} workoutId={workoutId} /></section><section className={styles.operationCard}><h3>Latest intake readiness</h3>{states?.[0]?<><p className={styles.readinessValue}>{Math.round(Number(states[0].current_readiness)*10)}<small>/10</small></p><p className={styles.formHint}>From intake on {new Date(states[0].calculated_at).toLocaleDateString("en-US")}. Session check-in answers are stored separately.</p></>:<p className={styles.empty}>No readiness assessment yet.</p>}</section><section className={styles.operationCard}><h3>Recent workouts</h3><ul className={styles.activityList}>{recent?.map((item)=><li key={item.id}><Link href={`/${role}/clients/${clientId}/workouts/${item.id}`}>{item.title}<small>{item.scheduled_date}</small></Link></li>)}</ul><h3>Quick actions</h3><div className={styles.quickActions}><Link href={`/${role}/clients/${clientId}?tab=workouts`}>Client plan →</Link><Link href={`/${role}/clients/${clientId}/book`}>Schedule session →</Link><Link href={`/${role}/clients/${clientId}?tab=progress`}>View progress →</Link></div></section></aside></div>
     </>}
+    {role === "coach" && <details className={workspace.disclosure}><summary>Readiness history</summary>
+      <TrainingReadinessHistory clientId={clientId} role={role} />
+    </details>}
   </DashboardShell>;
 }

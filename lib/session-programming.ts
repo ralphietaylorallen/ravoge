@@ -4,6 +4,13 @@ export function ageFromBirthYear(birthYear:unknown,year=new Date().getUTCFullYea
   const value=Number(birthYear),age=year-value;
   return Number.isInteger(value)&&age>=18&&age<=110?age:null;
 }
+
+export function generationAge(input: Pick<GenerationInput, "age" | "intakeContext">): number | null {
+  for (const age of [input.intakeContext?.age, input.age]) {
+    if (typeof age === "number" && Number.isInteger(age) && age >= 18 && age <= 110) return age;
+  }
+  return null;
+}
 /** Compare executable targets, never names, explanatory prose or row order. */
 export function repeatsRecentDraft(workout:Pick<AssistedWorkout,"exercises">,input:GenerationInput):boolean {
   const signature=(e:NonNullable<GenerationInput["recentDrafts"]>[number]["exercises"][number])=>JSON.stringify([

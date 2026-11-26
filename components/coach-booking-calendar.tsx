@@ -29,18 +29,18 @@ export function CoachBookingCalendar({ bookings, clients, date, today, slots, du
     <BookingMonthPicker date={date} today={today} timezone={timezone} basePath="/coach/schedule" extraParams={extraParams} counts={counts} />
     <section className={styles.panel} aria-label="Book a client session">
       <h2>{calendarDateLabel(date, { weekday: "long", month: "long", day: "numeric" })}</h2>
+      {dayBookings.length > 0 && <div className={calendar.dayBookings}><h3>Booked sessions</h3>{dayBookings.map(booking => <a key={booking.id} href={booking.status === "scheduled" ? `/coach/clients/${booking.clientId}/sessions/${booking.id}` : `/coach/clients/${booking.clientId}`}><strong>{booking.clientName}</strong><span>{formatTime(booking.startsAt, timezone)} – {formatTime(booking.endsAt, timezone)} · {booking.sessionType || "Training"}</span></a>)}</div>}
       <div className={calendar.bookingControls}>
         <label className={styles.field}><span>Client</span><select value={selectedClientId} onChange={event => router.push(bookingCalendarHref("/coach/schedule", date, { ...extraParams, client: event.target.value }))}>{clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
         <BookingDurationButtons date={date} duration={duration} durations={durations} basePath="/coach/schedule" extraParams={extraParams} />
       </div>
-      <p className={styles.formHint}>Tap an available time, then confirm the booking. Existing sessions stay visible below. All times use {timezone}.</p>
+      <p className={styles.formHint}>To book a new session, choose a client and available time. All times use {timezone}.</p>
       {availabilityError ? <p className={`${styles.notice} ${styles.error}`} role="alert">{availabilityError}</p> : <>
         {!slots.some(slot => slot.available) && <p className={styles.empty}>{date < today ? "Past dates are read only." : "No open times for this date. Choose another day or update your availability."}</p>}
         <div className={calendar.slots}>{slots.map(slot => <button type="button" key={slot.starts_at} aria-pressed={selectedSlot === slot.starts_at} disabled={!slot.available || date < today} onClick={() => setSelectedSlot(slot.starts_at)}>
           <strong>{formatTime(slot.starts_at, timezone)} – {formatTime(slot.ends_at, timezone)}</strong><span>{slot.available && date >= today ? "Available" : "Unavailable"}</span>
         </button>)}</div>
       </>}
-      {dayBookings.length > 0 && <div className={calendar.dayBookings}><h3>Booked sessions</h3>{dayBookings.map(booking => <a key={booking.id} href={booking.status === "scheduled" ? `/coach/clients/${booking.clientId}/sessions/${booking.id}` : `/coach/clients/${booking.clientId}`}><strong>{booking.clientName}</strong><span>{formatTime(booking.startsAt, timezone)} – {formatTime(booking.endsAt, timezone)} · {booking.sessionType || "Training"}</span></a>)}</div>}
     </section>
     {selectedSlotObject && selectedClient && <BookingConfirmation key={`${selectedClient.id}-${selectedSlotObject.starts_at}`} selectedClient={selectedClient} selectedSlotObject={selectedSlotObject} duration={duration} timezone={timezone} onClose={() => setSelectedSlot(null)} />}
   </div>;

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { saveClientIntakeAction } from "@/app/coach/actions";
@@ -65,12 +66,19 @@ function StrengthTestFields({ kind, label, optional = false, initial }: { kind: 
 }
 
 function ScaleSelect({ defaultValue, id, label, required = true }: { defaultValue?: number; id: string; label: string; required?: boolean }) {
+  const endpoints: Record<string, [string, string]> = {
+    sleepQuality: ["Poor", "Excellent"],
+    stressLevel: ["Low stress", "High stress"],
+    recoveryPerception: ["Poor recovery", "Excellent recovery"],
+    sorenessFatigue: ["Low soreness / fatigue", "High soreness / fatigue"],
+  };
+  const scale = endpoints[id];
   return (
     <div className={styles.field}>
       <label htmlFor={id}>{label}</label>
       <select defaultValue={defaultValue ?? ""} id={id} name={id} required={required}>
         <option disabled value="">Choose 1–5</option>
-        {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}
+        {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}{scale && value === 1 ? ` · ${scale[0]}` : scale && value === 5 ? ` · ${scale[1]}` : ""}</option>)}
       </select>
     </div>
   );
@@ -206,6 +214,11 @@ export function IntakeForm({ clientId, defaults = {}, checkin, injurySpots = [],
       <div className={styles.stepActions}>{step>0&&<button className={styles.secondaryAction} onClick={()=>go(step-1)} type="button">← Back</button>}{step<6&&<button className={styles.action} onClick={()=>go(step+1)} type="button">Continue →</button>}{demo&&step<6&&<button className={styles.secondaryAction} type="button" onClick={()=>go(6)}>Skip to review</button>}</div>
       <button className={styles.action} hidden={step!==6} disabled={pending} type="submit">{pending ? "Saving intake…" : "Save intake"}</button>
       {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role="status">{state.message}</p>}
-    </form></>
+    </form>
+    {!demo && state.status === "success" && <div className={styles.quickActions} aria-label="After intake">
+      <Link href={`/coach/plan-workouts?client=${clientId}`}>Plan Workouts</Link>
+      <Link href={`/coach/workout-now?client=${clientId}`}>Workout Now</Link>
+    </div>}
+    </>
   );
 }

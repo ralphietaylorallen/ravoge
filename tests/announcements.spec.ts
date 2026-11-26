@@ -6,7 +6,12 @@ test("Owner selects opted-in recipients, previews and queues privately; missing 
  const owner=users.find(u=>u.role==="owner")!,coach=users.find(u=>u.role==="coach")!,client=users.find(u=>u.role==="client")!;
  async function login(p:Page,u:typeof owner){await p.goto("/login");await p.getByLabel("Email",{exact:true}).fill(u.email);await p.getByLabel("Password",{exact:true}).fill(u.password);await p.getByRole("button",{name:"Login",exact:true}).click();await expect(p).toHaveURL(new RegExp(`/${u.role}$`),{timeout:25000});}
  const context=await browser.newContext(),cp=await context.newPage();await login(cp,client);await cp.goto("/client/profile");
+ await cp.getByText("Gym announcement emails · Off", {exact:true}).click();
  await cp.getByLabel("Email me optional announcements from my gym").check();await cp.getByRole("button",{name:"Save email preference",exact:true}).click();await expect(cp.getByText("You opted in to optional gym announcements.")).toBeVisible();
+ await expect(cp.getByText("Gym announcement emails · On", {exact:true})).toBeVisible();
+ await expect(cp.getByRole("button",{name:"Save email preference",exact:true})).toBeHidden();
+ await cp.reload();
+ await expect(cp.getByText("Gym announcement emails · On", {exact:true})).toBeVisible();
  await cp.goto("/owner/announcements");await expect(cp.getByRole("heading",{name:"Announcements",exact:true})).toHaveCount(0);
  await login(page,owner);await page.goto("/owner/announcements");await expect(page.getByRole("heading",{name:"Announcements",exact:true})).toBeVisible();
  await expect(page.getByText("1 eligible recipients",{exact:true})).toBeVisible();

@@ -76,6 +76,13 @@ export function monthDates(date: string) {
   return Array.from({ length: days }, (_, index) => shiftLocalDate(start, index)!);
 }
 
+export function availabilityPeriodDates(date: string, period: "week" | "month", weekdays: number[], today: string) {
+  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+  const first = shiftLocalDate(date, -weekday)!;
+  const dates = period === "month" ? monthDates(date) : Array.from({ length: 7 }, (_, i) => shiftLocalDate(first, i)!);
+  return dates.filter(day => day >= today && weekdays.includes(new Date(`${day}T12:00:00Z`).getUTCDay()));
+}
+
 export function calendarExceptionDate(row: DayException, timezone: string) {
   return localDateInTimeZone(row.starts_at, timezone);
 }

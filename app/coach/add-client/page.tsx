@@ -7,6 +7,7 @@ import { MutationActionForm } from "@/components/mutation-action-form";
 import { ClientSignupTools } from "@/components/client-signup-tools";
 import { requireRole } from "@/lib/auth";
 import { getCoachClientEnrollmentCredential } from "@/lib/organization-enrollment";
+import workspace from "@/components/coach-workspace.module.css";
 
 type PendingInvitation = { accepted_at: string | null; delivery_status: string; email: string; expires_at: string; id: string; revoked_at: string | null };
 export default async function AddClientPage() {
@@ -22,7 +23,7 @@ export default async function AddClientPage() {
   const pendingInvitations = (invitations.data ?? []) as PendingInvitation[];
   const nowIso = new Date().toISOString();
   return <DashboardShell compact gymName={organization.data?.name ?? "Ravoge gym"} name={profile.data?.preferred_name || profile.data?.full_name || "Coach"} role="coach">
-    <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Coach tools</p><h2>Add Client</h2></div><p>Invite a Client, share their signup link, or let them scan the QR on your device.</p></div>
+    <div className={workspace.workdayHeading}><div><h1>Add Client</h1><p className={workspace.muted}>Use the signup link or QR in person, or send an email invitation.</p></div><Link className={workspace.secondaryButton} href="/coach/clients">← My Clients</Link></div>
     <div className={styles.overviewCards}>
       <section className={styles.panel}><h2>Client signup</h2>{signupError ? <p role="alert">The gym signup QR could not be loaded. Reload or send an email invitation below.</p> : signupUrl ? <ClientSignupTools url={signupUrl} /> : <><ClientSignupTools url="https://ravoge.com/signup/client" /><p className={styles.empty}>Your gym’s shared signup QR is not active. Send an email invitation below to give your Client secure gym access. An Owner can enable the shared QR in Apps &amp; access.</p></>}</section>
         <section className={styles.panel}>
@@ -45,6 +46,14 @@ export default async function AddClientPage() {
             </>
           ) : null}
         </section>
-    </div><Link className={styles.inlineAction} href="/coach">Back to dashboard →</Link>
+    </div>
+    <section className={workspace.agenda}>
+      <h2>After signup · client intake</h2>
+      <p className={workspace.muted}>Open an assigned client and tap Fill Out Intake. You can enter the information they’ve already provided or work through it with them.</p>
+      <div className={workspace.actionStrip}>
+        <Link className={workspace.primaryButton} href="/coach/clients">Open My Clients</Link>
+        <Link className={workspace.secondaryButton} href="/coach/clients?assign=1#assign-clients">Assign a New Signup</Link>
+      </div>
+    </section>
   </DashboardShell>;
 }

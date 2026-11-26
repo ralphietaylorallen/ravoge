@@ -1,5 +1,5 @@
 import "server-only";
-import { repeatsRecentDraft } from "./session-programming.ts";
+import { generationAge, repeatsRecentDraft } from "./session-programming.ts";
 
 import { kilogramsToPounds } from "./weight-units.ts";
 import { generatedWeightTextIsLoadFree, type WeightCapability } from "./equipment-weights.ts";
@@ -69,6 +69,17 @@ const RULES = [
   "If no gym references are supplied, explain that approved general-library programming was used. Explain goals, restrictions, equipment and reference influence.",
 ];
 
+// Apply the same interpretation in intent planning and workout generation.
+// Intake ratings describe the saved assessment, while today's check-in and
+// recorded performance provide the session-specific evidence.
+export const INDIVIDUAL_PROGRAMMING_RULES = [
+  "Choose exercise selection, complexity, working volume, reps, recovery, conditioning dose and progression together from the whole saved intake. Explain the concrete choices in the coach rationale. A goal label alone is insufficient.",
+  "Use age as one factor alongside recent training exposure, actual assessments, restrictions and recovery. Do not equate older age with frailty or younger age with readiness for high intensity. For older adults consider applicable strength, aerobic and balance guidance, adapted to known ability and available safe movements.",
+  "For fat-loss goals, support strength and muscle retention alongside suitable aerobic work and sustainable adherence. Do not default to exhausting circuits or maximal calorie burn. Explain that a workout cannot establish a calorie deficit, guarantee fat loss, or justify an invented target weight or deadline.",
+  "Use the saved recovery-rating definitions exactly. High stress and high soreness/fatigue are adverse, while high sleep quality and recovery are favorable. Today's pain and recorded missed/adjusted sets outweigh an ambitious goal or self-described experience. Missing answers remain unknown and cannot imply good recovery or medical clearance.",
+  "Compare requested weekly gym frequency with reported recent activity, outside sport/work and available session time. Choose a manageable starting dose, distribute movement patterns across the week and explain progression/regression criteria using recorded performance. Flag missing information that could materially change the plan for the coach.",
+] as const;
+
 export function deidentifiedGenerationInput(input: GenerationInput) {
   const keys = new Map(input.candidates.map((exercise, index) => [exercise.id, `exercise_${index + 1}`]));
   const sequence = (exercises: SourceExercise[]) => exercises.map((exercise) => ({
@@ -82,8 +93,16 @@ export function deidentifiedGenerationInput(input: GenerationInput) {
   // Public evidence search uses a separate closed-vocabulary projection.
   return {
     rulesVersion: input.schemaVersion === 2 ? "ravoge-quality-2026.2" : PROGRAMMING_RULES_VERSION,
-    rules: input.schemaVersion === 2 ? QUALITY_RULES : RULES,
-    age: input.intakeContext?.age ?? input.age ?? null,
+    rules: [...(input.schemaVersion === 2 ? QUALITY_RULES : RULES), ...INDIVIDUAL_PROGRAMMING_RULES],
+    age: generationAge(input),
+    intakeRecovery: input.intakeAssessment ? {
+      ratings: Object.fromEntries(["sleepQuality", "stress", "recovery", "sorenessFatigue"].map(key => {
+        const value = input.intakeAssessment?.recovery?.[key];
+        return [key, typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 5 ? value : null];
+      })),
+      scaleMeaning: { sleepQuality: "1 poor, 5 excellent", stress: "1 low, 5 high", recovery: "1 poor, 5 excellent", sorenessFatigue: "1 low, 5 high" },
+      timing: "Saved intake assessment. Do not assume these are today's answers. Use the current check-in and recent outcomes when available.",
+    } : null,
     todayReadiness: input.todayReadiness ?? null,
     recentSessionContext: projectRecentSessionContext(input.recentSessionContext),
     previousDrafts: (input.recentDrafts ?? []).map(d=>({sequence:d.exercises.filter(e=>keys.has(e.libraryExerciseId)).map(e=>({exerciseKey:keys.get(e.libraryExerciseId),sets:e.sets,reps:e.reps,restSeconds:e.restSeconds,targetRpe:e.targetRpe,protocol:e.protocol?{block:e.protocol.block,format:e.protocol.format,measurement:e.protocol.measurement,workSeconds:e.protocol.workSeconds,distance:e.protocol.distance,distanceUnit:e.protocol.distanceUnit,perSide:e.protocol.perSide,targetRpe:e.protocol.targetRpe,intervalSeconds:e.protocol.intervalSeconds,blockDurationSeconds:e.protocol.blockDurationSeconds}:undefined}))})),

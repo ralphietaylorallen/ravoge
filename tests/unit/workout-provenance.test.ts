@@ -15,6 +15,13 @@ const input={goal:"fat_loss",experience:"beginner",intakeContext:{version:2,age:
 const row=(id:string,sets:number,block="strength")=>({libraryExerciseId:id,sets,protocol:{...defaultProtocol(),block}}) as AssistedWorkout["exercises"][number];
 const gym:RowProvenance={referenceKey:"reference_1",segmentKey:"cell_2",adaptation:"Reduced rounds for recovery",substitutionReason:"",evidenceIds:[]};
 const sub:RowProvenance={referenceKey:null,segmentKey:null,adaptation:"Low-impact alternative",substitutionReason:"A lower-impact option for the saved goal and limitations",evidenceIds:["evidence_1"]};
+test("research uses known legacy age when the newer intake age is missing", () => {
+  const legacy = { ...input, age: 65, intakeContext: undefined };
+  assert.equal(researchContext(legacy).ageBand, "older_adult");
+  assert.equal(researchContext({ ...legacy, age: 26 }).ageBand, "adult");
+  assert.equal(researchContext({ ...legacy, age: undefined }).ageBand, "adult_age_unspecified");
+  assert.equal(researchContext({ ...legacy, intakeContext: { ...input.intakeContext!, age: null } }).ageBand, "older_adult");
+});
 test("90% uses prescribed main-work bouts, including rounds, not movement count",()=>{
   const result=validateWorkoutProvenance([row("a",9),row("b",1)],[gym,sub],input);
   assert.equal(result.gymPercentage,90); assert.equal(result.totalBouts,10);

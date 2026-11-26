@@ -3,7 +3,7 @@ import test from "node:test";
 import { analyzeTrainingIntent, generateIntelligentWorkout, planningProjection, retrieveGymKnowledge, validateTrainingAnalysis, type TrainingAnalysis } from "../../lib/workout-intelligence.ts";
 import { generationSaveIssue, projectQualityContext, qualitySchemaFor, validateQualityWorkout } from "../../lib/workout-generation-quality.ts";
 import { defaultProtocol } from "../../lib/workout-protocol.ts";
-import { generateAssistedWorkout } from "../../lib/workout-generation.ts";
+import { deidentifiedGenerationInput, generateAssistedWorkout } from "../../lib/workout-generation.ts";
 import type { GenerationInput } from "../../lib/workout-generation.ts";
 
 function context(goal="athletic_performance"):GenerationInput {
@@ -18,6 +18,30 @@ function output(input:GenerationInput) {
   const rows=input.goal==="muscle_gain"?[0,1,2]:[0,1,2,3];
   return {title:"Individual Coach-review session",rationale:"Adapted reviewed gym structures to the saved goal, restrictions and actual resources.",durationMinutes:40,sourceReferenceKeys:["reference_1"],exercises:rows.map(index=>({exerciseKey:`exercise_${index+1}`,sets:3,reps:index===3?1:input.goal==="muscle_gain"?12:input.goal==="athletic_performance"?6:10,restSeconds:input.goal==="athletic_performance"?120:90,notes:"Coach confirms technique and load.",reason:"Compatible movement adapted to the Client goal and reviewed gym structure.",protocol:{...defaultProtocol(index===3?"time":"reps"),block:index===3?"conditioning":"strength"}}))};
 }
+
+test("the same fat-loss goal retains age and recovery differences in AI planning and cache identity", async () => {
+  const older = context("fat_loss");
+  older.age = 65;
+  older.intakeAssessment = { movementObservations: {}, strengthAssessments: {}, recovery: { sleepQuality: 2, stress: 5, recovery: 2, sorenessFatigue: 4 }, preferences: [], dislikes: [] };
+  const younger = { ...older, age: 26, intakeAssessment: { ...older.intakeAssessment, recovery: { sleepQuality: 5, stress: 1, recovery: 5, sorenessFatigue: 1 } } };
+  const requests: Record<string, unknown>[] = [];
+  const sdk = { responses: { create: async (request: { input: { content: string }[] }) => {
+    requests.push(JSON.parse(request.input[0].content));
+    return { status: "completed", output_text: JSON.stringify(analysis("fat_loss")) };
+  } } };
+  await analyzeTrainingIntent(older, sdk as never);
+  await analyzeTrainingIntent(younger, sdk as never);
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].age, 65);
+  assert.equal(requests[1].age, 26);
+  const recovery = requests[0].intakeRecovery as { ratings: Record<string, number>; scaleMeaning: Record<string, string> };
+  assert.equal(recovery.ratings.stress, 5);
+  assert.equal(recovery.scaleMeaning.stress, "1 low, 5 high");
+  assert.equal(recovery.scaleMeaning.sleepQuality, "1 poor, 5 excellent");
+  const generationContext = deidentifiedGenerationInput(older);
+  assert.deepEqual(generationContext.intakeRecovery, requests[0].intakeRecovery);
+  assert.ok(generationContext.rules.some(rule => rule.includes("working volume")));
+});
 
 test("runner, muscle-growth and fitness/fat-loss use a compact OpenAI intent then relevant gym retrieval and individualized validated drafts",async()=>{
   const signatures=new Set<string>();

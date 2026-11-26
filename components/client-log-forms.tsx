@@ -1,13 +1,28 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { deleteActivityAction, deleteRecoveryAction, saveActivityAction, saveDailyTotalsAction, saveRecoveryAction, type LogState } from "@/app/client/log-actions";
+import { deleteActivityAction, deleteRecoveryAction, saveActivityAction, saveDailyTotalsAction, saveRecoveryAction, saveSleepScoreAction, type LogState } from "@/app/client/log-actions";
 import { ACTIVITY_LABELS, RECOVERY_LABELS, recoverySummary, type ActivityEntry, type DailyTotal, type RecoveryEntry } from "@/lib/client-logs";
 import styles from "./dashboard.module.css";
 import reportStyles from "./session-report.module.css";
 
 const initial: LogState={status:"idle",message:""};
 function Message({state}:{state:LogState}) {return state.message?<p className={`${styles.notice} ${state.status==="error"?styles.error:""}`} role={state.status==="error"?"alert":"status"}>{state.message}</p>:null;}
+export function SleepScoreForm({ date, score }: { date: string; score: number | null }) {
+  const [state, action, pending] = useActionState(saveSleepScoreAction, initial);
+  return <form action={action} onReset={event => event.preventDefault()} className={styles.form} aria-label="Sleep score">
+    <input type="hidden" name="date" value={date} />
+    <label className={styles.field}>
+      Sleep score (0–100)
+      <input name="sleep_score" type="number" inputMode="numeric" min={0} max={100} step={1}
+        defaultValue={score ?? ""} placeholder="Not logged" aria-describedby="sleep-score-hint" />
+    </label>
+    <p id="sleep-score-hint">Enter your score from the night before this date. Clear the field and save to remove a score.</p>
+    <button className={styles.action} disabled={pending}>{pending ? "Saving…" : "Save sleep score"}</button>
+    <Message state={state} />
+  </form>;
+}
+
 export function DailyTotalForm({date,total}:{date:string;total:DailyTotal|null}) {
   const [state,action,pending]=useActionState(saveDailyTotalsAction,initial);
   return <form action={action} className={styles.form} aria-label="Daily nutrition"><h3>Daily intake</h3><input type="hidden" name="date" value={date}/><p>One total per day. Leave unknown values blank.</p><div className={styles.formColumns}><label className={styles.field}>Calories<input name="calories" type="number" min="0" max="30000" step="1" defaultValue={total?.calories??""} placeholder="Not logged"/></label><label className={styles.field}>Protein (g, optional)<input name="protein_grams" type="number" min="0" max="2000" step="0.01" defaultValue={total?.protein_grams??""} placeholder="Not logged"/></label></div><button className={styles.action} disabled={pending}>{pending?"Saving…":"Save daily total"}</button><Message state={state}/></form>;

@@ -37,5 +37,5 @@ test('advance preparation has its own authenticated route and never fabricates a
  const helper=readFileSync(new URL('../../lib/create-workout-draft.ts',import.meta.url),'utf8');
  assert.match(route,/getVerifiedUser/);assert.match(route,/membership\?\.role!=="coach"/);assert.match(route,/new URL\(origin\)\.host!==host/);
  assert.doesNotMatch(route,/prepareTrainingSession|readiness:/);
- assert.match(helper,/bookingId\?\{todayReadiness:null\}/);
+ assert.match(helper,/scheduled\s*&&\s*!dayOfSession\s*\?\s*\{\s*todayReadiness:\s*null\s*\}/);
 });

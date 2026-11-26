@@ -27,10 +27,19 @@ test("Coach calendar persists daily selections and onboarding lives in Add Clien
   const date = shiftLocalDate(today, 1)!;
   const target = new Date(`${date}T12:00:00Z`).getUTCDay() === 0 ? shiftLocalDate(date, 1)! : date;
   await mkdir("test-results", { recursive: true });
-  for (const width of [390, 820, 1440]) {
+  for (const width of [390, 820, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/coach");
     await expect(page.getByRole("heading", { name: "Today’s schedule", exact: true })).toBeVisible();
+    const coachNav = page.getByRole("navigation", { name: "coach navigation" });
+    await expect(coachNav.getByRole("link", { name: "Today", exact: true })).toHaveAttribute("aria-current", "page");
+    const more = coachNav.getByText("More", { exact: true });
+    await more.locator("..").focus();
+    await page.keyboard.press("Enter");
+    await expect(coachNav.getByRole("link", { name: "Add Client", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(coachNav.getByRole("link", { name: "Add Client", exact: true })).toBeHidden();
+    await expect(more.locator("..")).toBeFocused();
     await expect(page.locator("[data-qr-value]")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Invite a client", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -57,7 +66,9 @@ test("Coach calendar persists daily selections and onboarding lives in Add Clien
     const bounds = await slot.count() ? await slot.boundingBox() : await page.getByRole("button", { name: /5:00 AM – 6:00 AM/ }).boundingBox();
     expect(bounds!.height).toBeGreaterThanOrEqual(44);
     await page.screenshot({ path: `test-results/coach-ui-availability-${width}.png`, fullPage: true });
-    await page.getByRole("navigation", { name: "coach navigation" }).getByRole("link", { name: "Add Client", exact: true }).click();
+    await coachNav.getByRole("link", { name: "Clients", exact: true }).click();
+    await expect(page).toHaveURL(/\/coach\/clients$/);
+    await page.getByRole("main").getByRole("link", { name: "Add Client", exact: true }).click();
     await expect(page).toHaveURL(/\/coach\/add-client$/);
     await expect(page.getByRole("heading", { name: "Add Client", exact: true })).toBeVisible();
     await expect(page.locator('[data-client-signup-tools] [data-qr-value]')).toHaveAttribute("data-qr-value", /\/enroll\/client\?token=/);

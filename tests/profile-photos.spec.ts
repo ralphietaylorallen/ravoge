@@ -121,8 +121,9 @@ test('staff photo management, private Storage isolation, replacement failures an
   expect((await coach.request.get(coachPhoto)).status()).toBe(200);
   expect((await external.request.get(`${storage}/object/authenticated/profile-images/${objectPath}`, { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY! } })).ok()).toBe(false);
   const clientContext = await browser.newContext({ viewport: { width: 390, height: 844 } }); const client = await clientContext.newPage();
-  await login(client, 'CLIENT'); await client.goto('/client/profile'); await expect(editor(client, 'client').locator('button img')).toBeVisible();
+  await login(client, 'CLIENT'); await client.goto('/client/profile'); await client.getByText('Edit profile', { exact: true }).click(); await expect(editor(client, 'client').locator('button img')).toBeVisible();
   await client.getByRole('button', { name: 'Log out', exact: true }).click(); await login(client, 'CLIENT'); await client.goto('/client/profile');
+  await client.getByText('Edit profile', { exact: true }).click();
   await expect(editor(client, 'client').locator('button img')).toBeVisible();
   await coach.reload(); await expect(editor(coach, id('client')).locator('button img')).toBeVisible();
   coach.on('dialog', dialog => dialog.accept()); await editor(coach, id('client')).getByRole('button', { name: 'Remove photo', exact: true }).click();

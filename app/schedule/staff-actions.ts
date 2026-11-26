@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { requireRole } from "@/lib/auth";
 
@@ -18,14 +19,16 @@ function refreshSchedules(clientId: string) {
   revalidatePath("/client/book");
 }
 
-export async function claimClientAction(clientId: string, _state: StaffScheduleState): Promise<StaffScheduleState> {
+export async function claimClientAction(clientId: string, openIntake: boolean, _state: StaffScheduleState): Promise<StaffScheduleState> {
   void _state;
   const { supabase } = await requireRole("coach");
   if (!UUID.test(clientId)) return { status: "error", message: "That Client is unavailable." };
   const { error } = await supabase.rpc("claim_unassigned_client", { target_client_user_id: clientId });
   if (error) return { status: "error", message: error.message.includes("already has a Coach") ? "This Client is already assigned. Ask an Owner to reassign them." : "This Client could not be assigned." };
   revalidatePath("/coach");
+  revalidatePath("/coach/clients");
   refreshSchedules(clientId);
+  if (openIntake) redirect(`/coach/clients/${clientId}?tab=intake#intake-evaluation`);
   return { status: "success", message: "Client assigned. You can now schedule a session." };
 }
 

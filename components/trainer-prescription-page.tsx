@@ -1,4 +1,5 @@
 import { savedWorkoutPreparation } from "@/lib/workout-preparation";
+import { bookingWorkoutSlot, scheduledWorkoutTitle } from "@/lib/coach-workday";
 import { canonicalPounds, poundsInText } from "@/lib/weight-units";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -14,8 +15,10 @@ import { programmingEvidence } from "@/lib/programming-evidence";
 import type { EvidenceCollection } from "@/lib/exercise-evidence";
 import type { ProvenanceAudit } from "@/lib/workout-provenance";
 
-export async function TrainerPrescriptionPage({ params, role="coach" }: { role?:"coach"|"owner"; params: Promise<{ clientId: string; prescriptionId: string }> }) {
+export async function TrainerPrescriptionPage({ params, role="coach", searchParams }: { role?:"coach"|"owner"; params: Promise<{ clientId: string; prescriptionId: string }>; searchParams?: Promise<{ mode?: string }> }) {
   const { clientId, prescriptionId } = await params;
+  const mode = (await searchParams)?.mode;
+  const preparing = mode === "prepare" || mode === "plan";
   const { membership, supabase, userId } = await requireRole(role);
   if (!/^[0-9a-f-]{36}$/i.test(clientId) || !/^[0-9a-f-]{36}$/i.test(prescriptionId)) notFound();
   const [{ data: coach }, { data: client }, { data: organization }, { data: prescription }, { data: library }, { data: loadRules }] = await Promise.all([
@@ -33,6 +36,11 @@ export async function TrainerPrescriptionPage({ params, role="coach" }: { role?:
   const {data:preparedBooking}=bookingId?await supabase.from("bookings").select("starts_at,timezone,status").eq("id",bookingId).eq("organization_id",membership.organization_id).eq("coach_user_id",userId).eq("client_user_id",clientId).maybeSingle():{data:null};
   if(bookingId&&(!preparedBooking||preparedBooking.status!=="scheduled"))return <DashboardShell compact gymName={organization?.name??"Ravoge gym"} name={coach?.full_name??"Coach"} role={role}><p role="alert">This session changed or was cancelled. Reopen the scheduled session before editing its workout.</p><Link href={`/${role}/clients/${clientId}`}>Back to Client</Link></DashboardShell>;
 
+  const plannedDate = typeof prescription.generation_context?.plannedDate === "string" ? prescription.generation_context.plannedDate : undefined;
+  const plannedTime = typeof prescription.generation_context?.plannedTime === "string" ? prescription.generation_context.plannedTime : undefined;
+  const slot = preparedBooking ? bookingWorkoutSlot(preparedBooking) : plannedDate && plannedTime ? { date: plannedDate, time: plannedTime } : undefined;
+  const planHref = `/coach/plan-workouts?client=${clientId}${slot ? `&date=${slot.date}` : ""}`;
+  const returnToPlan = role === "coach" && (mode === "plan" || !!plannedDate);
   const snapshot = prescription.generation_context?.trainingSnapshot as GenerationInput | undefined;
   const evidence=prescription.generation_context?.evidence as EvidenceCollection|undefined;
   const provenance=prescription.generation_context?.provenanceAudit as ProvenanceAudit|undefined;
@@ -47,8 +55,8 @@ export async function TrainerPrescriptionPage({ params, role="coach" }: { role?:
   const fallback = prescription.engine_version.endsWith("-fallback");
   const retryHref = bookingId ? `/${role}/clients/${clientId}/sessions/${bookingId}` : `/${role}/workout-now?client=${clientId}`;
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={coach?.full_name ?? "Coach"} role={role}>
-    <Link className={styles.backLink} href={`/${role}/clients/${clientId}`}>← Back to {client.full_name}</Link>
-    <div className={styles.pageHeading}><div><p className={styles.eyebrow}>{client.full_name}’s workout</p><h2>Prepare workout</h2></div><p>Edit and Save Draft to prepare ahead. Assign when the workout is ready for the Client.</p></div>
+    <Link className={styles.backLink} href={returnToPlan ? planHref : bookingId ? `/${role}/clients/${clientId}/sessions/${bookingId}${preparing ? "?mode=prepare" : ""}` : `/${role}/clients/${clientId}`}>{returnToPlan ? "← Back to Plan" : bookingId ? "← Back to session" : `← Back to ${client.full_name}`}</Link>
+    <div className={styles.pageHeading}><div><p className={styles.eyebrow}>{client.full_name}’s workout</p><h2>Prepare workout</h2></div><p>{returnToPlan ? "Review and adjust the exercises, then save the workout to this client’s calendar." : "Edit and Save Draft to prepare ahead. Assign when the workout is ready for the Client."}</p></div>
     {fallback && <section className={styles.operationCard} role="status">
       <h3>Backup draft ready to review</h3>
       <p>{prescription.generation_context?.fallbackReason === "invalid_output"
@@ -75,7 +83,13 @@ export async function TrainerPrescriptionPage({ params, role="coach" }: { role?:
         {snapshot.weightCapabilities?.some(c=>!c.sizesLb?.length) && <p>Some equipment weights are unconfirmed. Confirm any starting load marked for review before assigning.</p>}</>}
     </section>
     </details>
-    <PrescriptionReviewForm weightCapabilities={snapshot?.weightCapabilities} quality={prescription.engine_version.startsWith("prescription-v0.4-")} clientId={clientId} duration={savedDraft?.duration ?? prescription.estimated_duration_minutes} exerciseOptions={exerciseOptions} exercises={savedDraft?.exercises ?? recommendation} prescriptionId={prescriptionId} scheduledDate={preparedBooking?localDateInTimeZone(preparedBooking.starts_at,preparedBooking.timezone):savedDraft?.scheduledDate??localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)} title={savedDraft?.title ?? prescription.title} instructions={savedDraft?.instructions} draftRevision={Number(prescription.generation_context?.preparationRevision??0)} bookingId={bookingId} />
+    <PrescriptionReviewForm automaticTitle={role === "coach"} returnToPlan={returnToPlan} returnToSession={role === "coach" && preparing && !!bookingId && !returnToPlan}
+      scheduledTime={role === "coach" ? slot?.time.slice(0, 5) : undefined} lockedSchedule={!!slot}
+      weightCapabilities={snapshot?.weightCapabilities} quality={prescription.engine_version.startsWith("prescription-v0.4-")} clientId={clientId}
+      duration={savedDraft?.duration ?? prescription.estimated_duration_minutes} exerciseOptions={exerciseOptions} exercises={savedDraft?.exercises ?? recommendation}
+      prescriptionId={prescriptionId} scheduledDate={slot?.date ?? savedDraft?.scheduledDate ?? localDateInTimeZone(new Date(), organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE)}
+      title={role === "coach" && slot ? scheduledWorkoutTitle(slot.date, slot.time) : savedDraft?.title ?? prescription.title}
+      instructions={savedDraft?.instructions} draftRevision={Number(prescription.generation_context?.preparationRevision??0)} bookingId={bookingId} />
     <details className={styles.operationCard}><summary>Advanced: programming details and evidence</summary>
       <p>Source: {prescription.generation_context?.sourceType ?? "global_library"}.</p>
       {snapshot && <><p>Gym-profile version: {snapshot.gymProfile?.version ?? "None"}. Gym references available: {snapshot.knowledgeCounts?.referenceEnabled ?? snapshot.publishedCount ?? 0}.</p>

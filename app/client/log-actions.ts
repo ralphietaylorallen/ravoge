@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
-import { activityInput, dailyInput, LOG_UUID, recoveryInput } from "@/lib/client-logs";
+import { activityInput, dailyInput, LOG_UUID, recoveryInput, sleepScoreInput } from "@/lib/client-logs";
 import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone, zonedLocalDateTimeToIso } from "@/lib/timezone";
 
 export type LogState = { status: "idle" | "success" | "error"; message: string };
@@ -20,7 +20,7 @@ function refreshLogs(clientId: string,workoutId?: string) {
 async function checkDate(supabase: Awaited<ReturnType<typeof requireRole>>["supabase"],org: string,date: string) {
   const {data,error}=await supabase.from("organizations").select("timezone").eq("id",org).single();
   if(error) throw new Error("The gym date could not be checked. Please reload and try again.");
-  if(date>localDateInTimeZone(new Date(),data.timezone??DEFAULT_ORGANIZATION_TIMEZONE)) throw new Error("Record completed activity using today or an earlier date.");
+  if(date>localDateInTimeZone(new Date(),data.timezone??DEFAULT_ORGANIZATION_TIMEZONE)) throw new Error("Choose today or an earlier date to save a log.");
 }
 export async function saveDailyTotalsAction(_previous: LogState,data: FormData): Promise<LogState> {
   const {membership,supabase,userId}=await requireRole("client");
@@ -31,6 +31,32 @@ export async function saveDailyTotalsAction(_previous: LogState,data: FormData):
   refreshLogs(userId);
   return {status:"success",message:"Daily total saved."};
 }
+export async function saveSleepScoreAction(_previous: LogState, data: FormData): Promise<LogState> {
+  const { membership, supabase, userId } = await requireRole("client");
+  let input: ReturnType<typeof sleepScoreInput>;
+  try {
+    input = sleepScoreInput(data);
+    await checkDate(supabase, membership.organization_id, input.date);
+  } catch (error) {
+    return failure(error instanceof Error ? error.message : "Review the sleep score.");
+  }
+
+  const scores = supabase.from("client_sleep_scores");
+  const scope = {
+    organization_id: membership.organization_id,
+    client_user_id: userId,
+    log_date: input.date,
+  };
+  const { error } = input.score === null
+    ? await scores.delete().match(scope)
+    : await scores.upsert({ ...scope, score: input.score });
+  if (error) return failure("Sleep score could not be saved. Reload and try again.");
+
+  revalidatePath("/client/my-day");
+  revalidatePath("/client/profile");
+  return { status: "success", message: input.score === null ? "Sleep score cleared." : "Sleep score saved." };
+}
+
 export async function saveActivityAction(id: string,_previous: LogState,data: FormData): Promise<LogState> {
   const {membership,supabase,userId}=await requireRole("client");
   if(!LOG_UUID.test(id)) return failure("Activity is unavailable. Reload and try again.");

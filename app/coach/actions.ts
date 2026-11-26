@@ -11,6 +11,8 @@ import { validTrainingFocus } from "@/lib/training-focus";
 import { protocolsFromForm } from "@/lib/workout-protocol";
 import { optionalStrengthAnchors } from "@/lib/starting-load";
 import { INTAKE_GOALS, parseIntakeContext } from "@/lib/intake-history";
+import { scheduledWorkoutTitle } from "@/lib/coach-workday";
+import { isPlannedWorkoutLocation, PLANNED_WORKOUT_LOCATIONS, WORKOUT_EQUIPMENT_LIMIT } from "@/lib/planned-workout-location";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EXPERIENCE_LEVELS = new Set(["beginner", "intermediate", "advanced"]);
@@ -214,12 +216,15 @@ export async function planWorkoutAction(
     return { status: "error", message: "Choose a different assigned training partner." };
   }
 
-  const title = String(formData.get("title") ?? "").trim();
-  const instructions = String(formData.get("instructions") ?? "").trim();
+  const notes = String(formData.get("instructions") ?? "").trim();
+  const equipment = String(formData.get("plannedEquipment") ?? "").trim();
+  const location = String(formData.get("plannedLocation") ?? "");
+  if (location && !isPlannedWorkoutLocation(location)) return { status: "error", message: "Choose a workout location." };
+  if (equipment.length > WORKOUT_EQUIPMENT_LIMIT) return { status: "error", message: "Shorten the equipment list." };
+  const instructions = [equipment && `Equipment: ${equipment}`, notes].filter(Boolean).join("\n\n");
   const scheduledDate = String(formData.get("scheduledDate") ?? "");
   const scheduledTime = String(formData.get("scheduledTime") ?? "");
 
-  if (title.length < 2 || title.length > 120) return { status: "error", message: "Enter a workout name between 2 and 120 characters." };
   if (instructions.length > 4000) return { status: "error", message: "Instructions must be 4,000 characters or fewer." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate) || Number.isNaN(Date.parse(`${scheduledDate}T00:00:00Z`))) {
     return { status: "error", message: "Choose a valid workout date." };
@@ -228,6 +233,9 @@ export async function planWorkoutAction(
   if (!timeMatch || Number(timeMatch[1]) > 23 || Number(timeMatch[2]) > 59) {
     return { status: "error", message: "Choose a valid workout time." };
   }
+  const title = isPlannedWorkoutLocation(location)
+    ? PLANNED_WORKOUT_LOCATIONS[location].title
+    : scheduledWorkoutTitle(scheduledDate, scheduledTime);
 
   const names = getStrings(formData, "exerciseName");
   const modes = getStrings(formData, "exerciseMode");
@@ -446,7 +454,7 @@ export async function generatePrescriptionAction(clientId: string, _state: Gener
   void _state;
   await requireRole("coach");
   if (!UUID_PATTERN.test(clientId)) return {status:"error",message:"Client unavailable."};
-  redirect(`/coach/clients/${clientId}#train-session`);
+  redirect(`/coach/workout-now?client=${clientId}`);
 }
 
 export async function confirmGenerationSafetyAction(clientId: string, intakeId: string, form: FormData) {
@@ -520,6 +528,12 @@ export async function approvePrescriptionAction(
 
   const {data:currentDraft,error:draftError}=await supabase.from("generated_prescriptions").select("generation_context,original_recommendation,status").eq("id",prescriptionId).eq("organization_id",membership.organization_id).eq("coach_user_id",userId).eq("client_user_id",clientId).maybeSingle();
   if(draftError||!currentDraft)return {status:"error",message:"This saved draft is unavailable. Reopen the session."};
+  const plannedDate = currentDraft.generation_context?.plannedDate;
+  const plannedTime = currentDraft.generation_context?.plannedTime;
+  const plannedSchedule = membership.role === "coach" && typeof plannedDate === "string" && typeof plannedTime === "string";
+  if (plannedSchedule && (scheduledDate !== plannedDate || String(formData.get("scheduledTime") ?? "") !== plannedTime.slice(0, 5))) {
+    return { status: "error", message: "Reopen Plan to choose the workout’s date and time." };
+  }
   const expectedRevision=Number(formData.get("draftRevision")??0);
   if(!Number.isInteger(expectedRevision)||expectedRevision<0)return {status:"error",message:"Reopen this draft before saving."};
   if(formData.get("intent")==="save-draft") {
@@ -540,11 +554,14 @@ export async function approvePrescriptionAction(
     const bookedSessionId=currentDraft.generation_context?.preparedBookingId;
     if(typeof bookedSessionId==="string"&&UUID_PATTERN.test(bookedSessionId))revalidatePath(`/${membership.role}/clients/${clientId}/sessions/${bookedSessionId}`);
     revalidatePath(`/${membership.role}/schedule`);
+    if (membership.role === "coach") revalidatePath("/coach/plan-workouts");
     return {status:"success",message:"Draft saved. You can leave and reopen it to edit before the session. Nothing has been assigned yet.",draftRevision:Number(revision)};
   }
   const prepared=Boolean(currentDraft.generation_context?.preparedBookingId)||Number(currentDraft.generation_context?.preparationRevision??0)>0;
   const approval={exercises,target_prescription_id:prescriptionId,workout_instructions:instructions||null,workout_scheduled_date:scheduledDate,workout_title:title,workout_duration_minutes:duration};
-  const {data:assignedWorkoutId,error}=prepared
+  const {data:assignedWorkoutId,error}=plannedSchedule
+    ? await supabase.rpc("approve_scheduled_prescription", { ...approval, workout_title: scheduledWorkoutTitle(plannedDate, plannedTime), workout_scheduled_time: plannedTime, expected_revision: expectedRevision })
+    : prepared
     ? await supabase.rpc("approve_prepared_prescription",{...approval,expected_revision:expectedRevision})
     : await supabase.rpc("approve_pound_prescription",approval);
   if (error) return { message: "The workout could not be assigned. Recheck equipment, constraints, and client access.", status: "error" };
@@ -554,5 +571,14 @@ export async function approvePrescriptionAction(
   revalidatePath(`/${membership.role}/schedule`);
   revalidatePath(`/${membership.role}/clients/${clientId}`);
   revalidatePath(`/${membership.role}`);
+  if (membership.role === "coach") revalidatePath("/coach/plan-workouts");
+  revalidatePath("/client");
+  revalidatePath("/client/schedule");
+  if (membership.role === "coach" && (plannedSchedule || formData.get("returnToPlan") === "yes")) {
+    redirect(`/coach/plan-workouts?client=${clientId}&date=${scheduledDate}`);
+  }
+  if (membership.role === "coach" && formData.get("returnToSession") === "yes" && typeof bookedSessionId === "string" && UUID_PATTERN.test(bookedSessionId)) {
+    redirect(`/coach/clients/${clientId}/sessions/${bookedSessionId}?mode=prepare`);
+  }
   redirect(typeof assignedWorkoutId === "string" && UUID_PATTERN.test(assignedWorkoutId) ? `/${membership.role}/clients/${clientId}/workouts/${assignedWorkoutId}` : `/${membership.role}/clients/${clientId}?notice=prescription-assigned`);
 }

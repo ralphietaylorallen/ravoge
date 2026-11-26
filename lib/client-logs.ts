@@ -17,6 +17,11 @@ function numberField(data: FormData,name: string,min: number,max: number,require
   if(!Number.isFinite(n)||n<min||n>max||integer&&!Number.isInteger(n)) throw new Error(`Review ${name.replaceAll("_"," ")}: enter ${min}–${max}${integer?" as a whole number":""}.`);
   return n;
 }
+export function sleepScoreInput(data: FormData) {
+  if (!data.has("sleep_score")) throw new Error("Enter a sleep score or clear the field to remove it.");
+  return {date:logDate(data.get("date")),score:numberField(data,"sleep_score",0,100,false,true)};
+}
+
 export function dailyInput(data: FormData) {
   return {date:logDate(data.get("date")),calories:numberField(data,"calories",0,30000,false,true),protein:numberField(data,"protein_grams",0,2000)};
 }

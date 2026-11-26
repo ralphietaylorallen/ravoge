@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {spawnSync} from "node:child_process";
-import {activityInput,activitySummary,dailyInput,logDate,recoveryInput,recoverySummary} from "../../lib/client-logs.ts";
+import {activityInput,activitySummary,dailyInput,logDate,recoveryInput,recoverySummary,sleepScoreInput} from "../../lib/client-logs.ts";
 function form(fields:Record<string,string>){const f=new FormData();for(const [k,v] of Object.entries(fields))f.set(k,v);return f;}
 test("daily totals distinguish missing values from explicit zero and validate dates",()=>{
  assert.deepEqual(dailyInput(form({date:"2026-11-03",calories:"",protein_grams:""})),{date:"2026-11-03",calories:null,protein:null});
@@ -24,4 +24,15 @@ test("recovery accepts actual minutes, optional F/C temperature and no generated
 test("logging QA refuses any hosted fixture target before touching data",()=>{
  const r=spawnSync(process.execPath,["scripts/verify-beta-ui.mjs"],{encoding:"utf8",env:{...process.env,SUPABASE_DB_TARGET:"hosted",RAVOGE_CLIENT_LOG_QA:"yes"}});
  assert.notEqual(r.status,0);assert.match(r.stderr,/Client log fixtures require isolated local Supabase/);assert.ok(!r.stdout.includes("Preparing"));
+});
+
+test("sleep scores preserve zero, accept whole numbers through 100 and require an explicit clear",()=> {
+ const date = "2026-11-25";
+ assert.equal(sleepScoreInput(form({date,sleep_score:"0"})).score,0);
+ assert.equal(sleepScoreInput(form({date,sleep_score:"100"})).score,100);
+ assert.equal(sleepScoreInput(form({date,sleep_score:""})).score,null);
+ assert.throws(()=>sleepScoreInput(form({date})));
+ for (const score of ["-1","101","82.5","NaN"]) {
+  assert.throws(()=>sleepScoreInput(form({date,sleep_score:score})));
+ }
 });
