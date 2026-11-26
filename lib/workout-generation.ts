@@ -28,6 +28,7 @@ export type GenerationInput = {
     sourceKind?: "raw_reference"; segments?:{key:string;exerciseIds:string[]}[]; rawStyle?: {exerciseIds:string[];formats:string[];terms:string[];rawProtocolsUnverified:boolean} }[];
   history: { status: string; exercises: SourceExercise[] }[];
   recentSessionContext?:RecentSessionContext;
+  nearbyPlans?: { dayOffset: number; exercises: { id: string | null; sets: number }[] }[];
   age?: number | null;
   recentDrafts?: { exercises: { libraryExerciseId:string; sets:number; reps:number; restSeconds?:number; targetRpe?:number; protocol?:WorkoutProtocol }[] }[];
   schemaVersion?: number; facilities?: { type: string; length: number; unit: string }[]; publishedCount?: number;
@@ -88,6 +89,17 @@ export function deidentifiedGenerationInput(input: GenerationInput) {
   })).filter((exercise) => exercise.exerciseKey);
   const numbers = (values: Record<string, number | null>, allowed: string[]) => Object.fromEntries(allowed.filter(key => typeof values[key] === "number" && Number.isFinite(values[key])).map(key => [key.replace(/Kg$/, "Lb"), key.endsWith("Kg") ? kilogramsToPounds(values[key]) : values[key]]));
   const strengthAssessments=input.intakeAssessment?Object.fromEntries(Object.entries(input.intakeAssessment.strengthAssessments??{}).map(([key,value])=>[key.replace(/_kg$/,"_lb"),key.endsWith("_kg")&&typeof value==="number"?kilogramsToPounds(value):value])):undefined;
+  const patterns = new Map(input.candidates.map(exercise => [exercise.id, exercise.pattern]));
+  const nearbyPlans = input.nearbyPlans?.map(plan => {
+    const setsByPattern: Record<string, number> = Object.create(null);
+    let unclassifiedExercises = 0;
+    for (const exercise of plan.exercises) {
+      const pattern = patterns.get(exercise.id ?? "");
+      if (pattern) setsByPattern[pattern] = (setsByPattern[pattern] ?? 0) + exercise.sets;
+      else unclassifiedExercises++;
+    }
+    return { dayOffset: plan.dayOffset, setsByPattern, unclassifiedExercises };
+  }) ?? null;
   // Explicit private generation projection, never serialize input wholesale.
   // Version 2 includes the requested clinical answers but no account/source IDs.
   // Public evidence search uses a separate closed-vocabulary projection.
@@ -105,8 +117,10 @@ export function deidentifiedGenerationInput(input: GenerationInput) {
     } : null,
     todayReadiness: input.todayReadiness ?? null,
     recentSessionContext: projectRecentSessionContext(input.recentSessionContext),
+    nearbyPlans,
     previousDrafts: (input.recentDrafts ?? []).map(d=>({sequence:d.exercises.filter(e=>keys.has(e.libraryExerciseId)).map(e=>({exerciseKey:keys.get(e.libraryExerciseId),sets:e.sets,reps:e.reps,restSeconds:e.restSeconds,targetRpe:e.targetRpe,protocol:e.protocol?{block:e.protocol.block,format:e.protocol.format,measurement:e.protocol.measurement,workSeconds:e.protocol.workSeconds,distance:e.protocol.distance,distanceUnit:e.protocol.distanceUnit,perSide:e.protocol.perSide,targetRpe:e.protocol.targetRpe,intervalSeconds:e.protocol.intervalSeconds,blockDurationSeconds:e.protocol.blockDurationSeconds}:undefined}))})),
     sessionPlanning: "Plan the next session using actual recorded outcomes and today’s readiness. Preserve useful main lifts for skill/progression; rotate compatible accessory patterns or training emphasis across the planned weekly days. Completed sets are evidence; unrecorded sets and unperformed drafts are not. Previous drafts show alternatives already offered, not completed work. Do not reproduce the same draft unchanged or vary only its title/rationale/order. Make a purposeful change to main-work targets, emphasis or compatible accessory selection, with a short factual reason. Do not increase effort when pain, failed reps or poor recovery suggest regression. Unknown effort does not justify increasing load. Never swap exercises merely for novelty.",
+    nearbyPlanInterpretation: "Nearby assignments are scheduled work only. Day offsets are relative to this workout. Distribute hard efforts across the scheduled week and avoid piling the same demanding pattern into adjacent sessions without a reason. Set totals may include preparation work. The effort and pattern of unclassified exercises are unknown. Never infer performance, tolerance, or readiness from planned sets.",
     goal: input.goal, secondaryGoal: input.secondaryGoal, experience: input.experience,
     trainingFocus: input.trainingFocus ?? null,
     weeklyFrequency: input.frequency, requestedDurationMinutes: input.duration,

@@ -3,6 +3,12 @@ export const ACCESS_COOKIE = "ravoge_view";
 export type AccessRole = "owner" | "coach" | "client";
 export type AccessSelection = { organizationId: string; role: AccessRole };
 
+export function clientReportPath(value: unknown) {
+  return typeof value === "string" && value.length === "/client/workouts/".length + 36
+    && /^\/client\/workouts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    ? value : undefined;
+}
+
 export function parseAccessSelection(value?: string): AccessSelection | null {
   if (!value) return null;
   const [organizationId, role, extra] = value.split(":");

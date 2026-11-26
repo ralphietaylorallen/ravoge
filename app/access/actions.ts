@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { ACCESS_COOKIE, parseAccessSelection } from "@/lib/access-selection";
+import { ACCESS_COOKIE, clientReportPath, parseAccessSelection } from "@/lib/access-selection";
 import { dashboardForRole, getActiveMemberships, getVerifiedUser } from "@/lib/auth";
 
 export async function switchViewAction(form: FormData) {
@@ -15,7 +15,8 @@ export async function switchViewAction(form: FormData) {
   (await cookies()).set(ACCESS_COOKIE, `${authorized.organization_id}:${authorized.role}`, {
     httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 30 * 86400,
   });
-  redirect(dashboardForRole(authorized.role));
+  const reportPath = authorized.role === "client" ? clientReportPath(form.get("next")) : undefined;
+  redirect(reportPath ?? dashboardForRole(authorized.role));
 }
 
 export async function createMyClientProfileAction(form: FormData) {

@@ -1,5 +1,7 @@
 "use server";
 
+import { sendWorkoutCompletionEmail } from "@/lib/workout-completion-email";
+
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import type { ExecutionState } from "@/app/coach/workout-actions";
@@ -8,10 +10,12 @@ function refresh(id: string) { revalidatePath("/owner/clients/[clientId]/workout
 export async function playerSessionAction(role: "client" | "coach" | "owner", workoutId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
   const { supabase } = await requireRole(role);
   if (!/^[0-9a-f-]{36}$/i.test(workoutId)) return { status: "error", message: "Workout unavailable." };
+  const finish = form.get("intent") === "finish";
   const { error } = await supabase.rpc("manage_quality_workout", { target_workout_id: workoutId, intent: String(form.get("intent") ?? ""), difficulty: form.get("difficulty") ? Number(form.get("difficulty")) : null, feedback: String(form.get("feedback") ?? "").trim() || null });
   if (error) return { status: "error", message: "Not saved. Record every set and a difficulty rating before finishing; this workout must still be open." };
+  if (finish) await sendWorkoutCompletionEmail(supabase, workoutId);
   refresh(workoutId);
-  return { status: "success", message: form.get("intent") === "finish" ? "Workout recorded. Your Coach can review completed, modified, missed and painful work." : "Workout started. Work at the effort approved by your Coach." };
+  return { status: "success", message: finish ? "Workout recorded. Your Coach can review completed, modified, missed and painful work." : "Workout started. Work at the effort approved by your Coach." };
 }
 export async function playerSetAction(role: "client" | "coach" | "owner", workoutId: string, setId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
   const { supabase } = await requireRole(role);

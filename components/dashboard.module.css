@@ -23,6 +23,8 @@
 .header small { color: var(--ui-gold, #8a8171); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; }
 .mobileBrand { display: none; font-family: "Space Grotesk Variable", sans-serif; font-weight: 650; letter-spacing: 0.24em; text-transform: uppercase; }
 .headerActions { display: flex; align-items: center; gap: 1rem; }
+.exerciseOrderActions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
+.exerciseOrderActions button { margin: 0; }
 .role { color: var(--ui-gold, #8a8171); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
 .logout, .secondaryAction { min-height: 2.5rem; padding: 0.55rem 0.8rem; border: 1px solid var(--ui-divider, #c9c4b9); background: transparent; color: var(--ui-text, #303330); cursor: pointer; font: inherit; font-size: 0.65rem; font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; }
 .logout:hover, .logout:focus-visible, .secondaryAction:hover, .secondaryAction:focus-visible { border-color: var(--ui-gold, #8a6b3d); color: var(--ui-gold, #6f4f24); outline: 2px solid rgb(169 135 85 / 0.18); outline-offset: 2px; }
@@ -793,6 +795,10 @@
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .sidebar nav a { flex: 1 1 0; flex-direction: column; gap: .3rem; padding: .5rem .15rem; font-size: .65rem; border: 0; border-radius: 12px; }
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .sidebar nav a[aria-current="page"] { box-shadow: none; background: #c897351a; }
   :global([data-ravoge-visual="cinematic"]) .shell[data-account-role="client"] .frame { padding-bottom: calc(8rem + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 420px) {
+  :global([data-ravoge-visual="cinematic"]) .header { flex-wrap: wrap; gap: .5rem 1rem; }
+  :global([data-ravoge-visual="cinematic"]) .headerActions { gap: .5rem; flex-wrap: wrap; }
 }
 /* Owner workspace organization. Coach, Client and report-specific layouts retain their styles. */
 .shell[data-account-role="owner"] { align-content: start; }

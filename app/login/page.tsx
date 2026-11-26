@@ -6,6 +6,7 @@ import { LoginForm } from "@/components/login-form";
 import { InvitationRecovery } from "@/components/invitation-recovery";
 import { getEnrollmentHandoff } from "@/lib/enrollment";
 import { getOrganizationEnrollmentContext } from "@/lib/invitations";
+import { clientReportPath } from "@/lib/access-selection";
 
 import styles from "@/components/auth-entry.module.css";
 
@@ -18,9 +19,9 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ enrollment?: string; invite?: string; status?: string }>;
+  searchParams: Promise<{ enrollment?: string; invite?: string; status?: string; next?: string }>;
 }) {
-  const { enrollment: enrollmentToken, invite, status } = await searchParams;
+  const { enrollment: enrollmentToken, invite, status, next } = await searchParams;
   if (invite) {
     const legacyEnrollment = await getOrganizationEnrollmentContext(invite);
     redirect(legacyEnrollment ? `/enroll/${legacyEnrollment.role}?token=${encodeURIComponent(invite)}` : "/login?status=invalid-invitation");
@@ -44,6 +45,7 @@ export default async function LoginPage({
           ? `/signup/client?enrollment=${encodeURIComponent(enrollmentToken ?? handoff!.token)}` : undefined}
         invitationEmail={enrollment?.email ?? undefined}
         invitationToken={enrollment ? enrollmentToken : undefined}
+        reportPath={clientReportPath(next)}
       />
     </AuthEntryShell>
   );

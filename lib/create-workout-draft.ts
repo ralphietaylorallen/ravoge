@@ -7,6 +7,7 @@ import { type GenerationInput } from "@/lib/workout-generation";
 import { generateIntelligentWorkout, requiresReviewedGymRetry } from "@/lib/workout-intelligence";
 
 import { ageFromBirthYear } from "@/lib/session-programming";
+import { shiftLocalDate } from "@/lib/timezone";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -62,16 +63,32 @@ export async function createGeneratedWorkoutDraft({
     };
   }
 
-  const [{data:intake,error:ageError},{data:recent,error:recentError},{data:sessionContext,error:contextError}]=await Promise.all([
+  const [{data:intake,error:ageError},{data:recent,error:recentError},{data:sessionContext,error:contextError}, nearbyPlans]=await Promise.all([
     supabase.from("client_intakes").select("birth_year").eq("id",input.intakeId).eq("client_user_id",clientId).abortSignal(AbortSignal.timeout(5000)).maybeSingle(),
     supabase.from("generated_prescriptions").select("original_recommendation").eq("client_user_id",clientId).eq("coach_user_id",userId).neq("id",data).order("generated_at",{ascending:false}).limit(3).abortSignal(AbortSignal.timeout(5000)),
     supabase.rpc("get_recent_session_report_context",{target_prescription_id:data}).abortSignal(AbortSignal.timeout(5000)),
+    plannedFor && supabase.from("workout_assignments")
+      .select("scheduled_date,workout_exercises(library_exercise_id,sets)")
+      .eq("organization_id", plannedFor.organizationId)
+      .eq("client_user_id", clientId)
+      .in("status", ["assigned", "in_progress"])
+      .gte("scheduled_date", shiftLocalDate(plannedFor.date, -3)!)
+      .lte("scheduled_date", shiftLocalDate(plannedFor.date, 3)!)
+      .order("scheduled_date").order("scheduled_time").limit(12)
+      .abortSignal(AbortSignal.timeout(3000)),
   ]);
   if(ageError||recentError||contextError){
     await supabase.rpc("discard_incomplete_quality_draft",{target_prescription_id:data});
     return {ok:false,status:503,message:"The saved intake or recent sessions could not be loaded. Try again."};
   }
   const generationInput:GenerationInput={...input,...(scheduled&&!dayOfSession?{todayReadiness:null}:{}),recentSessionContext:sessionContext,age:ageFromBirthYear(intake?.birth_year),recentDrafts:(recent??[]).filter(d=>Array.isArray(d.original_recommendation)).map(d=>({exercises:d.original_recommendation}))};
+  if (plannedFor && nearbyPlans?.data) {
+    const targetDay = Date.parse(plannedFor.date);
+    generationInput.nearbyPlans = nearbyPlans.data.map(row => ({
+      dayOffset: (Date.parse(row.scheduled_date) - targetDay) / 86_400_000,
+      exercises: row.workout_exercises.map(exercise => ({ id: exercise.library_exercise_id, sets: exercise.sets })),
+    }));
+  }
 
   // Paid calls are bounded per authenticated Coach; repeated submissions still
   // have a safe deterministic path instead of an unbounded provider loop.

@@ -1,5 +1,7 @@
 "use server";
 
+import { sendWorkoutCompletionEmail } from "@/lib/workout-completion-email";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -40,6 +42,8 @@ export async function completeWorkoutAction(workoutId: string) {
     target_workout_id: workoutId,
   });
   if (error) redirect(`${path}?notice=finish-exercises`);
+  await sendWorkoutCompletionEmail(supabase, workoutId);
+  revalidatePath("/client/profile");
 
   revalidatePath("/client");
   revalidatePath(path);

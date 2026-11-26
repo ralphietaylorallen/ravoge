@@ -6,9 +6,9 @@ import styles from "./coach-availability-calendar.module.css";
 
 export const calendarDateLabel = (date: string, options: Intl.DateTimeFormatOptions) => new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { ...options, timeZone: "UTC" });
 
-export function BookingMonthPicker({ date, today, timezone, basePath, extraParams = {}, counts = {}, minDate, maxDate }: {
+export function BookingMonthPicker({ date, today, timezone, basePath, extraParams = {}, counts = {}, plannedDays, minDate, maxDate }: {
   date: string; today: string; timezone: string; basePath: string;
-  extraParams?: Record<string, string | undefined>; counts?: Record<string, number>; minDate?: string; maxDate?: string;
+  extraParams?: Record<string, string | undefined>; counts?: Record<string, number>; plannedDays?: Set<string>; minDate?: string; maxDate?: string;
 }) {
   const { dates, offset, previous, next } = bookingCalendarMonth(date);
   const previousAllowed = !minDate || monthDates(previous).at(-1)! >= minDate;
@@ -26,9 +26,9 @@ export function BookingMonthPicker({ date, today, timezone, basePath, extraParam
       {dates.map(day => {
         const disabled = Boolean(minDate && day < minDate || maxDate && day > maxDate);
         const label = calendarDateLabel(day, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-        const content = <><span>{Number(day.slice(-2))}</span><small>{day === today ? "Today" : counts[day] ? `${counts[day]} booked` : ""}</small></>;
+        const content = <><span>{Number(day.slice(-2))}</span><small>{day === today ? "Today" : counts[day] ? `${counts[day]} booked` : plannedDays?.has(day) ? "Workout" : ""}</small></>;
         return disabled ? <button type="button" className={styles.date} aria-label={label} disabled key={day}>{content}</button>
-          : <Link className={styles.date} aria-current={day === date ? "date" : undefined} aria-label={`${label}${counts[day] ? `, ${counts[day]} booked sessions` : ""}`} href={href(day)} key={day}>{content}</Link>;
+          : <Link className={styles.date} aria-current={day === date ? "date" : undefined} aria-label={`${label}${counts[day] ? `, ${counts[day]} booked sessions` : ""}${plannedDays?.has(day) ? ", workouts planned" : ""}`} href={href(day)} key={day}>{content}</Link>;
       })}
     </div>
     <p className={dashboard.formHint}>Tap a date, then choose an available time. All times use {timezone}.</p>

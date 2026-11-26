@@ -55,9 +55,9 @@ export default async function OwnerPage() {
     <DashboardShell gymName={organization?.name ?? "Ravoge gym"} name={profile?.full_name ?? "Owner"} role="owner">
       <div className={styles.pageHeading}>
         <div><p className={styles.eyebrow}>Live operations · {timezone}</p><h2>Today</h2></div>
-        <p>Organization-wide session activity from Ravoge scheduling records. No estimated or placeholder values.</p>
+        <Link className={styles.action} href="/owner/schedule">Open gym schedule</Link>
       </div>
-      <div className={styles.quickActions}><Link href="/owner/workout-now">Workout Now →</Link></div>
+      <div className={styles.quickActions}><Link href="/owner/workout-now">Workout Now →</Link><Link href="/owner/clients">Clients →</Link></div>
       <section className={styles.kpiGrid} aria-label="Today metrics">
         <article className={styles.metricCard}><span>Scheduled sessions</span><strong>{today.scheduled}</strong><small>{today.appointments} total appointments</small></article>
         <article className={styles.metricCard}><span>Completed sessions</span><strong>{today.completed}</strong><small>Completed today</small></article>
@@ -78,9 +78,8 @@ export default async function OwnerPage() {
       </section>
 
       <div className={styles.grid}>
-        <section className={styles.panel}><h2>Clients</h2><p className={styles.empty}>Review every Client, assigned Coach, activity, intake, and training history.</p><Link className={styles.inlineAction} href="/owner/clients">Open directory →</Link></section>
-        <section className={styles.panel}><h2>Revenue foundation</h2><p className={styles.empty}>Configure session value and exact Coach compensation without processing payments.</p><Link className={styles.inlineAction} href="/owner/revenue">Open revenue →</Link></section>
-        <section className={styles.panel}><h2>Beta setup</h2><p className={styles.empty}>Confirm team, equipment, scheduling, training history, and app access.</p><Link className={styles.inlineAction} href="/owner/setup">Review setup →</Link></section>
+        <section className={styles.panel}><h2>Revenue</h2><p className={styles.empty}>Configure session value and exact Coach compensation without processing payments.</p><Link className={styles.inlineAction} href="/owner/revenue">Open revenue →</Link></section>
+        <section className={styles.panel}><h2>Gym setup</h2><p className={styles.empty}>Confirm team, equipment, scheduling, training history, and app access.</p><Link className={styles.inlineAction} href="/owner/setup">Review setup →</Link></section>
       </div>
     </DashboardShell>
   );

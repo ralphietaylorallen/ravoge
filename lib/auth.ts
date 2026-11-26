@@ -33,12 +33,14 @@ export async function getActiveMemberships(
     .filter(m => m.user_id === userId && m.status === "active" && ["owner", "coach", "client"].includes(m.role));
 }
 
-export async function getActiveMembership(userId: string, authenticatedClient?: SupabaseClient) {
+export async function getActiveMembership(userId: string, authenticatedClient?: SupabaseClient, reportPath?: string) {
   const memberships = await getActiveMemberships(userId, authenticatedClient);
   const selection = parseAccessSelection((await cookies()).get(ACCESS_COOKIE)?.value);
   const selected = selectAuthorizedMembership(memberships, selection);
   // Ambiguous access goes to the chooser, never an arbitrary organization.
-  if (!selected && memberships.length) redirect("/access");
+  if (!selected && memberships.length) {
+    redirect(reportPath ? `/access?next=${encodeURIComponent(reportPath)}` : "/access");
+  }
   return selected;
 }
 
@@ -60,11 +62,11 @@ export async function getAccountType(
 export const onboardingForRole = (role: Extract<AccountRole, "coach" | "client">) =>
   `/${role}/onboarding`;
 
-export async function requireRole(expectedRole: AccountRole) {
+export async function requireRole(expectedRole: AccountRole, reportPath?: string) {
   const { supabase, userId } = await getVerifiedUser();
-  if (!userId) redirect(`/login?next=/${expectedRole}`);
+  if (!userId) redirect(reportPath ? `/login?next=${encodeURIComponent(reportPath)}` : `/login?next=/${expectedRole}`);
 
-  const membership = await getActiveMembership(userId, supabase);
+  const membership = await getActiveMembership(userId, supabase, reportPath);
   if (!membership) {
     const accountType = await getAccountType(userId, supabase);
     if (accountType === "coach" || accountType === "client") {
@@ -74,6 +76,7 @@ export async function requireRole(expectedRole: AccountRole) {
     redirect("/signup?status=membership-required");
   }
   if (membership.role !== expectedRole) {
+    if (reportPath) redirect(`/access?next=${encodeURIComponent(reportPath)}`);
     redirect(dashboardForRole(membership.role));
   }
 

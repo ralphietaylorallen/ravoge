@@ -105,7 +105,7 @@ export default async function CoachClientPage({ params, searchParams }: { params
     <CoachClientActions clientId={clientId} hasIntake={!!latestIntake} workoutHref={workoutHref}
       workoutLabel={runningWorkout ? "Resume Workout" : "Workout Now"} />
 
-    <OperationsTabs active={tab} basePath={basePath} tabs={[{id:"workouts",label:"Workout Plan"},{id:"progress",label:"Progress"},{id:"intake",label:"Intake"},{id:"metrics",label:"Metrics"},{id:"notes",label:"Notes"}]}/>
+    <OperationsTabs active={tab} basePath={basePath} tabs={[{id:"workouts",label:"Workout history"},{id:"progress",label:"Progress"},{id:"intake",label:"Intake"},{id:"metrics",label:"Metrics"},{id:"notes",label:"Notes"}]}/>
     {notice&&noticeMessages[notice]&&<p className={styles.notice} role="status">{noticeMessages[notice]}</p>}
     {tab==="workouts"&&<>
       {!!nextSessions.length && <details className={styles.operationCard}><summary>Upcoming sessions</summary><div className={styles.form}>{nextSessions.map(booking=><Link className={styles.todayWorkout} key={booking.id} href={`${basePath}/sessions/${booking.id}?mode=prepare`}><strong>{new Date(booking.starts_at).toLocaleString("en-US",{timeZone:booking.timezone,dateStyle:"medium",timeStyle:"short"})}</strong><span>{booking.session_type === "Intake" ? "Open intake" : "Prepare workout"} →</span></Link>)}</div></details>}

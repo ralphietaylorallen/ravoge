@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { shiftLocalDate } from "@/lib/timezone";
 import { useActionState, useState } from "react";
 
 import { planWorkoutAction, type PlannedWorkoutActionState } from "@/app/coach/actions";
@@ -70,6 +72,7 @@ export function PlanWorkoutForm({ clients, defaultClientId, defaultDate, default
   const equipment = equipmentByLocation[location] ?? equipmentForLocation(location, gymEquipment);
   const primaryClientId = defaultClientId;
   const [secondaryClientId, setSecondaryClientId] = useState("");
+  const [repeatCount, setRepeatCount] = useState(0);
   const [pairEnabled, setPairEnabled] = useState(false);
   const [activeClient, setActiveClient] = useState<"primary" | "secondary">("primary");
 
@@ -96,6 +99,16 @@ export function PlanWorkoutForm({ clients, defaultClientId, defaultDate, default
   function removeExercise(id: number) {
     if (rows.length === 1) return;
     setRows((current) => current.filter((row) => row.id !== id));
+  }
+
+  function moveExercise(index: number, offset: -1 | 1) {
+    setRows(current => {
+      const nextIndex = index + offset;
+      if (nextIndex < 0 || nextIndex >= current.length) return current;
+      const reordered = [...current];
+      [reordered[index], reordered[nextIndex]] = [reordered[nextIndex], reordered[index]];
+      return reordered;
+    });
   }
 
   function usePastedWorkout() {
@@ -141,6 +154,8 @@ export function PlanWorkoutForm({ clients, defaultClientId, defaultDate, default
     </>;
   }
 
+  const nextDate = state.savedDate ? shiftLocalDate(state.savedDate, 1) : null;
+  const nextWorkoutHref = nextDate ? `/coach/plan-workouts?client=${primaryClientId}&date=${nextDate}&edit=manual#workout-editor` : null;
   return <form action={action} onReset={event => event.preventDefault()} className={styles.workoutForm}>
     <div className={styles.formColumns}>
       <input type="hidden" name="clientId" value={primaryClientId} />
@@ -184,6 +199,22 @@ export function PlanWorkoutForm({ clients, defaultClientId, defaultDate, default
       {pairEnabled && <label className={styles.field}><span>Client B</span><select name="secondaryClientId" required value={secondaryClientId} onChange={(event) => setSecondaryClientId(event.target.value)}><option value="" disabled>Select training partner</option>{clients.filter((client) => client.id !== primaryClientId).map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>}
     </section>
 
+    {!pairEnabled && <details className={styles.partnerPanel}>
+      <summary>Assign this workout on more dates</summary>
+      <p className={styles.formHint}>Each date gets its own workout and results. All dates use the time above.</p>
+      <div className={styles.formColumns}>
+        {Array.from({ length: repeatCount }, (_, i) => <label className={styles.field} key={i}>
+          <span>Additional date {i + 1}</span><input type="date" name="extraWorkoutDate" />
+        </label>)}
+      </div>
+      <div className={styles.quickActions}>
+        <button className={styles.textAction} type="button" disabled={repeatCount >= 6}
+          onClick={() => setRepeatCount(repeatCount + 1)}>Add a date</button>
+        {repeatCount > 0 && <button className={styles.textAction} type="button"
+          onClick={() => setRepeatCount(repeatCount - 1)}>Remove last date</button>}
+      </div>
+    </details>}
+
     <label className={styles.field}><span>Coach instructions / workout notes</span><textarea name="instructions" maxLength={3500} rows={3} placeholder="Optional notes for the session." /></label>
 
     <section className={styles.formSection}>
@@ -207,16 +238,26 @@ export function PlanWorkoutForm({ clients, defaultClientId, defaultDate, default
         <label className={styles.field}><span>{pairEnabled ? "Type · shared" : "Type"}</span><select name="exerciseMode" value={row.mode} onChange={(event) => updateSharedRow(row.id, { mode: event.target.value as ExerciseRow["mode"] })}><option value="reps">Reps</option><option value="time">Timed</option></select></label>
         {activeClient === "primary" || !pairEnabled ? prescriptionFields("primary", row) : hiddenPrescription("primary", row)}
         {pairEnabled && (activeClient === "secondary" ? prescriptionFields("secondary", row) : hiddenPrescription("secondary", row))}
-        <button className={styles.removeAction} type="button" disabled={rows.length === 1} onClick={() => removeExercise(row.id)}>Remove</button>
+        <div className={styles.exerciseOrderActions}>
+          {rows.length > 1 && <>
+            <button className={styles.textAction} type="button" aria-label={`Move exercise ${index + 1} up`} disabled={index === 0} onClick={() => moveExercise(index, -1)}>Move up</button>
+            <button className={styles.textAction} type="button" aria-label={`Move exercise ${index + 1} down`} disabled={index === rows.length - 1} onClick={() => moveExercise(index, 1)}>Move down</button>
+          </>}
+          <button className={styles.removeAction} type="button" disabled={rows.length === 1} onClick={() => removeExercise(row.id)}>Remove</button>
+        </div>
       </fieldset>)}
     </div>
 
     <div className={styles.reviewFooter}>
       <p>{pairEnabled ? "This saves two linked workouts. The clients train through the same exercise sequence, but each tab keeps its own load, reps, timing, notes and history." : "The client sees this workout on their dashboard as soon as you save."}</p>
-      <button className={styles.action} disabled={pending}>
-        {pending ? "Saving…" : pairEnabled ? "Save Paired Workout" : "Save & Keep Planning"}
+      <button className={styles.action} disabled={pending || state.status === "success"}>
+        {pending ? "Saving…" : pairEnabled ? "Save Paired Workout" : "Assign workout"}
       </button>
     </div>
+    {state.status === "success" && <div className={styles.quickActions}>
+      {state.workoutId && <Link href={`/coach/clients/${primaryClientId}/workouts/${state.workoutId}`}>Open saved workout</Link>}
+      {nextWorkoutHref && <Link href={nextWorkoutHref}>Add workout for next day</Link>}
+    </div>}
     {state.message && <p className={`${styles.notice} ${state.status === "error" ? styles.error : ""}`} role={state.status === "error" ? "alert" : "status"}>{state.message}</p>}
   </form>;
 }

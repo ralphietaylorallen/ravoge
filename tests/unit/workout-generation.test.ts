@@ -10,6 +10,7 @@ const input: GenerationInput = {
   candidates: ["squat", "hinge", "horizontal_pull"].map((pattern, index) => ({ id: `private-exercise-${index}`, name: "PERSONAL NAME private@example.test", pattern, equipment: ["dumbbell"], difficulty: "beginner", quality: "strength" })),
   references: [{ id: "private-review-id", title: "PERSONAL NAME private@example.test", revision: 2, goal: "strength", duration: 40, exercises: [{ libraryExerciseId: "private-exercise-0", sets: 3, reps: 8, restSeconds: 90 }] }],
   history: [{ status: "completed", exercises: [{ id: "private-exercise-1", sets: 3, reps: 8, restSeconds: 90, load: 20 }] }],
+  nearbyPlans: [{ dayOffset: -1, exercises: [{ id: "private-exercise-0", sets: 3 }, { id: "unclassified-private-exercise", sets: 2 }] }],
 };
 const output = () => ({ title: "Strength foundation", rationale: "Adapted to strength goals, reviewed restrictions and available dumbbells.", durationMinutes: 40,
   exercises: [1, 2, 3].map((index) => ({ exerciseKey: `exercise_${index}`, sets: 3, reps: 8, restSeconds: 90, targetRpe: 6, notes: "Coach selects a comfortable load.", reason: "Approved compatible movement for the goal." })) });
@@ -22,6 +23,7 @@ test("generation projection includes training context but excludes all identitie
   assert.deepEqual(projected.optionalTargets, { weightLb: 80 * 2.20462262185, bodyFatPercentage: 18, skeletalMuscleMassLb: 35 * 2.20462262185 });
   assert.equal(projected.gymReferences.length, 1);
   assert.equal(projected.priorWorkouts.length, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(projected.nearbyPlans)), [{ dayOffset: -1, setsByPattern: { squat: 3 }, unclassifiedExercises: 1 }]);
   assert.equal(projected.restrictions.hasPain, true);
   assert.equal(projected.requestedDurationMinutes, 45);
 });

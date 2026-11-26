@@ -54,7 +54,7 @@ export default async function CoachPlanWorkoutsPage({ searchParams }: {
       .eq("organization_id", gym).eq("is_available", true).order("name"),
   ]) : [null, null, null, null];
   const gymEquipment = [...new Set((equipment?.data ?? []).map(item => item.name.trim()).filter(Boolean))];
-  const weekError = workouts?.error || bookings?.error || drafts?.error;
+  const weekError = workouts?.error || bookings?.error;
   const booked = (bookings?.data ?? []).map(booking => ({ ...booking, slot: bookingWorkoutSlot(booking), day: localDateInTimeZone(booking.starts_at, timezone) }));
   const gymClock = new Intl.DateTimeFormat("en-US", { timeStyle: "short", timeZone: timezone });
   const time = query.time && /^([01]\d|2[0-3]):[0-5]\d$/.test(query.time) ? query.time : undefined;
@@ -66,9 +66,9 @@ export default async function CoachPlanWorkoutsPage({ searchParams }: {
         {selected && <Link className={workspace.secondaryButton} href={base}>Client Profile</Link>}
       </header>
       {assignments.error || clientError ? <p className={styles.notice} role="alert">Client assignments could not be loaded. Refresh to try again.</p> : <>
-        {!selected && <form method="get" className={workspace.clientPicker} aria-label="Choose a client plan">
+        {options.length > 0 && <form method="get" className={workspace.clientPicker} aria-label="Choose a client plan">
           <input type="hidden" name="date" value={date} />
-          <label className={styles.field}>Client<select name="client" required defaultValue="">
+          <label className={styles.field}>Client<select name="client" required defaultValue={selected?.id ?? ""}>
             <option value="" disabled>Choose an assigned client</option>
             {options.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
           </select></label>
@@ -102,9 +102,13 @@ export default async function CoachPlanWorkoutsPage({ searchParams }: {
                     const title = planned?.title ?? booking.session_type;
                     return <Link className={workspace.planSlot} key={booking.id} href={`${base}/sessions/${booking.id}?mode=prepare`}>
                       <span><time dateTime={booking.starts_at}>{gymClock.format(new Date(booking.starts_at))}</time><strong>{title}</strong></span>
-                      <small>{booking.session_type === "Intake" ? "Open intake" : planned ? "View workout" : "Prepare workout"} <span aria-hidden="true">›</span></small>
+                      <small>{booking.session_type === "Intake" ? "Open intake" : planned ? "View workout" : "Session details"} <span aria-hidden="true">›</span></small>
                     </Link>;
                   })}
+                  {appointments.filter(booking => booking.session_type !== "Intake" && !bookingPlans.get(booking.id)).map(booking =>
+                    <Link className={workspace.manualSlot} key={booking.id} href={`${href(booking.slot.date)}&time=${booking.slot.time.slice(0, 5)}&edit=manual#workout-editor`}>
+                      Build for {gymClock.format(new Date(booking.starts_at))}
+                    </Link>)}
                   {unbooked.map(workout => <Link className={workspace.planSlot} key={workout.id} href={`${base}/workouts/${workout.id}`}>
                     <span><time>{workout.scheduled_time ? timeLabel.format(new Date(`2000-01-01T${workout.scheduled_time.slice(0, 5)}:00Z`)) : "Flexible time"}</time><strong>{workout.title}</strong></span>
                     <small>{workout.status.replaceAll("_", " ")}{workout.paired_workout_group_id ? " · Paired" : ""} <span aria-hidden="true">›</span></small>
@@ -112,7 +116,6 @@ export default async function CoachPlanWorkoutsPage({ searchParams }: {
                   {dailyDrafts.map(draft => <Link className={workspace.planSlot} key={draft.id} href={`${base}/prescriptions/${draft.id}?mode=plan`}>
                     <strong>{scheduledWorkoutTitle(day, draft.generation_context.plannedTime)}</strong><small>Review draft ›</small>
                   </Link>)}
-                  {!appointments.length && !unbooked.length && !dailyDrafts.length && <p className={workspace.muted}>No sessions</p>}
                   <Link className={workspace.manualSlot} href={`${href(day)}&edit=manual#workout-editor`}>+ Add workout<span className={styles.planScreenReader}> for {dateLabel.format(asDate(day))}</span></Link>
                 </li>;
               })}</ul>}
@@ -127,9 +130,10 @@ export default async function CoachPlanWorkoutsPage({ searchParams }: {
             <p className={workspace.muted}>{dateLabel.format(asDate(date))}</p>
             <PlanWorkoutForm key={`${selected.id}-${date}-${time || ""}`} clients={options} defaultClientId={selected.id} defaultDate={date} defaultTime={time} gymEquipment={gymEquipment} gymEquipmentUnavailable={Boolean(equipment?.error)} />
           </details>}
+          {drafts?.error && <p role="alert">Saved AI drafts couldn’t be loaded.</p>}
           {!weekError && <details className={workspace.disclosure}>
             <summary>AI draft (optional)</summary>
-            <GeneratePlannedWorkoutForm key={`${selected.id}:${date}:${time ?? ""}`} clients={options} clientId={selected.id} date={date} time={time} today={today} timezone={timezone} />
+            <GeneratePlannedWorkoutForm key={`${selected.id}:${date}:${time ?? ""}`} clientId={selected.id} date={date} time={time} today={today} timezone={timezone} />
           </details>}
         </>}
       </>}

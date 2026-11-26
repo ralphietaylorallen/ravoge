@@ -59,6 +59,21 @@ export function workingSets(facts:SessionFacts) {
   for(const s of e.workout_sets){counts.total++;counts[recordedStatus(s)]++;}}
  return counts;
 }
+/** Completion of the prescribed work, using recorded outcomes only. */
+export function workoutCompletion(exercises: ReportExercise[]) {
+ const counts = { complete: 0, modified: 0, missed: 0, unrecorded: 0, total: 0 };
+ for (const exercise of exercises) {
+  if (isWorking(exercise) === false) continue;
+  const prescribed = Math.max(exercise.sets || 0, exercise.workout_sets.length);
+  counts.total += prescribed;
+  counts.unrecorded += prescribed - exercise.workout_sets.length;
+  for (const set of exercise.workout_sets) counts[recordedStatus(set)]++;
+ }
+ const value = counts.total > 0 && counts.unrecorded === 0
+  ? Math.round(100 * counts.complete / counts.total) : null;
+ return { ...counts, value };
+}
+
 export function setLiftingVolume(exercise:ReportExercise,set:ReportSet):number|null {
  if(!["complete","modified"].includes(recordedStatus(set)))return null;
  if(exercise.prescription_details?.measurement&&exercise.prescription_details.measurement!=="reps")return null;
@@ -168,5 +183,9 @@ export function sixWeekSummary(facts:SixWeekFacts) {
   adjusted:sets.filter(s=>recordedStatus(s)==="modified").length,missed:sets.filter(s=>recordedStatus(s)==="missed").length,
   unclassified:ordered.reduce((n,r)=>n+r.source.exercises.filter(e=>isWorking(e)===null).reduce((count,e)=>count+e.workout_sets.length,0),0),
   scoreTrend:scoreVersions.length===1?scores.map(r=>({date:r.source.workout.scheduled_date,value:r.score.value!,version:r.score.version,coverage:r.score.components})):[],
+  completionTrend:ordered.flatMap((r,i)=>{
+    const completion=workoutCompletion(r.source.exercises);
+    return completion.value===null?[]:[{id:r.id,date:dates[i],...completion,value:completion.value}];
+  }),
   recovery,body,firstDate:dates.at(0)??null,lastDate:dates.at(-1)??null,coveredDays:new Set(dates).size};
 }

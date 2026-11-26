@@ -8,6 +8,7 @@ import { completeWorkoutAction, setExerciseCompletionAction } from "@/app/client
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
 import { PreworkoutCheckin } from "@/components/preworkout-checkin";
 import { requireRole } from "@/lib/auth";
+import { clientReportPath } from "@/lib/access-selection";
 import { ClientWorkoutPlayer, type PlayerExercise } from "@/components/client-workout-player";
 import { TrainingReadinessForm } from "@/components/training-readiness";
 
@@ -50,8 +51,9 @@ export default async function ClientWorkoutPage({
 }) {
   const { workoutId } = await params;
   const { notice } = await searchParams;
-  const { membership, supabase, userId } = await requireRole("client");
-  if (!/^[0-9a-f-]{36}$/i.test(workoutId)) notFound();
+  const reportPath = clientReportPath(`/client/workouts/${workoutId}`);
+  if (!reportPath) notFound();
+  const { membership, supabase, userId } = await requireRole("client", reportPath);
 
   const [{ data: profile }, { data: organization }, { data: workoutRow }] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseAccessSelection, selectAuthorizedMembership, type AuthorizedMembership } from "../../lib/access-selection.ts";
+import { clientReportPath, parseAccessSelection, selectAuthorizedMembership, type AuthorizedMembership } from "../../lib/access-selection.ts";
 
 const gym = "a1000000-0000-4000-8000-000000000001";
 const coach: AuthorizedMembership = { id: "membership", organization_id: gym, organization_name: "Test", role: "coach", status: "active" };
@@ -12,6 +12,13 @@ test("selection is matched to authorized gym and role, with no arbitrary multi-r
   assert.equal(selectAuthorizedMembership([client], { organizationId: "different", role: "client" }), null);
   assert.equal(selectAuthorizedMembership([client], null), client);
   assert.equal(selectAuthorizedMembership([], null), null);
+});
+test("only a local client workout path can be carried through sign-in", () => {
+  const path = `/client/workouts/${gym}`;
+  assert.equal(clientReportPath(path), path);
+  for (const malformed of [null, [], `//ravoge.com${path}`, `https://ravoge.com${path}`, `${path}\n`, `${path}?next=other`, "/client/workouts/../owner", "/owner"]) {
+    assert.equal(clientReportPath(malformed), undefined);
+  }
 });
 test("view preference rejects malformed identities and roles", () => {
   for (const value of [undefined, "", `${gym}:admin`, `${gym}:coach:extra`, "other:coach", `${gym}:COACH`]) assert.equal(parseAccessSelection(value), null);

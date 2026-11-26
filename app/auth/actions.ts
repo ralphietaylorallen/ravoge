@@ -19,7 +19,7 @@ import { sendInvitationEmail } from "@/lib/invitation-email";
 import { normalizeInvitationEmail, parseInvitationEmails, MAX_BULK_INVITATIONS } from "@/lib/invitation-input";
 import { clearEnrollmentHandoff, getEnrollmentHandoff } from "@/lib/enrollment";
 import { createClient } from "@/lib/supabase/server";
-import { ACCESS_COOKIE } from "@/lib/access-selection";
+import { ACCESS_COOKIE, clientReportPath } from "@/lib/access-selection";
 
 const SIGNUP_INVITE_COOKIE = "ravoge_signup_invite";
 const SIGNUP_OWNER_TOKEN_COOKIE = "ravoge_signup_owner_token";
@@ -180,10 +180,11 @@ export async function loginAction(
     }
     await clearEnrollmentHandoff();
   }
-  let membership = await getActiveMembership(data.user.id, supabase);
+  const reportPath = invitationToken ? undefined : clientReportPath(formData.get("next"));
+  let membership = await getActiveMembership(data.user.id, supabase, reportPath);
   if (membership) {
     await clearEnrollmentHandoff();
-    redirect(dashboardForRole(membership.role));
+    redirect(membership.role === "client" && reportPath ? reportPath : dashboardForRole(membership.role));
   }
 
   const identityDestination = await destinationForAuthenticatedUser(data.user.id, supabase);

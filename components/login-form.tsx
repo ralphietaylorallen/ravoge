@@ -11,10 +11,12 @@ export function LoginForm({
   clientSignupHref,
   invitationEmail,
   invitationToken,
+  reportPath,
 }: {
   clientSignupHref?: string;
   invitationEmail?: string;
   invitationToken?: string;
+  reportPath?: string;
 }) {
   const [state, action, pending] = useActionState(loginAction, {
     status: "idle" as const,
@@ -23,6 +25,7 @@ export function LoginForm({
   return (
     <form action={action} className={styles.form}>
       {invitationToken ? <input name="invitationToken" type="hidden" value={invitationToken} /> : null}
+      {reportPath && <input name="next" type="hidden" value={reportPath} />}
       <div className={styles.field}>
         <label htmlFor="email">Email</label>
         <input

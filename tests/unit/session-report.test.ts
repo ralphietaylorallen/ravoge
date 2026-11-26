@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {defaultProtocol} from "../../lib/workout-protocol.ts";
-import {sessionVolume,exerciseVolume,workingSets,cardioSummary,personalComparisons,pendingScoreDisplay,reportTargetSummary,sixWeekSummary,weeklyConsistency,type SessionFacts,type ReportExercise,type ReportSet,type SixWeekFacts} from "../../lib/session-report.ts";
+import {sessionVolume,exerciseVolume,workingSets,cardioSummary,personalComparisons,pendingScoreDisplay,reportTargetSummary,sixWeekSummary,weeklyConsistency,workoutCompletion,type SessionFacts,type ReportExercise,type ReportSet,type SixWeekFacts} from "../../lib/session-report.ts";
 import {projectRecentSessionContext} from "../../lib/session-report-context.ts";
 import {deidentifiedGenerationInput,type GenerationInput} from "../../lib/workout-generation.ts";
 import {planningProjection} from "../../lib/workout-intelligence.ts";
@@ -20,3 +20,15 @@ test("midnight/gym timezone and multiple workouts stay distinct; attendance is n
 test("six-week missing history and pending versions never become numeric improvement",()=>{const f:SixWeekFacts={version:1,organizationId:"org",clientId:"client",periodStart:"2026-09-24",periodEnd:"2026-11-04",timezone:"America/Denver",gymName:"Demo",clientName:"QA",reports:[],bookings:[],recovery:[],measurements:[],goals:null};const s=sixWeekSummary(f);assert.equal(s.firstDate,null);assert.deepEqual(s.scoreTrend,[]);assert.equal(s.effort.average,null);assert.equal(s.recovery[0].minutes,null);});
 test("six-week coverage retains unknown legacy working-set details",()=>{const e=exercise();e.prescription_details=null;const source=facts([e]);const s=sixWeekSummary({version:1,organizationId:"org",clientId:"client",periodStart:"2026-09-24",periodEnd:"2026-11-04",timezone:source.timezone,gymName:"Demo",clientName:"QA",reports:[{id:source.workout.id,source,score:pendingScoreDisplay(source)}],bookings:[],recovery:[],measurements:[],goals:null});assert.equal(s.unclassified,3);assert.equal(s.effort.total,0);assert.equal(s.effort.average,null);});
 test("private generation receives bounded reported context without IDs and no recovery capacity claim",()=>{const context={version:1 as const,sessions:[{hoursAgo:24,reportedFeedback:"Tired; qa@example.test https://private.test",painFlags:1,adjustedSets:2,missedSets:1,averageRpe:8}],recovery:[{type:"sauna",minutes:12,hoursAgo:20,occurrenceTimeKnown:true,reportedFeeling:"Relaxed",reportedNotes:null}]};const base={schemaVersion:2,recentSessionContext:context,candidates:[],references:[],history:[],targets:{},bodyComposition:{},restrictions:{tags:[]},equipment:[]} as unknown as GenerationInput;const p=deidentifiedGenerationInput(base),planner=planningProjection(base);assert.equal(p.recentSessionContext?.sessions[0].painFlags,1);assert.equal(planner.recentSessionContext?.reportedRecovery[0].hoursAgo,20);assert.doesNotMatch(JSON.stringify(p),/qa@example|private.test/);assert.match(p.recentSessionContext!.interpretation,/never justifies increasing load/);assert.equal(projectRecentSessionContext({...context,recovery:[{...context.recovery[0],occurrenceTimeKnown:false}]} )?.reportedRecovery[0].hoursAgo,null);});
+
+test("completion score exposes adjusted and missed sets and requires full coverage", () => {
+ const planned = exercise();
+ planned.prescription_details = null;
+ planned.workout_sets = [set(1), {...set(2), client_result:"modified"}, {...set(3), client_result:"missed"}];
+ const warmup = exercise();
+ warmup.prescription_details!.block = "warmup";
+ assert.deepEqual(workoutCompletion([planned, warmup]), {complete:1,modified:1,missed:1,unrecorded:0,total:3,value:33});
+ planned.workout_sets.pop();
+ assert.equal(workoutCompletion([planned, warmup]).value, null);
+ assert.equal(workoutCompletion([warmup]).value, null);
+});

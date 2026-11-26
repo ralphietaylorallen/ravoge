@@ -1,5 +1,7 @@
 "use server";
 
+import { sendWorkoutCompletionEmail } from "@/lib/workout-completion-email";
+
 import { revalidatePath } from "next/cache";
 import { requireTrainerRole } from "@/lib/auth";
 
@@ -13,7 +15,6 @@ function refresh(clientId: string, workoutId: string) {
   revalidatePath(`/owner/clients/${clientId}/workouts/${workoutId}`);
   revalidatePath(`/coach/clients/${clientId}`);
   revalidatePath(`/coach/clients/${clientId}/workouts/${workoutId}`);
-  revalidatePath(`/owner/clients/${clientId}`);
   revalidatePath(`/client/workouts/${workoutId}`);
 }
 export async function recordSetAction(clientId: string, workoutId: string, setId: string, _state: ExecutionState, form: FormData): Promise<ExecutionState> {
@@ -37,6 +38,7 @@ export async function saveSessionAction(clientId: string, workoutId: string, _st
   if(!UUID.test(workoutId)||!UUID.test(clientId)||notes.length>4000||(finish&&(!Number.isInteger(duration)||duration<1||duration>480))) return {status:"error",message:"Enter a duration between 1 and 480 minutes."};
   const {error}=await supabase.rpc("save_coach_workout_session",{target_workout_id:workoutId,coach_notes:notes||null,duration_minutes:finish?duration:null,finish});
   if(error) return {status:"error",message:"Record every set as complete, failed, or not completed before finishing the workout."};
+  if (finish) await sendWorkoutCompletionEmail(supabase, workoutId);
   refresh(clientId,workoutId);
   return {status:"success",message:finish?"Workout complete":"Coach notes saved"};
 }

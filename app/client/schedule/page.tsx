@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { ScheduledWorkouts, SCHEDULED_WORKOUT_FIELDS } from "@/components/scheduled-workouts";
+import { trainingBookingSlot } from "@/lib/workout-agenda";
+import { DEFAULT_ORGANIZATION_TIMEZONE, localDateInTimeZone, shiftLocalDate } from "@/lib/timezone";
 
 import { BookingList, type BookingListItem } from "@/components/booking-list";
 import { CancelBookingForm } from "@/components/schedule-forms";
@@ -11,7 +14,7 @@ export default async function ClientSchedulePage() {
   const { membership, supabase, userId } = await requireRole("client");
   const [{ data: profile }, { data: organization }, { data: bookingRows }] = await Promise.all([
     supabase.from("profiles").select("full_name,preferred_name").eq("id", userId).single(),
-    supabase.from("organizations").select("name,address").eq("id", membership.organization_id).single(),
+    supabase.from("organizations").select("name,address,timezone").eq("id", membership.organization_id).single(),
     supabase.from("bookings").select("id,coach_user_id,starts_at,ends_at,timezone,status,session_type").eq("organization_id", membership.organization_id).eq("client_user_id", userId).order("starts_at", { ascending: false }).limit(100),
   ]);
   const coachIds = [...new Set((bookingRows ?? []).map((row: { coach_user_id: string }) => row.coach_user_id))];
@@ -19,7 +22,14 @@ export default async function ClientSchedulePage() {
   const coachMap = new Map((coaches ?? []).map((row: { id: string; full_name: string; preferred_name: string | null; avatar_path: string | null }) => [row.id, row]));
   const imageMap = new Map(await Promise.all((coaches ?? []).map(async (row: { id: string; avatar_path: string | null }) => [row.id, await getProfileImageUrl(supabase, row.avatar_path)] as const)));
   const bookings: BookingListItem[] = (bookingRows ?? []).map((row: { id: string; coach_user_id: string; starts_at: string; ends_at: string; timezone: string; status: string; session_type: string }) => ({ coachName: coachMap.get(row.coach_user_id)?.preferred_name || coachMap.get(row.coach_user_id)?.full_name || "Coach", coachPhotoUrl: imageMap.get(row.coach_user_id), endsAt: row.ends_at, gymAddress: organization?.address, gymName: organization?.name ?? "Ravoge gym", id: row.id, startsAt: row.starts_at, status: row.status, timezone: row.timezone, sessionType: row.session_type }));
-  const currentTime = new Date().getTime();
+  const now = new Date();
+  const currentTime = now.getTime();
+  const today = localDateInTimeZone(now, organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE);
+  const workoutResult = await supabase.from("workout_assignments").select(SCHEDULED_WORKOUT_FIELDS)
+    .eq("organization_id", membership.organization_id).eq("client_user_id", userId)
+    .gte("scheduled_date", today).lt("scheduled_date", shiftLocalDate(today, 31)!)
+    .neq("status", "cancelled").order("scheduled_date").order("scheduled_time").limit(250);
+  const bookingSlots = (bookingRows ?? []).map(row => trainingBookingSlot({ ...row, client_user_id: userId }));
   const upcoming = bookings.filter((booking) => booking.status === "scheduled" && Date.parse(booking.startsAt) >= currentTime).sort((a,b) => Date.parse(a.startsAt)-Date.parse(b.startsAt));
   const past = bookings.filter((booking) => booking.status !== "scheduled" || Date.parse(booking.startsAt) < currentTime);
   const [{ data: questions }, { data: checkins }] = await Promise.all([
@@ -30,6 +40,7 @@ export default async function ClientSchedulePage() {
   const intakeQuestionsReady = questions?.length === 8 && questions.every((question) => question.question_text && !/^Question\s+\d+$/i.test(question.question_text.trim()) && question.scale_min !== null && question.scale_max !== null);
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={profile?.preferred_name || profile?.full_name || "Client"} role="client">
     <div className={styles.pageHeading}><div><p className={styles.eyebrow}>Your training</p><h1 className={styles.clientHeading}>Schedule</h1></div><Link className={styles.action} href="/client/book">Book session</Link></div>
+    <ScheduledWorkouts rows={workoutResult.data ?? []} error={Boolean(workoutResult.error)} perspective="client" bookingSlots={bookingSlots} />
     <section className={styles.workspaceSection}><div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Upcoming</p><h3>Scheduled sessions</h3></div></div><BookingList bookings={upcoming} empty="No upcoming sessions." perspective="client" clientActions={(booking) => <div className={styles.manageBooking}><Link className={styles.secondaryAction} href={`/client/book?reschedule=${booking.id}`}>Reschedule</Link><CancelBookingForm bookingId={booking.id} /></div>} /></section>
     {intakeQuestionsReady ? intakeBookings.map((booking) => <PreworkoutCheckin bookingId={booking.id} key={booking.id} questions={questions} previousCount={(checkins ?? []).filter((checkin) => checkin.booking_id === booking.id).length} />) : intakeBookings.length > 0 && <p className={styles.empty}>Your Coach will complete your intake with you. Your gym has not yet configured the optional Client session questions.</p>}
     <section className={styles.workspaceSection}><div className={styles.sectionHeading}><div><p className={styles.eyebrow}>History</p><h3>Past &amp; cancelled</h3></div></div><BookingList bookings={past} empty="No session history yet." perspective="client" /></section>

@@ -14,8 +14,8 @@ type CalendarSlot = { starts_at: string; ends_at: string; available: boolean };
 type CalendarBooking = { id: string; clientId: string; clientName: string; startsAt: string; endsAt: string; status: string; sessionType: string };
 const formatTime = (value: string, timezone: string) => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: timezone }).format(new Date(value));
 
-export function CoachBookingCalendar({ bookings, clients, date, today, slots, duration, durations, selectedClientId, timezone, availabilityError }: {
-  bookings: CalendarBooking[]; clients: ClientOption[]; date: string; today: string; slots: CalendarSlot[]; duration: number; durations: number[]; selectedClientId: string; timezone: string; availabilityError?: string;
+export function CoachBookingCalendar({ bookings, clients, date, today, slots, duration, durations, selectedClientId, timezone, availabilityError, workoutDays = [] }: {
+  bookings: CalendarBooking[]; clients: ClientOption[]; date: string; today: string; slots: CalendarSlot[]; duration: number; durations: number[]; selectedClientId: string; timezone: string; availabilityError?: string; workoutDays?: string[];
 }) {
   const router = useRouter();
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -24,9 +24,10 @@ export function CoachBookingCalendar({ bookings, clients, date, today, slots, du
   const dayBookings = bookings.filter(booking => localDateInTimeZone(booking.startsAt, timezone) === date);
   const counts: Record<string, number> = {};
   for (const booking of bookings) { const day = localDateInTimeZone(booking.startsAt, timezone); counts[day] = (counts[day] || 0) + 1; }
+  const plannedDays = new Set(workoutDays);
   const extraParams = { client: selectedClientId, duration: String(duration) };
   return <div className={calendar.layout}>
-    <BookingMonthPicker date={date} today={today} timezone={timezone} basePath="/coach/schedule" extraParams={extraParams} counts={counts} />
+    <BookingMonthPicker date={date} today={today} timezone={timezone} basePath="/coach/schedule" extraParams={extraParams} counts={counts} plannedDays={plannedDays} />
     <section className={styles.panel} aria-label="Book a client session">
       <h2>{calendarDateLabel(date, { weekday: "long", month: "long", day: "numeric" })}</h2>
       {dayBookings.length > 0 && <div className={calendar.dayBookings}><h3>Booked sessions</h3>{dayBookings.map(booking => <a key={booking.id} href={booking.status === "scheduled" ? `/coach/clients/${booking.clientId}/sessions/${booking.id}` : `/coach/clients/${booking.clientId}`}><strong>{booking.clientName}</strong><span>{formatTime(booking.startsAt, timezone)} – {formatTime(booking.endsAt, timezone)} · {booking.sessionType || "Training"}</span></a>)}</div>}

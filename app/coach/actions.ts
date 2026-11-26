@@ -11,6 +11,7 @@ import { validTrainingFocus } from "@/lib/training-focus";
 import { protocolsFromForm } from "@/lib/workout-protocol";
 import { optionalStrengthAnchors } from "@/lib/starting-load";
 import { INTAKE_GOALS, parseIntakeContext } from "@/lib/intake-history";
+import { validLocalDate } from "@/lib/coach-availability";
 import { scheduledWorkoutTitle } from "@/lib/coach-workday";
 import { isPlannedWorkoutLocation, PLANNED_WORKOUT_LOCATIONS, WORKOUT_EQUIPMENT_LIMIT } from "@/lib/planned-workout-location";
 
@@ -201,6 +202,7 @@ export type PlannedWorkoutActionState = {
   message?: string;
   status: "idle" | "error" | "success";
   workoutId?: string;
+  savedDate?: string;
 };
 
 export async function planWorkoutAction(
@@ -224,11 +226,16 @@ export async function planWorkoutAction(
   const instructions = [equipment && `Equipment: ${equipment}`, notes].filter(Boolean).join("\n\n");
   const scheduledDate = String(formData.get("scheduledDate") ?? "");
   const scheduledTime = String(formData.get("scheduledTime") ?? "");
+  const dates = [scheduledDate, ...getStrings(formData, "extraWorkoutDate").filter(Boolean)].sort();
+
+  if (dates.length > 7 || !dates.every(validLocalDate) || new Set(dates).size !== dates.length) {
+    return { status: "error", message: "Choose up to seven distinct workout dates." };
+  }
+  if (secondaryClientId && dates.length > 1) {
+    return { status: "error", message: "Choose one date when training with a partner." };
+  }
 
   if (instructions.length > 4000) return { status: "error", message: "Instructions must be 4,000 characters or fewer." };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate) || Number.isNaN(Date.parse(`${scheduledDate}T00:00:00Z`))) {
-    return { status: "error", message: "Choose a valid workout date." };
-  }
   const timeMatch = /^(\d{2}):(\d{2})$/.exec(scheduledTime);
   if (!timeMatch || Number(timeMatch[1]) > 23 || Number(timeMatch[2]) > 59) {
     return { status: "error", message: "Choose a valid workout time." };
@@ -267,6 +274,17 @@ export async function planWorkoutAction(
       workoutId = typeof result.primaryWorkoutId === "string" ? result.primaryWorkoutId : undefined;
       secondaryWorkoutId = typeof result.secondaryWorkoutId === "string" ? result.secondaryWorkoutId : undefined;
     }
+  } else if (dates.length > 1) {
+    const { data, error } = await supabase.rpc("assign_workout_to_dates", {
+      target_client_id: clientId,
+      title,
+      instructions: instructions || null,
+      dates,
+      start_time: scheduledTime,
+      exercises: primary.exercises,
+    });
+    if (error) errorMessage = error.message;
+    else if (Array.isArray(data) && data.length === dates.length) workoutId = data[0];
   } else {
     const { data, error } = await supabase.rpc("create_planned_workout_assignment_lb", {
       client_user_id: clientId,
@@ -284,13 +302,16 @@ export async function planWorkoutAction(
     return {
       status: "error",
       message: errorMessage.includes("already planned")
-        ? "A workout is already planned for one of these clients at that date and time."
+        ? "At least one selected date and time already has a workout. No new workouts were assigned."
         : "The planned workout could not be saved. Confirm both clients are still assigned to you.",
     };
   }
 
   revalidatePath("/coach");
   revalidatePath("/coach/plan-workouts");
+  revalidatePath("/coach/schedule");
+  revalidatePath("/owner/schedule");
+  revalidatePath("/client/schedule");
   revalidatePath(`/coach/clients/${clientId}`);
   if (secondaryClientId) revalidatePath(`/coach/clients/${secondaryClientId}`);
   revalidatePath("/client");
@@ -299,8 +320,10 @@ export async function planWorkoutAction(
     status: "success",
     message: secondaryClientId
       ? `Paired workout planned for ${scheduledDate} at ${scheduledTime}. Each client keeps separate loads, reps and history.`
-      : `Workout planned for ${scheduledDate} at ${scheduledTime}.`,
+      : dates.length > 1 ? `Workout assigned on ${dates.length} dates. Each date has its own results.`
+        : `Workout planned for ${scheduledDate} at ${scheduledTime}.`,
     workoutId,
+    savedDate: dates.at(-1),
   };
 }
 

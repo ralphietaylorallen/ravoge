@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { SessionScore } from "@/lib/session-report";
+import { workoutCompletion, type ReportExercise } from "@/lib/session-report";
 import { SessionReportHistory } from "@/components/session-report-history";
 import { ProfileDetailsForm, ProfilePhotoForm } from "@/components/profile-forms";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
@@ -20,7 +20,7 @@ export default async function ClientProfilePage() {
     supabase.rpc("get_my_assigned_coach"),
     supabase.from("client_intakes").select("primary_goal,completed_at").eq("organization_id", membership.organization_id).eq("client_user_id", userId).order("version", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("client_sleep_scores").select("log_date,score").eq("organization_id", membership.organization_id).eq("client_user_id", userId).order("log_date", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("workout_session_reports").select("workout_assignment_id,workout_date,score_snapshot").eq("organization_id", membership.organization_id).eq("client_user_id", userId).eq("score_snapshot->>status", "scored").order("workout_date", { ascending: false }).order("completed_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("workout_session_reports").select("workout_assignment_id,workout_date,exercises:source_snapshot->exercises").eq("organization_id", membership.organization_id).eq("client_user_id", userId).order("workout_date", { ascending: false }).order("completed_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   const coach = coaches?.[0];
   const coachName = coach?.preferred_name || coach?.full_name;
@@ -28,8 +28,8 @@ export default async function ClientProfilePage() {
   const name = profile?.preferred_name || profile?.full_name || "Client";
   const intake = intakeResult.data;
   const savedDate = intake && localDateInTimeZone(intake.completed_at, organization?.timezone ?? DEFAULT_ORGANIZATION_TIMEZONE);
-  const score = session.data?.score_snapshot as SessionScore | undefined;
-  const sessionScore = score?.status === "scored" && typeof score.value === "number" ? score.value : null;
+  const exercises = session.data?.exercises as ReportExercise[] | undefined;
+  const sessionScore = Array.isArray(exercises) ? workoutCompletion(exercises).value : null;
   return <DashboardShell compact gymName={organization?.name ?? "Ravoge gym"} name={name} role="client">
     <div className={ui.stack}>
       <header className={ui.identity}>
@@ -49,9 +49,9 @@ export default async function ClientProfilePage() {
       <section className={styles.clientScores} aria-labelledby="client-scores-heading">
         <h2 id="client-scores-heading">Your scores</h2>
         <article className={styles.metricCard}>
-          <span>Latest workout score</span>
+          <span>Latest workout completion</span>
           <strong>{session.error ? "Unavailable" : sessionScore === null ? "No score yet" : `${sessionScore}/100`}</strong>
-          {session.data && sessionScore !== null
+          {session.data
             ? <Link className={styles.scoreLink} href={`/client/workouts/${session.data.workout_assignment_id}`}>{clientDayLabel(session.data.workout_date, { year: "numeric" })} workout report</Link>
             : <small>{session.error ? "Reload to try again." : "Workout reports show your recorded results."}</small>}
         </article>

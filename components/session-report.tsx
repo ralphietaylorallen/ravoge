@@ -4,7 +4,7 @@ import { Logo } from "./logo";
 import { ReportIcon } from "./report-icons";
 import { ReportPrintButton } from "./report-print-button";
 import { RecoveryLog } from "./client-log-forms";
-import { cardioSummary,displayNumber,effortSummary,exerciseVolume,factualRecap,personalComparisons,recordedStatus,reportTargetSummary,sessionVolume,workingSets,type ReportExercise,type ReportSet } from "@/lib/session-report";
+import { cardioSummary,displayNumber,effortSummary,exerciseVolume,factualRecap,personalComparisons,recordedStatus,reportTargetSummary,sessionVolume,workingSets,workoutCompletion,type ReportExercise,type ReportSet } from "@/lib/session-report";
 import type { SessionReportData } from "@/lib/session-report-data";
 import { loadLabel } from "@/lib/weight-units";
 import { formatZonedDateTime,localDateInTimeZone,shiftLocalDate } from "@/lib/timezone";
@@ -35,6 +35,7 @@ export function SessionReport({data,role}:{data:SessionReportData;role:"client"|
  const date=w.completed_at?localDateInTimeZone(w.completed_at,facts.timezone):w.scheduled_date;
  const profilePath=role==="client"?"/client/profile":`/${role}/clients/${w.client_user_id}?tab=progress`;
  const bookPath=role==="client"?"/client/book":`/${role}/clients/${w.client_user_id}/book`;
+ const completion=workoutCompletion(facts.exercises);
  const value=score?.status==="scored"&&typeof score.value==="number"&&score.value>=0&&score.value<=99?score.value:null;
  const recordedReps=facts.exercises.filter(e=>(e.prescription_details?.measurement??e.exercise_library?.measurement??"reps")==="reps").flatMap(e=>e.workout_sets.filter(s=>["complete","modified"].includes(recordedStatus(s))&&s.actual_reps!==null).map(s=>s.actual_reps!));
  const third=volume.value!==null?{value:displayNumber(volume.value,"lb"),label:"Recorded lifting volume",hint:`${volume.covered} set${volume.covered===1?"":"s"} with known external load and repetition convention.`}
@@ -45,7 +46,25 @@ export function SessionReport({data,role}:{data:SessionReportData;role:"client"|
  return <article className={styles.report} aria-label="Completed workout report">
   <header className={styles.header}><div className={styles.brand}><Logo compact/><span>RAVOGE / {facts.gymName}</span></div><h1>Session complete</h1><p>{facts.clientName} · {role === "client" ? clientWorkoutTitle(w.title) : w.title}</p><p className={styles.date}>{w.scheduled_date} · {facts.timezone}{w.completed_at&&localDateInTimeZone(w.completed_at,facts.timezone)!==w.scheduled_date?` · completed ${localDateInTimeZone(w.completed_at,facts.timezone)}`:""}</p></header>
   {data.archivePending&&<p className={styles.message} role="status">Report archiving is pending. These factual results are saved; refresh to retry the archive.</p>}
-  <section className={`${styles.card} ${styles.scoreCard}`} aria-label="Session execution score"><div className={styles.ring}><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52"/>{value!==null&&<circle className={styles.arc} cx="60" cy="60" r="52" pathLength="100" strokeDasharray={`${value} ${100-value}`}/>}</svg><div className={styles.ringText}><strong>{value??"—"}</strong>{value!==null&&<span>/100</span>}<small>Session execution score</small></div></div><div className={styles.scoreMessage}><h2>{value===null?"Score pending":"Session recorded."}</h2><p className={styles.muted}>{value===null?"Your workout results are saved. Scoring awaits approved rules and complete inputs.":"A product-defined execution score, not a medical assessment or proof of training effectiveness."}</p><details className={styles.scoreDetails}><summary>About this score</summary><p>Completion 50% · recorded effort 30% · comparable personal performance 20%. Initial maximum: 99.</p><p>{score.reason}</p><p>Version: {score.version}. Recovery and supplements never add points.</p><p>{effort.recorded} of {effort.total} performed working sets have recorded RPE. Missing effort is not inferred.</p></details></div></section>
+  <section className={`${styles.card} ${styles.scoreCard}`} aria-label="Workout completion score">
+    <div className={styles.ring}>
+      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52"/>
+        {completion.value !== null && <circle className={styles.arc} cx="60" cy="60" r="52" pathLength="100" strokeDasharray={`${completion.value} ${100-completion.value}`}/>}
+      </svg>
+      <div className={styles.ringText}><strong>{completion.value ?? "—"}</strong>{completion.value !== null && <span>/100</span>}<small>Workout completion</small></div>
+    </div>
+    <div className={styles.scoreMessage}>
+      <h2>{completion.value === null ? "Session recorded" : `${completion.complete} of ${completion.total} sets completed as planned`}</h2>
+      <p className={styles.muted}>{completion.value === null
+        ? "The report shows the results you recorded. A completion score requires an outcome for each prescribed set."
+        : `${completion.modified} adjusted or stopped · ${completion.missed} missed`}</p>
+      <details className={styles.scoreDetails}><summary>How it’s calculated</summary>
+        <p>The percentage counts prescribed sets recorded as complete. Warmup, preparation, and cooldown sets are excluded where labeled.</p>
+        <p>{effort.recorded} of {effort.total} performed working sets have recorded effort ratings.</p>
+        {value !== null && <p>Archived execution score: {value}/100 ({score.version})</p>}
+      </details>
+    </div>
+  </section>
   <section className={styles.tiles} aria-label="Session summary">
    <div className={`${styles.card} ${styles.tile}`}><ReportIcon kind="time" className={styles.icon}/><div><strong>{displayNumber(w.execution_duration_minutes,"min")}</strong><span>Session time</span><p className={styles.hint}>Recorded duration; never estimated from this page.</p></div></div>
    <div className={`${styles.card} ${styles.tile}`}><ReportIcon kind="sets" className={styles.icon}/><div><strong>{working.total?`${working.complete} / ${working.total}`:working.unclassified?"Not classified":"No working sets"}</strong><span>Working sets completed</span><p className={styles.hint}>{working.modified} adjusted · {working.missed} missed · {working.unrecorded} unrecorded{working.unclassified?` · ${working.unclassified} unclassified`:""}. Warm-up/cooldown excluded.</p></div></div>

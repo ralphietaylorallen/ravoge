@@ -1,3 +1,5 @@
+import { ScheduledWorkouts, SCHEDULED_WORKOUT_FIELDS } from "@/components/scheduled-workouts";
+import { trainingBookingSlot } from "@/lib/workout-agenda";
 import { BookingList, type BookingListItem } from "@/components/booking-list";
 import { CoachBookingCalendar } from "@/components/coach-booking-calendar";
 import { DashboardShell, dashboardStyles as styles } from "@/components/dashboard-shell";
@@ -52,7 +54,7 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
     ? requestedDuration
     : settings?.default_duration_minutes ?? permittedDurations[0] ?? 60;
 
-  const { data: bookingRows } = startIso && endIso
+  const [bookingResult, monthWorkouts] = await Promise.all([startIso && endIso
     ? await supabase
       .from("bookings")
       .select("id,client_user_id,starts_at,ends_at,timezone,status,session_type")
@@ -63,7 +65,15 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
       .neq("status", "cancelled")
       .order("starts_at")
       .limit(1000)
-    : { data: [] };
+    : { data: [], error: null },
+    supabase.from("workout_assignments").select(SCHEDULED_WORKOUT_FIELDS)
+      .eq("organization_id", membership.organization_id).eq("coach_user_id", userId)
+      .gte("scheduled_date", startDate).lt("scheduled_date", endDate).neq("status", "cancelled")
+      .order("scheduled_time").limit(1000),
+  ]);
+  const bookingRows = bookingResult.data;
+  const selectedWorkouts = (monthWorkouts.data ?? []).filter(row => row.scheduled_date === date);
+  const bookingSlots = (bookingRows ?? []).map(row => trainingBookingSlot({ ...row, coach_user_id: userId }));
 
   const profileMap = new Map(clients.map((client) => [client.id, client]));
   const imageMap = new Map(await Promise.all(clients.map(async (row) => [row.id, await getProfileImageUrl(supabase, row.avatar_path)] as const)));
@@ -117,6 +127,7 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
         status: booking.status,
         sessionType: booking.sessionType ?? "Private training",
       }))}
+      workoutDays={(monthWorkouts.data ?? []).map(row => row.scheduled_date)}
       clients={clients.map(({ id, name }) => ({ id, name }))}
       slots={slots ?? []}
       duration={duration}
@@ -125,9 +136,12 @@ export default async function CoachSchedulePage({ searchParams }: { searchParams
       timezone={timezone}
     /> : <section className={styles.panel}><p className={styles.empty}>No Clients are currently assigned to this Coach.</p></section>}
 
+    <ScheduledWorkouts rows={selectedWorkouts} error={Boolean(monthWorkouts.error)} day={date} perspective="coach"
+      names={new Map(clients.map(client => [client.id, client.name]))} bookingSlots={bookingSlots} />
+
     <section className={styles.workspaceSection}>
       <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Selected day</p><h3>Session details</h3></div></div>
-      <BookingList currentTime={currentTime} bookings={selectedDayBookings} empty="No sessions on this date." perspective="coach" staffControls />
+      {bookingResult.error ? <p role="alert">Bookings couldn’t be loaded.</p> : <BookingList currentTime={currentTime} bookings={selectedDayBookings} empty="No sessions on this date." perspective="coach" staffControls />}
     </section>
 
     <details className={workspace.disclosure}>
